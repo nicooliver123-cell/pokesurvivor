@@ -586,6 +586,7 @@
     }
 
     healAround() {
+      if (!(G.MODS && G.MODS.curacionEnemiga)) return;   // MOD nico: ningún enemigo se cura (js/core/mods.js)
       let n = 0;
       for (const e of G.EnemyMgr.queryCircle(this.x, this.y, 150)) {
         if (e.dead || e.hp >= e.maxHp) continue;

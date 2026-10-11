@@ -67,7 +67,7 @@ G.Enemies = (() => {
   function behaviorOf(p) {
     const t = p.types, h = H(p.dex, 11);
     const has = (...xs) => xs.some(x => t.includes(x));
-    if (HEAL.has(p.dex)) return 'healer';
+    if (HEAL.has(p.dex) && G.MODS && G.MODS.curacionEnemiga) return 'healer';   // MOD nico: sin curanderos (js/core/mods.js)
     if (SHIELD.has(p.dex)) return 'shielder';
     if (BOMB.has(p.dex)) return 'bomber';
     if (SUMMON[p.dex] && G.SPRITE_META[SUMMON[p.dex]]) return 'summoner';

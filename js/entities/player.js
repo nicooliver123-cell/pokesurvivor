@@ -12,10 +12,12 @@ G.Player = class Player {
     this.mon = mon;
     this.dex = mon.dex;
     this.shiny = shiny && G.Sprites.hasShiny(mon.dex);
-    this.anim = new G.Sprites.Animator(mon.dex, 1, this.shiny);
+    // MOD nico: los Pokémon muy grandes se encogen (sprite, hitbox, sombra y alto) en la misma proporción.
+    this.scale = G.MODS ? G.MODS.escalaJugador(mon.dex) : 1;   // MOD nico (js/core/mods.js)
+    this.anim = new G.Sprites.Animator(mon.dex, this.scale, this.shiny);   // MOD nico: era escala 1
     this.x = 0; this.y = 0;
-    this.r = G.Sprites.bodyRadius(mon.dex);
-    this.bodyH = G.Sprites.bodyHeight(mon.dex);
+    this.r = G.Sprites.bodyRadius(mon.dex, this.scale);   // MOD nico
+    this.bodyH = G.Sprites.bodyHeight(mon.dex, this.scale);   // MOD nico
 
     this.atkMul = perks.atkMul || 1;
     this.spdMul = perks.spdMul || 1;
@@ -409,7 +411,7 @@ G.Player = class Player {
       ctx.beginPath(); ctx.ellipse(this.x, this.y, this.r * 1.5, this.r * 0.6, 0, 0, 6.2832); ctx.stroke();
       ctx.restore();
     }
-    G.Sprites.drawShadow(ctx, this.dex, this.x, this.y);
+    G.Sprites.drawShadow(ctx, this.dex, this.x, this.y, this.scale);   // MOD nico: sombra a escala
     // Poder de altar: aro de su color latiendo bajo los pies.
     if (this.power && !this.dead) {
       ctx.save();
