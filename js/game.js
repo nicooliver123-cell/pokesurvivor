@@ -68,6 +68,8 @@ G.Game = (() => {
   }
 
   /** Pausa/continúa (tecla Esc o P, o el botón de pausa del móvil). */
+  let holdBy = [];                   // grupo: quién está eligiendo fusión (todo parado)
+
   function togglePause() {
     // En grupo la pausa no para el juego (los demás siguen jugando).
     if (G.Coop.active) {
@@ -84,6 +86,7 @@ G.Game = (() => {
 
   /** @param coop  { seed, host, members } para una partida en grupo */
   function startRun(coop = null) {
+    holdBy = [];
     const save = G.DB.save;
     const mon = G.DEX_BY[save.partner];
     const perks = G.Upgrades.perks(G.DB.upgradesOf(mon.dex));
@@ -209,7 +212,21 @@ G.Game = (() => {
     },
     lost(msg) { G.UI.toast(msg, 3600); endRun(false); },
     item(id) { offerItem(id); },
-    mateLeft() {}
+    mateLeft() {},
+    /** Grupo: quién está eligiendo fusión. Mientras haya alguien, todo parado. */
+    hold(names) {
+      holdBy = names || [];
+      const mine = G.UI.isOpen('scr-bond');
+      if (holdBy.length) {
+        if (state === 'playing') state = 'held';
+        if (pl && pl.bonds > 0) offerBond(true);      // si tú también tienes vínculo, eliges a la vez
+        const others = mine ? holdBy.filter(n => n !== (G.Social.me && G.Social.me.name)) : holdBy;
+        if (!mine && others.length) G.Spawner.say('Pausa: ' + others.join(', ') + ' ' + (others.length > 1 ? 'eligen' : 'elige') + ' fusión…', 999, true);
+      } else {
+        if (state === 'held') state = 'playing';
+        G.Spawner.say('', 0, true);
+      }
+    }
   };
 
   /** Has llevado a casa a un Pokémon perdido y se une a ti (events.js). */
@@ -320,15 +337,16 @@ G.Game = (() => {
    * @param quiet  no avisar si todavía no se puede
    */
   function offerBond(quiet = false) {
-    if (!pl || pl.bonds <= 0 || pl.dead || state !== 'playing' || G.Rift.inArena) return;
+    if (!pl || pl.bonds <= 0 || pl.dead || (state !== 'playing' && state !== 'held') || G.Rift.inArena) return;
     if (['scr-bond', 'scr-pause', 'scr-item', 'scr-levelup'].some(G.UI.isOpen)) return;
     const opt = pl.bondOptions();
     if (!opt) {
       if (!quiet) G.Spawner.say('Guardas el vínculo: aprende otro movimiento para usarlo', 3, true);
       return;
     }
-    // En solitario se para el juego; en grupo sigue (como con los objetos).
-    if (!G.Coop.active) state = 'choice';
+    // Se para el juego; en grupo, para todos hasta que cada uno elige (G.Coop.holdStart).
+    state = 'choice';
+    if (G.Coop.active) G.Coop.holdStart();
     G.Audio.sfx('levelup');
     G.RunUI.showBond(opt, picked => {
       const group = pl.fuse(picked, opt.group);
@@ -336,7 +354,8 @@ G.Game = (() => {
       G.FX.ring(pl.x, pl.y, 8, 130, '#ff8ad8', 0.8, 6);
       G.FX.burst(pl.x, pl.y - pl.bodyH * 0.5, '#ffb3e6', 40, 240);
       G.Spawner.say('¡Vínculo! ' + group.length + ' movimientos a la vez', 2.6, true);
-      if (state === 'choice') state = 'playing';
+      if (state === 'choice') state = holdBy.length ? 'held' : 'playing';
+      if (G.Coop.active) G.Coop.holdEnd();
     });
   }
 
