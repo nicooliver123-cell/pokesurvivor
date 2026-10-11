@@ -278,6 +278,10 @@ G.DB = (() => {
     const cfg = G.FIREBASE_CONFIG;
     if (!/^https?:$/.test(location.protocol)) { localReason = 'file'; return false; }
     if (!cfg || !cfg.apiKey || !cfg.projectId) { localReason = 'config'; return false; }
+    // MOD nico: nunca el proyecto Firebase del juego original (por si un merge de upstream lo
+    // reintroduce), y una config de emulador sólo vale en este PC (nunca en la web publicada).
+    if (/jpter/i.test([cfg.projectId, cfg.authDomain, cfg.databaseURL].join(' ')) ||
+        (cfg.emulator && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) { localReason = 'config'; return false; }
     await loadScript(SDK + 'firebase-app-compat.js');
     await loadScript(SDK + 'firebase-auth-compat.js');
     await loadScript(SDK + 'firebase-firestore-compat.js');

@@ -26,10 +26,14 @@ G.Net = (() => {
   const DIRECT_TIMEOUT = 9000;     // ms para conseguir canal directo antes de usar el relé
 
   // ---------------- TURN (Cloudflare) ----------------
-  const TURN_URL = 'https://turn.pokesurvivor.com/';
+  // MOD nico: sin TURN. El del original es un Worker del autor y le mandaría el token de
+  // cada jugador. Sin él: STUN público y, si no hay conexión directa, el relé por la RTDB
+  // propia. Si algún día hace falta, poner aquí la URL de un Worker TURN propio.
+  const TURN_URL = '';
   let turn = null, turnAt = 0, turnReq = null;
   /** Pide (o reutiliza) credenciales TURN. Nunca falla: sin ellas, se sigue como antes. */
   function fetchTurn() {
+    if (!TURN_URL) return Promise.resolve(null); // MOD nico
     const fb = G.DB.fb;
     if (!fb || fb.emulator || !fb.auth || !fb.auth.currentUser) return Promise.resolve(null);
     if (turn && Date.now() - turnAt < (turn.ttl - 600) * 1000) return Promise.resolve(turn);

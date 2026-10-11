@@ -1,5 +1,12 @@
 # PokéSurvivor · Mundo Misterioso
 
+> **Versión modificada no oficial.** Esta copia está basada en
+> [PokéSurvivor de JPTER78](https://github.com/JPTER78/pokesurvivor) (web oficial:
+> pokesurvivor.com) y no la mantiene su autor. Cambios: los enemigos no se curan y
+> los Pokémon más grandes son más pequeños en partida (sus sprites se muestran a
+> escala reducida). No usa la infraestructura del juego original. Detalles en
+> [CLAUDE.md](CLAUDE.md); licencias y créditos en [LICENSE](LICENSE) y [CREDITS.md](CREDITS.md).
+
 Bullet-heaven con Pokémon al estilo de Survivor.io y Megabonk, con sprites de
 *Pokémon Mundo Misterioso*, capa roguelike, **966 Pokémon de las 9 generaciones**,
 shinies y gacha por región. Música y efectos compuestos para el juego.

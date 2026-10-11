@@ -7,16 +7,29 @@
  * protege las partidas son las reglas de Firestore (firestore.rules).
  *
  * Si se pone a null, el juego funciona en modo local (sólo en el navegador).
+ *
+ * MOD nico: esta versión modificada NUNCA debe apuntar al Firebase del juego
+ * original (es su proyecto y su factura). Mientras no exista un proyecto propio
+ * se queda en null = modo local: un jugador, sin cuentas en la nube, ranking
+ * ni cooperativo. Cuando exista, pega aquí SU config (sin measurementId) y
+ * reconstruye con `node tools/build.js --privado`.
  */
-G.FIREBASE_CONFIG = {
-  apiKey: 'AIzaSyD4YpfZCVUmJJbWPLPmYo6Lyxhsg0wMAKc',
-  authDomain: 'pokesurvivor-jpter.firebaseapp.com',
-  projectId: 'pokesurvivor-jpter',
-  storageBucket: 'pokesurvivor-jpter.firebasestorage.app',
-  messagingSenderId: '955377776652',
-  appId: '1:955377776652:web:213d0107d3c36aa0fe5629',
-  databaseURL: 'https://pokesurvivor-jpter-default-rtdb.europe-west1.firebasedatabase.app'
-};
+G.FIREBASE_CONFIG = null; // MOD nico: aquí irá la config del proyecto Firebase propio
+
+/* MOD nico: interruptor del emulador local de Firebase, para pruebas.
+ * Sólo actúa si la página se abre desde localhost / 127.0.0.1 / [::1] Y lleva
+ * ?emu en la URL (p. ej. http://127.0.0.1:8090/index.html?emu). En cualquier
+ * otro sitio (la web publicada) se ignora. Puertos fijos en db.js y firebase.json:
+ * Auth 9099, Firestore 8080, Realtime Database 9000. Proyecto demo-ps: los
+ * proyectos "demo-" no existen en la nube, así que nunca se toca uno real. */
+(() => {
+  const h = location.hostname;
+  const local = h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+  if (local && new URLSearchParams(location.search).has('emu')) {
+    G.FIREBASE_CONFIG = { apiKey: 'demo', projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com', appId: 'demo',
+      databaseURL: 'http://127.0.0.1:9000?ns=demo-ps-default-rtdb', emulator: true };
+  }
+})();
 
 /* Ejemplo de cómo debe quedar:
 G.FIREBASE_CONFIG = {

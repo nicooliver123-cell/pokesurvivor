@@ -1,6 +1,6 @@
 {
-  "name": "PokéSurvivor",
-  "short_name": "PokéSurvivor",
+  "name": "PokéSurvivor (versión modificada)",
+  "short_name": "PokéSurvivor mod",
   "description": "Fan game gratuito: sobrevive a las hordas con tu compañero Pokémon. Sin anuncios.",
   "lang": "es",
   "start_url": "./",

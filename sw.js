@@ -12,8 +12,10 @@ self.addEventListener('install', e => {
   self.skipWaiting();
 });
 
+// MOD nico: en usuario.github.io todas las webs del usuario comparten origen: sólo se borran
+// las cachés de este juego (ps-*), no las de otras apps publicadas al lado.
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CODE && k !== ART).map(k => caches.delete(k))))
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('ps-') && k !== CODE && k !== ART).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -22,6 +24,7 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
+  if (!url.href.startsWith(self.registration.scope)) return;   // MOD nico: sólo lo de este juego (subruta)
   const art = /\/assets\/(pokemon|icons|fonts)\//.test(url.pathname);
   if (art) {
     e.respondWith(caches.open(ART).then(async c => {
