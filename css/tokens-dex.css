@@ -13,15 +13,20 @@
  *   Los nombres de fichero no se reutilizan: sw.js guarda las fuentes para siempre.
  */
 
+/* Sin «…» (U+2026): M PLUS lo dibuja con los puntos a media altura, como el japonés («Has caído···»). Con este
+   unicode-range, «…» sale con la letra de reserva de --font-datos y de G.MARCA.familia (Segoe UI, la del sistema), con
+   los puntos en la línea base, en el DOM y en el lienzo. */
 @font-face {
   font-family: 'M PLUS Rounded 1c';
   src: url('../assets/fonts/MPLUSRounded1c-500-latin.woff2') format('woff2');
   font-weight: 400 600; font-style: normal; font-display: swap;
+  unicode-range: U+0000-2025, U+2027-10FFFF;
 }
 @font-face {
   font-family: 'M PLUS Rounded 1c';
   src: url('../assets/fonts/MPLUSRounded1c-800-latin.woff2') format('woff2');
   font-weight: 650 900; font-style: normal; font-display: swap;
+  unicode-range: U+0000-2025, U+2027-10FFFF;
 }
 /* El logotipo usa 'Pixelify', ya declarada en css/style.css (assets/fonts/PixelifySans.ttf). */
 

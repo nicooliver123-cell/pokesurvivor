@@ -38,7 +38,7 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
   #scr-menu .partner-card { margin-top: 2px; }
   #scr-menu .partner-card .nm { font-size: 20px; }
   #scr-menu #menu-partner { height: min(17vh, 140px); width: auto; }
-  #scr-menu .menu-right { flex: 0 0 auto; overflow: visible; padding: 4px 12px 50px; gap: 6px; margin-bottom: auto; }
+  #scr-menu .menu-right { flex: 0 0 auto; overflow: visible; padding: 4px 12px 6px; gap: 6px; margin-bottom: auto; }
   #scr-menu .menu-right > :first-child { margin-top: 0; }
   #scr-menu .menu-right .box { padding: 8px 14px; }
   #scr-menu .menu-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; }
@@ -46,12 +46,39 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
   #scr-menu .menu-item.play { grid-column: span 2; font-size: 24px; }
   #scr-menu .menu-item small { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
-/* Si además es algo más baja (el navegador con sus barras), sin las explicaciones de cada opción (como upstream
-   en una pantalla muy baja), menos la de «Jugar». */
-@media (max-width: 760px) and (min-height: 521px) and (max-height: 739.98px) {
+/* Si además es algo más baja (el navegador con sus barras: 724x740 a 640), sin las explicaciones de cada opción (como
+   upstream en una pantalla muy baja), menos la de «Jugar». */
+@media (max-width: 760px) and (min-height: 521px) and (max-height: 779.98px) {
   #scr-menu .menu-item small { display: none; }
   #scr-menu .menu-item.play small { display: block; }
+  /* Y el logotipo al lado del compañero (si no caben, uno debajo del otro): así, con la barra del navegador (724x740 a
+     640), el menú cabe entero por encima de la línea de créditos sin desplazar. */
+  #scr-menu .menu-left { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 18px; padding-top: 56px; }
+  #scr-menu .menu-left .logo { margin-bottom: 0; }
 }
+/* El menú principal acaba por encima de la línea de créditos (fija abajo, de upstream; uno o dos renglones según el
+   ancho): estilo.js mide lo que ocupa en --hueco-creditos. Con la barra del navegador en el plegable (724x740 a 640,
+   784x700 a 680) la línea se montaba en la caja de estadísticas; ahora, si no cabe todo, el menú se desplaza por encima
+   de ella. En pantallas bajas upstream oculta la línea (0). */
+@media (min-height: 521px) { #scr-menu { bottom: var(--hueco-creditos, 0px); } }
+/* Las cajas de la columna del menú no se encogen: si no caben, se desplaza la columna (como quiere upstream), en vez de
+   recortar la lista de opciones dentro de su caja. */
+#scr-menu .menu-right > .box { flex-shrink: 0; }
+
+/* Barra superior en una pantalla estrecha (menos de 680 px de ancho, en vertical: desde que «Gira el móvil» no bloquea
+   con aspecto 0,8 o más, o una ventana estrecha): compacta, en una fila (antes se partía en dos o se salía por la
+   izquierda). Por debajo de 520 px, la cuenta se queda en su icono. Si aun así no cabe (unos 400 px), se parte en dos
+   filas pegadas a la derecha, sin salirse; el logotipo del menú baja lo que haga falta. */
+@media (max-width: 679.98px) {
+  #topbar { top: 6px; right: 6px; left: 6px; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
+  #topbar .pill { padding: 2px 8px; gap: 4px; font-size: 13px; white-space: nowrap; }
+  #user-pill { max-width: 128px; overflow: hidden; }
+  #user-pill > span { overflow: hidden; text-overflow: ellipsis; }
+  #user-pill .sync { margin-left: 4px; }
+  #topbar .btn.small { min-width: 32px; padding: 0 6px; }
+}
+@media (max-width: 519.98px) { #user-pill > span { display: none; } }
+@media (max-width: 419.98px) and (min-height: 521px) { #scr-menu .menu-left { padding-top: 92px; } }
 
 /* Premio del gacha: lienzos al tamaño en que se ven (estilo.js), nunca escalados por CSS. */
 #pull-results .pcard canvas { width: auto; height: auto; display: block; margin: 0 auto; }
@@ -63,6 +90,14 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
 @media (max-width: 799.98px) and (min-height: 520px) {
   #pull-results { gap: 6px; }
   #pull-results .pcard.premio-10 { width: 130px; padding: 6px 2px; }
+}
+/* ×10 en una pantalla de 520 a 700 px de alto (el plegable con la barra del navegador: 724x640, 784x640; un portátil
+   bajo): la evolución de un repetido sin su sprite de 40 px, como en las pantallas bajas (el nombre, siempre). Con él,
+   las diez no cabían sin desplazar (20-29 px) y «Continuar» pisaba el pie de una carta. Y menos aire alrededor (el
+   hueco de 18 px de upstream sale tres veces: también lo cuentan los dos márgenes que centran). */
+@media (min-height: 520px) and (max-height: 699.98px) {
+  #pull-results .pcard.premio-10 .tag canvas { display: none !important; }
+  #pull-fx { gap: 10px; padding-top: 10px; padding-bottom: 10px; }
 }
 
 /* Gacha en pantallas de 760 a 920 px de ancho (un plegable desplegado): el banner a todo el ancho y las
@@ -81,6 +116,13 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
 /* Los avisos de logro sólo informan: que no se queden con los toques de lo que tapan (abajo, en un móvil en
    horizontal, tapaban los botones de tirar del gacha durante 2,8 s). */
 .ach-pop { pointer-events: none; }
+
+/* El aviso flotante (toast) en partida (la barra superior sólo se oculta en partida: G.UI.chrome) va por encima de la
+   fila de ranuras: a 30 px del borde tapaba unos segundos las ranuras de escritorio al empezar («¡Bulbasaur se une a
+   ti!» del menú seguía en pantalla), también en Clásico. Clásico: la fila de upstream (ranuras de 54 px a 18 del borde,
+   la activa 6 más arriba y los nombres encima) acaba a unos 94 px. Dex: en el bloque 2. */
+.toast { pointer-events: none; }
+body:has(#topbar.hidden) .toast { bottom: 104px; }
 
 /* Avisos centrados (logros y mensajes): la animación «pop» de upstream cambia el transform y anulaba su
    translateX(-50%), así que entraban desplazados medio ancho a la derecha durante 0,2 s (PLAN.md). La misma
@@ -142,10 +184,17 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
   @media (max-width: 760px) { #banner .feat canvas + canvas { margin-left: -46px; } }
 
   /* --- Tiradas: ×10 en dos filas (seis y cuatro) sin desplazar y «Continuar» en la esquina. --- */
-  #pull-fx { justify-content: flex-start; padding: max(8px, env(safe-area-inset-top)) 10px 6px; }
+  #pull-fx { justify-content: flex-start; padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 6px max(10px, env(safe-area-inset-left)); }
   #pull-fx::before, #pull-fx::after { display: none; }   /* el centrado vertical de upstream: aquí sólo restaba alto */
   #pull-close { position: fixed; right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); min-height: 44px; }
   #pull-results .pcard.premio-10 { width: 110px; min-width: 0; padding: 4px; }
+  /* Seis por fila en una rejilla (la segunda, de cuatro, a la izquierda): «Continuar», en la esquina de abajo a la
+     derecha, nunca pisa una carta. Con menos de 690 px útiles (640x360, 667x375) no caben seis de 110: cartas de 96 con
+     el premio en 88x76 (estilo.js, clase premio-10e); antes iban cinco y cinco y «Continuar» pisaba la última. */
+  #pull-results:has(> .premio-10) { display: grid; grid-template-columns: repeat(auto-fill, var(--carta-x10, 110px)); justify-content: center;
+    width: 100%; max-width: calc(6 * var(--carta-x10, 110px) + 30px); gap: 6px; }
+  #pull-results:has(> .premio-10e) { --carta-x10: 96px; }
+  #pull-results .pcard.premio-10e { width: 96px; padding: 4px 1px; }
   #pull-results .pcard.premio-10 .stars { line-height: 12px; height: 12px; }
   #pull-results .pcard.premio-10 .stars img { width: 12px; height: 12px; }
   #pull-results .pcard.premio-10 b { font-size: 12px; line-height: 1.2; max-width: 100%; margin: 0 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -292,6 +341,11 @@ html.estilo-dex .ach-pop small { color: var(--color-tinta-2); }
 @media (min-height: 521px) {
   html.estilo-dex.hud-dex-logro .ach-pop { top: calc(var(--hud-dex-sup, 56px) + 8px); }
 }
+/* El aviso flotante (toast) en partida, por encima de lo que ocupa abajo el HUD Dex (--hud-dex-inf, de estilo.js: la
+   fila de ranuras de escritorio); en compacto, con las ranuras a la derecha, por encima del aviso de logro (abajo en
+   una pantalla baja). */
+html.estilo-dex.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: calc(var(--hud-dex-inf, 0px) + 12px); }
+@media (max-height: 520px) { html.estilo-dex.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: calc(var(--hud-dex-inf, 0px) + 64px); } }
 /* Pantalla de carga, «Pulsa para empezar» e inicio de sesión: los del original (decisión de Nico). Sólo se
    conserva la letra pixel del título y se ponen a mano las sombras que el original saca de --shadow. */
 html.estilo-dex .boot-in h1 { font-family: var(--font-logo); text-shadow: 3px 3px 0 #a55f00, 6px 6px 0 #071318; }
@@ -324,6 +378,14 @@ html.estilo-dex .menu-item small { font-weight: 500; font-size: var(--fs-1); col
 html.estilo-dex .menu-item small.gold { color: var(--color-oro); }
 html.estilo-dex .menu-item:hover, html.estilo-dex .menu-item:focus-visible { background: var(--color-cristal-2); }
 html.estilo-dex .menu-item.play { font-size: 25px; color: var(--color-oro); }
+/* Con menos de 780 de alto, las opciones con las cifras de upstream (17 y 11 px): con la barra del navegador en el plegable
+   girado (784x700 a 670) la lista, con sus explicaciones, no cabía por encima de la línea de créditos. */
+@media (min-height: 521px) and (max-height: 779.98px) {
+  html.estilo-dex .menu-right .box { padding: 8px 12px; }
+  html.estilo-dex .menu-item { font-size: 17px; }
+  html.estilo-dex .menu-item small { font-size: 12px; }
+  html.estilo-dex .menu-item.play { font-size: 22px; }
+}
 html.estilo-dex #menu-stats { color: var(--color-tinta-2) !important; font-size: var(--fs-1) !important; }
 html.estilo-dex #menu-stats b { color: var(--color-tinta) !important; font-weight: 800; }
 

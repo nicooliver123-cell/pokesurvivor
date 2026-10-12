@@ -150,18 +150,39 @@ G.Estilo = (() => {
    *  donde siempre. Se mira antes de cada aviso (G.MODS.avisoEnEspera, al principio de showNext() de progress.js) y
    *  tras pintar el HUD Dex en cada fotograma (un aviso que salió en el menú baja al empezar la partida); sólo se toca
    *  el DOM si cambia. */
-  let logro = { raiz: null, en: null, sup: null };
+  let logro = { raiz: null, en: null, sup: null, inf: null };
   function colocarLogro() {
     const raiz = doc && doc.documentElement;
     if (!raiz || !raiz.classList) return;
-    if (logro.raiz !== raiz) logro = { raiz, en: null, sup: null };
+    if (logro.raiz !== raiz) logro = { raiz, en: null, sup: null, inf: null };
     const st = G.Game && G.Game.state;
     const en = actual === 'dex' && !!G.HudDex && (st === 'playing' || st === 'held');
     if (en !== logro.en) { raiz.classList.toggle('hud-dex-logro', en); logro.en = en; }
     if (en && raiz.style) {
       const v = Math.round(G.HudDex.bandaSup()) + 'px';
       if (v !== logro.sup) { raiz.style.setProperty('--hud-dex-sup', v); logro.sup = v; }
+      // Y lo que ocupa abajo (la fila de ranuras de escritorio): el aviso flotante (toast) en partida va encima.
+      const i = G.HudDex.bandaInf ? Math.round(G.HudDex.bandaInf()) + 'px' : null;
+      if (i && i !== logro.inf) { raiz.style.setProperty('--hud-dex-inf', i); logro.inf = i; }
     }
+  }
+
+  /** Menú principal: la línea de créditos (fija abajo, de upstream) no pisa sus cajas. Lo que ocupa abajo (uno, dos o tres
+   *  renglones según el ancho y la letra, más su separación del borde) va en --hueco-creditos de <html>, y css/nico.css sube
+   *  hasta ahí el borde de abajo del menú: con la barra del navegador en el plegable (724x680, 784x700…) se montaba en la
+   *  caja de estadísticas. Oculta (en partida o en una pantalla baja), 0. */
+  function vigilarCreditos() {
+    const el = doc && doc.getElementById && doc.getElementById('credits-line'), raiz = doc && doc.documentElement;
+    if (!el || !raiz || !raiz.style || typeof el.getBoundingClientRect !== 'function') return;
+    let antes = null;
+    const poner = () => {
+      const r = el.getBoundingClientRect(), alto = typeof innerHeight === 'number' ? innerHeight : 0;
+      const v = (r.height > 0 ? Math.max(0, Math.ceil(alto - r.top) + 6) : 0) + 'px';
+      if (v !== antes) { raiz.style.setProperty('--hueco-creditos', v); antes = v; }
+    };
+    if (typeof ResizeObserver === 'function') new ResizeObserver(poner).observe(el);
+    if (typeof addEventListener === 'function') addEventListener('resize', poner);
+    poner();
   }
 
   // ===================================================================
@@ -442,10 +463,12 @@ G.Estilo = (() => {
    *  escalado por CSS de upstream (a 84 de ancho), para que la ×10 quepa en dos filas sin cortar a nadie. Dex: ×1
    *  200×180 hasta ×4 (160×140, ×3) y ×10 132×120 hasta ×3 (96×76, ×2). En la ×10 de una pantalla alta y estrecha
    *  (el Magic V6 abierto, 724 o 784 de ancho), 120×110: así caben cinco cartas por fila y las diez en dos filas,
-   *  sin desplazar (con 132, cuatro por fila y tres filas). */
+   *  sin desplazar (con 132, cuatro por fila y tres filas). La cuarta, la ×10 de una pantalla baja y estrecha (menos
+   *  de 690 px útiles: 640x360, 667x375), 88×76 en cartas de 96: así siguen cabiendo seis por fila y «Continuar»
+   *  tiene su esquina libre (con cinco y cinco pisaba la última). */
   const TAM_PREMIO = {
-    dex: { 1: [[200, 180, 4], [160, 140, 3], [200, 180, 4]], 10: [[132, 120, 3], [96, 76, 2], [120, 110, 3]] },
-    clasico: { 1: [[132, 120, 2], [96, 76, 2], [132, 120, 2]], 10: [[132, 120, 2], [96, 76, 2], [120, 110, 2]] }
+    dex: { 1: [[200, 180, 4], [160, 140, 3], [200, 180, 4], [160, 140, 3]], 10: [[132, 120, 3], [96, 76, 2], [120, 110, 3], [88, 76, 2]] },
+    clasico: { 1: [[132, 120, 2], [96, 76, 2], [132, 120, 2], [96, 76, 2]], 10: [[132, 120, 2], [96, 76, 2], [120, 110, 2], [88, 76, 2]] }
   };
   const ANCHO_ESTRECHO = 800;   // como el @media de css/nico.css para las cartas de la ×10
   const UTIL_SEIS = 6 * 110 + 5 * 6;   // seis cartas de 110 con su separación (css/nico.css, pantallas bajas)
@@ -460,10 +483,11 @@ G.Estilo = (() => {
   function premio(card, r, n) {
     const viejo = card && card.querySelector('canvas');
     if (!viejo || !r || !doc || !G.Sprites || !G.Sprites.Animator) return;
-    const pantalla = compacto() ? 1 : (typeof innerWidth === 'number' ? innerWidth : 1440) < ANCHO_ESTRECHO ? 2 : 0;
+    const pantalla = pantallaPremio(n);
     const [w, h, kmax] = TAM_PREMIO[actual === 'dex' ? 'dex' : 'clasico'][n === 1 ? 1 : 10][pantalla];
     animar(relevar(viejo, w, h), r.dex, { lively: r.rarity >= 4 || !!r.shiny, shiny: !!r.shiny, kmax });
     card.classList.add(n === 1 ? 'premio-1' : 'premio-10');
+    if (pantalla === 3) card.classList.add('premio-10e');
     // Dex: «¡NUEVO!» -> «¡Nuevo!». gacha-ui.js escribe el nombre y la etiqueta justo después de este gancho,
     // antes de esperar a la carta siguiente: se cambia en cuanto termina (microtarea).
     if (actual === 'dex' && card.querySelectorAll) Promise.resolve().then(() => {
@@ -683,6 +707,7 @@ G.Estilo = (() => {
   }
   if (doc) {
     prepararGacha();
+    vigilarCreditos();
     aplicar();
   }
 

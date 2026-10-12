@@ -53,7 +53,7 @@
  *      game.js tal cual): un plegable desplegado o una tableta juegan; la pantalla completa sólo fija la
  *      horizontal en un móvil.
  *  14. Identidad visual «Dex de Expedición»: las fuentes de M PLUS Rounded 1c en local (su tabla name: copyright
- *      y OFL; los glifos de los textos), su licencia y CREDITS.md; css/tokens-dex.css y js/ui/marca.js con las
+ *      y OFL; los glifos de los textos; «…» fuera de su unicode-range), su licencia y CREDITS.md; css/tokens-dex.css y js/ui/marca.js con las
  *      mismas cifras; G.Estilo (js/ui/estilo.js) con settings.js real: valor por defecto de mods.js, guardado,
  *      fuente del lienzo (setter: con Dex, Pixelify -> M PLUS; con Clásico, nada; también las cadenas que upstream
  *      monta en hud.js, fx.js y claridad.js), Ajustes (Estilo primero, créditos, controles), cartas (franja,
@@ -2426,6 +2426,14 @@ function identidadChecks() {
     const bien = Object.values(info).every(x => x && x.kb > 12 && x.kb < 48 && x.copyright === 'Copyright 2016 The Rounded M+ Project Authors.' &&
       /scripts\.sil\.org\/OFL/.test(x.licencia || '') && x.nombre === 'Rounded Mplus 1c ' + x.peso && !x.faltan);
     t('las dos fuentes de M PLUS Rounded 1c (500 y 800) están en assets/fonts, en woff2, con su copyright (The Rounded M+ Project Authors) y la OFL en su tabla name, y con los acentos, ñ, ¡¿, «», ×, …, · y –— de los textos', bien, info);
+    // «…» (U+2026) con la letra de reserva: M PLUS lo dibuja con los puntos a media altura. Las dos caras de M PLUS de
+    // tokens-dex.css lo dejan fuera de su unicode-range y cubren el resto (los mismos caracteres de arriba y el latín).
+    const caras = [...rd('css/tokens-dex.css').matchAll(/@font-face\s*\{([^}]*)\}/g)].map(m => m[1]).filter(b => /M PLUS Rounded 1c/.test(b));
+    const rangos = caras.map(b => { const m = /unicode-range:\s*([^;]+);/.exec(b); return m ? m[1].split(',').map(x => x.trim().replace(/^U\+/i, '').split('-').map(h => parseInt(h, 16))).map(([a, z]) => [a, z === undefined ? a : z]) : null; });
+    const cubre = (r, cp) => r.some(([a, z]) => cp >= a && cp <= z);
+    const usados = [...'áéíóúñüÁÉÍÓÚÑÜ¡¿º×·–—’“”«»%€ AZaz09'].map(ch => ch.codePointAt(0));
+    t('«…» con la letra de reserva (los puntos en la línea base, no a media altura): las dos caras de M PLUS de css/tokens-dex.css dejan U+2026 fuera de su unicode-range y cubren el resto de los caracteres de los textos',
+      caras.length === 2 && rangos.every(r => r && !cubre(r, 0x2026) && usados.every(cp => cubre(r, cp))), rangos);
     const ofl = ex('assets/fonts/OFL-MPLUSRounded1c.txt') ? rd('assets/fonts/OFL-MPLUSRounded1c.txt') : '';
     t('assets/fonts/OFL-MPLUSRounded1c.txt: «SIL Open Font License, Version 1.1» y «Rounded M+ Project Authors»; se conserva OFL.txt (Pixelify Sans)',
       /SIL Open Font License, Version 1\.1/.test(ofl) && /Copyright 2016 The Rounded M\+ Project Authors/.test(ofl) && ex('assets/fonts/OFL.txt') && /Pixelify Sans/.test(rd('assets/fonts/OFL.txt')) && ex('assets/fonts/PixelifySans.ttf'));

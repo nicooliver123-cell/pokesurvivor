@@ -1433,6 +1433,13 @@ G.HudDex = (() => {
   /** Hasta dónde llega por arriba el HUD (px desde el borde de la pantalla) en el último fotograma; sin pintar aún, el
    *  de esta pantalla. Sin crear objetos: se mira en cada fotograma (G.Estilo.colocarLogro). */
   function bandaSup() { return ultimo ? ultimo.juego.y + ultimo.bandas.sup : bandas().sup; }
+  /** Lo que ocupa por abajo el HUD (px desde el borde de abajo de la pantalla) en el último fotograma: la fila de ranuras
+   *  de escritorio con su píldora; en compacto (ranuras en columna), lo de las zonas seguras. 0 sin pintar aún. */
+  function bandaInf() {
+    if (!ultimo) return 0;
+    const alto = typeof innerHeight === 'number' ? innerHeight : ultimo.juego.y + ultimo.juego.h;
+    return Math.max(0, alto - (ultimo.juego.y + ultimo.juego.h) + ultimo.bandas.inf);
+  }
   /** ¿Van las ranuras en columna a la derecha en esta pantalla? (Ajustes > Controles: «de la derecha»). */
   function columna() {
     const w = typeof innerWidth === 'number' ? innerWidth : 1440, h = typeof innerHeight === 'number' ? innerHeight : 900;
@@ -1440,6 +1447,6 @@ G.HudDex = (() => {
     return G.Estilo.disposicion(w, h, { juego: mc.juego, controles: mc.controles }).ranuras === 'columna';
   }
 
-  return { draw, maquetar, bandas, bandaSup, columna, marco, ponerMarco, flechas, contenido, Avisos, CUBRE,
+  return { draw, maquetar, bandas, bandaSup, bandaInf, columna, marco, ponerMarco, flechas, contenido, Avisos, CUBRE,
     util: { contraste, hexRgb, tintaSobre, psColor, miles, decimal } };
 })();
