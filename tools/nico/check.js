@@ -70,7 +70,23 @@ const idx = rd('index.html');
 if (/<meta name="robots" content="noindex">/.test(idx)) ok('index.html lleva noindex'); else bad('index.html sin noindex: construir con node tools/build.js --privado');
 if (/pokesurvivor\.com/i.test(idx) || /rel="canonical"/.test(idx)) bad('index.html conserva SEO del original (canonical/og): construir con --privado');
 else ok('index.html sin canonical ni enlaces al dominio del original');
-const min = fs.readFileSync(path.join(ROOT, 'js/app.min.js'));
+// dev.html también se publica (GitHub Pages sirve todo el repo).
+const devH = rd('dev.html');
+const robots = [...devH.matchAll(/<meta name="robots" content="([^"]*)">/g)].map(m => m[1]);
+if (robots.length && robots.every(c => /noindex/.test(c))) ok('dev.html lleva noindex y ningún robots "index"');
+else bad(`dev.html: robots ${JSON.stringify(robots)} (debe haber noindex y ningún "index")`);
+if (/pokesurvivor\.com/i.test(devH) || /rel="canonical"/.test(devH)) bad('dev.html conserva el SEO del original (canonical/og a pokesurvivor.com)');
+else ok('dev.html sin canonical ni enlaces al dominio del original');
+if (/window\.PS_PAGES = false;/.test(devH) && !/PS_PAGES\s*=\s*true/.test(devH)) ok('dev.html: window.PS_PAGES = false (sin botones a guía, Pokédex ni apoyar)');
+else bad('dev.html: falta window.PS_PAGES = false o vuelve a ponerse a true');
+const noidx = ['404.html', 'contacto/index.html'].filter(f => !/<meta name="robots" content="noindex">/.test(rd(f)));
+if (noidx.length) bad('sin noindex: ' + noidx.join(', ')); else ok('404.html y contacto/ llevan noindex');
+// Enlaces a páginas que el fork borró, en las páginas que se sirven.
+const DEAD = /href="(\.\.\/|\.\/|\/)?(en|guia|pokedex|legendarios|shinies|tipos|movimientos|objetos|logros|novedades|apoyar)\//;
+const deadIn = ['index.html', 'dev.html', '404.html', 'contacto/index.html'].filter(f => DEAD.test(rd(f)));
+if (deadIn.length) bad('enlaces a páginas que el fork borró en: ' + deadIn.join(', '));
+else ok('ninguna página enlaza a las que borró el fork (guia/, pokedex/, en/, apoyar/...)');
+const min =fs.readFileSync(path.join(ROOT, 'js/app.min.js'));
 const hash = crypto.createHash('sha1').update(min).digest('hex').slice(0, 10);
 if (idx.includes(`js/app.min.js?v=${hash}`)) ok('index.html carga js/app.min.js?v=' + hash); else bad('index.html no apunta a la huella actual de js/app.min.js');
 if (!process.argv.includes('--sin-paquete')) {

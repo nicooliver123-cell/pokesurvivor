@@ -11,9 +11,15 @@
  * MOD nico (versión modificada): se construye con `node tools/build.js --privado`
  * (es también lo que hace sin flags): index.html sale con noindex y sin el SEO del
  * original. NO ejecutar make_seo_pages.py: sus páginas apuntan a pokesurvivor.com.
+ * dev.html ya no tiene los bloques seo del original, así que --con-seo sólo quitaría
+ * el noindex: se rechaza.
  */
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { execFileSync } = require('child_process');
+if (process.argv.includes('--con-seo')) {   // MOD nico
+  console.error('Esta versión no se construye con --con-seo (quitaría el noindex): node tools/build.js --privado');
+  process.exit(1);
+}
 const ROOT = path.join(__dirname, '..');
 const DEV = path.join(ROOT, 'dev.html'), OUT = path.join(ROOT, 'index.html');
 const BEGIN = '<!-- scripts:begin -->', END = '<!-- scripts:end -->';
