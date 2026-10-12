@@ -13,7 +13,7 @@
 > arregla tres fallos del original: el mapa ya no se convierte en una arena de la
 > grieta a partir del minuto 12, el fogonazo de la grieta no se queda al elegir la
 > fusión y los avisos de logro ya no tapan el resultado del gacha. En **Ajustes >
-> Gráficos > Estilo** se elige entre **Dex** (menús de Pokédex y letra redondeada; la
+> Gráficos > Estilo** se elige entre **Dex** (menús y HUD de Pokédex y letra redondeada; la
 > identidad nueva, a medio hacer) y **Clásico** (el aspecto del original), y en un móvil
 > plegable desplegado se juega sin tener que girarlo. No usa la
 > infraestructura del juego original. Detalles en
