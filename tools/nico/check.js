@@ -52,6 +52,8 @@
  *  13. Pantallas: «Gira el móvil» sólo en un móvil en vertical (pedirGiro de mods.js y checkOrientation() de
  *      game.js tal cual): un plegable desplegado o una tableta juegan; la pantalla completa sólo fija la
  *      horizontal en un móvil.
+ *  14. Identidad visual «Dex de Expedición»: las fuentes de M PLUS Rounded 1c en local (su tabla name: copyright
+ *      y OFL; los glifos de los textos), su licencia y CREDITS.md.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -2321,12 +2323,86 @@ function pantallasChecks() {
   for (const [name, , detail] of failed) bad(`pantallas: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 14. identidad visual «Dex de Expedición» ----------------
+/** Tabla name y glifos (cmap) de un woff2, para comprobar la licencia y la cobertura sin herramientas de fuera. */
+function leerWoff2(f) {
+  const b = fs.readFileSync(path.join(ROOT, f));
+  if (b.toString('latin1', 0, 4) !== 'wOF2') throw new Error(f + ' no es woff2');
+  const TAGS = ['cmap', 'head', 'hhea', 'hmtx', 'maxp', 'name', 'OS/2', 'post', 'cvt ', 'fpgm', 'glyf', 'loca', 'prep', 'CFF ', 'VORG', 'EBDT', 'EBLC', 'gasp', 'hdmx', 'kern', 'LTSH',
+    'PCLT', 'VDMX', 'vhea', 'vmtx', 'BASE', 'GDEF', 'GPOS', 'GSUB', 'EBSC', 'JSTF', 'MATH', 'CBDT', 'CBLC', 'COLR', 'CPAL', 'SVG ', 'sbix', 'acnt', 'avar', 'bdat', 'bloc', 'bsln',
+    'cvar', 'fdsc', 'feat', 'fmtx', 'fvar', 'gvar', 'hsty', 'just', 'lcar', 'mort', 'morx', 'opbd', 'prop', 'trak', 'Zapf', 'Silf', 'Glat', 'Gloc', 'Feat', 'Sill'];
+  const n = b.readUInt16BE(12), comp = b.readUInt32BE(20);
+  let o = 48;
+  const b128 = () => { let v = 0; for (let i = 0; i < 5; i++) { const c = b[o++]; v = (v << 7) | (c & 0x7f); if (!(c & 0x80)) return v >>> 0; } return v >>> 0; };
+  const tabs = [];
+  for (let i = 0; i < n; i++) {
+    const fl = b[o++];
+    let tag = TAGS[fl & 63];
+    if ((fl & 63) === 63) { tag = b.toString('latin1', o, o + 4); o += 4; }
+    const orig = b128(), trans = tag === 'glyf' || tag === 'loca' ? (fl >> 6) === 0 : (fl >> 6) !== 0;
+    tabs.push({ tag, len: trans ? b128() : orig });
+  }
+  const data = require('zlib').brotliDecompressSync(b.subarray(o, o + comp));
+  const T = {};
+  let off = 0;
+  for (const t of tabs) { T[t.tag] = { off, len: t.len }; off += t.len; }
+  const d = data.subarray(T.name.off, T.name.off + T.name.len), nombres = {};
+  for (let i = 0, cnt = d.readUInt16BE(2), so = d.readUInt16BE(4); i < cnt; i++) {
+    const r = 6 + i * 12, pid = d.readUInt16BE(r), id = d.readUInt16BE(r + 6), l = d.readUInt16BE(r + 8), po = d.readUInt16BE(r + 10);
+    const raw = Buffer.from(d.subarray(so + po, so + po + l));
+    if (pid === 3 || pid === 0) nombres[id] = raw.swap16().toString('utf16le'); else if (!nombres[id]) nombres[id] = raw.toString('latin1');
+  }
+  const cm = data.subarray(T.cmap.off, T.cmap.off + T.cmap.len), glifos = new Set();
+  for (let i = 0, nt = cm.readUInt16BE(2); i < nt; i++) {
+    const so = cm.readUInt32BE(8 + i * 8), fmt = cm.readUInt16BE(so);
+    if (fmt === 4) {
+      const seg = cm.readUInt16BE(so + 6) / 2, fin = so + 14, ini = fin + seg * 2 + 2;
+      for (let s = 0; s < seg; s++) for (let c = cm.readUInt16BE(ini + s * 2), e = cm.readUInt16BE(fin + s * 2); c <= e && c !== 0xffff; c++) glifos.add(c);
+    } else if (fmt === 12) {
+      for (let k = 0, g = cm.readUInt32BE(so + 12); k < g; k++) for (let c = cm.readUInt32BE(so + 16 + k * 12), e = cm.readUInt32BE(so + 20 + k * 12); c <= e; c++) glifos.add(c);
+    }
+  }
+  return { nombres, glifos, bytes: b.length };
+}
+
+function identidadChecks() {
+  console.log('14. Identidad visual «Dex de Expedición» (fuentes, licencia, estilo, menús)');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+
+  // ---- A. Fuentes en local y su licencia ----
+  try {
+    const FUENTES = { 'assets/fonts/MPLUSRounded1c-500-latin.woff2': 'Medium', 'assets/fonts/MPLUSRounded1c-800-latin.woff2': 'ExtraBold' };
+    const info = {};
+    for (const [f, peso] of Object.entries(FUENTES)) {
+      if (!ex(f)) { info[f] = 'no existe'; continue; }
+      const w = leerWoff2(f);
+      info[f] = { kb: +(w.bytes / 1024).toFixed(1), copyright: w.nombres[0], nombre: w.nombres[4], licencia: w.nombres[14], glifos: w.glifos.size,
+        faltan: [...'áéíóúñüÁÉÍÓÚÑÜ¡¿º×…·–—’“”«»%€'].filter(ch => !w.glifos.has(ch.codePointAt(0))).join('') , peso };
+    }
+    const bien = Object.values(info).every(x => x && x.kb > 12 && x.kb < 48 && x.copyright === 'Copyright 2016 The Rounded M+ Project Authors.' &&
+      /scripts\.sil\.org\/OFL/.test(x.licencia || '') && x.nombre === 'Rounded Mplus 1c ' + x.peso && !x.faltan);
+    t('las dos fuentes de M PLUS Rounded 1c (500 y 800) están en assets/fonts, en woff2, con su copyright (The Rounded M+ Project Authors) y la OFL en su tabla name, y con los acentos, ñ, ¡¿, «», ×, …, · y –— de los textos', bien, info);
+    const ofl = ex('assets/fonts/OFL-MPLUSRounded1c.txt') ? rd('assets/fonts/OFL-MPLUSRounded1c.txt') : '';
+    t('assets/fonts/OFL-MPLUSRounded1c.txt: «SIL Open Font License, Version 1.1» y «Rounded M+ Project Authors»; se conserva OFL.txt (Pixelify Sans)',
+      /SIL Open Font License, Version 1\.1/.test(ofl) && /Copyright 2016 The Rounded M\+ Project Authors/.test(ofl) && ex('assets/fonts/OFL.txt') && /Pixelify Sans/.test(rd('assets/fonts/OFL.txt')) && ex('assets/fonts/PixelifySans.ttf'));
+    const cr = rd('CREDITS.md');
+    t('CREDITS.md cita las dos fuentes con su licencia (M PLUS Rounded 1c y Pixelify Sans, OFL)',
+      /M PLUS Rounded 1c/.test(cr) && /Rounded M\+ Project Authors/.test(cr) && /OFL-MPLUSRounded1c\.txt/.test(cr) && /Pixelify Sans/.test(cr) && /Open Font License/.test(cr));
+  } catch (e) { t('fuentes y licencia', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`identidad visual: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`identidad: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
   try { claridadChecks(); } catch (e) { bad('no se pudo probar la claridad en partida: ' + (e && e.stack || e)); }
   try { arreglosChecks(); } catch (e) { bad('no se pudo probar los arreglos de upstream: ' + (e && e.stack || e)); }
   try { pantallasChecks(); } catch (e) { bad('no se pudo probar las pantallas: ' + (e && e.stack || e)); }
+  try { identidadChecks(); } catch (e) { bad('no se pudo probar la identidad visual: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

@@ -129,6 +129,21 @@ uso **no comercial** y con atribución a sus artistas.
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),
 descargados una vez y guardados en `js/data/pokedex.js`.
 
+## Fuentes
+
+Las dos son [SIL Open Font License 1.1](https://scripts.sil.org/OFL): se pueden usar, modificar y
+redistribuir con el juego, pero no venderse solas.
+
+| Fuente | Autores | Uso | Licencia |
+|---|---|---|---|
+| Pixelify Sans | Copyright 2021 The Pixelify Sans Project Authors | Estilo «Clásico» (el del original) y el logotipo | `assets/fonts/OFL.txt` |
+| M PLUS Rounded 1c | Copyright 2016 The Rounded M+ Project Authors | Estilo «Dex» de esta versión: HUD, menús y números | `assets/fonts/OFL-MPLUSRounded1c.txt` |
+
+De M PLUS Rounded 1c se usa el subconjunto latino en woff2 (versión 1.059, 230 glifos), pesos
+500 y 800: `assets/fonts/MPLUSRounded1c-500-latin.woff2` y `-800-latin.woff2`. Un subconjunto ya es una
+modificación de la fuente; la OFL lo permite. No declara ningún nombre reservado (*Reserved Font
+Name*): el copyright y la licencia van en la tabla `name` de los propios ficheros.
+
 ## Marca
 
 Pokémon es propiedad de Nintendo, Creatures Inc. y GAME FREAK.
