@@ -53,7 +53,13 @@
  *      game.js tal cual): un plegable desplegado o una tableta juegan; la pantalla completa sólo fija la
  *      horizontal en un móvil.
  *  14. Identidad visual «Dex de Expedición»: las fuentes de M PLUS Rounded 1c en local (su tabla name: copyright
- *      y OFL; los glifos de los textos), su licencia y CREDITS.md.
+ *      y OFL; los glifos de los textos), su licencia y CREDITS.md; css/tokens-dex.css y js/ui/marca.js con las
+ *      mismas cifras; G.Estilo (js/ui/estilo.js) con settings.js real: valor por defecto de mods.js, guardado,
+ *      fuente del lienzo (setter: con Dex, Pixelify -> M PLUS; con Clásico, nada), Ajustes (Estilo primero,
+ *      créditos, controles), cartas (franja, filo, foco, píldora), contraste de la franja en los 18 tipos,
+ *      lienzos del compañero y del premio y disposicion() (bandas y zona libre del HUD; pantalla dividida);
+ *      css/nico.css (arreglos en los dos estilos, piel sólo bajo html.estilo-dex), inglés, finales de línea
+ *      y que cada ajuste de mods.js está en la tabla de CLAUDE.md.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -199,6 +205,10 @@ else bad('el paquete no incluye js/core/mods.js (o una versión vieja)');
 if (minS.includes('G.EVO={1:[2],')) ok('el paquete incluye js/data/evolutions.js'); else bad('el paquete no incluye js/data/evolutions.js');
 if (minS.includes('pokesurvivor-partida') && minS.includes('imp-box')) ok('el paquete incluye el importador (js/core/importar.js y js/ui/importar-ui.js)');
 else bad('el paquete no incluye js/core/importar.js o js/ui/importar-ui.js');
+if (minS.includes('G.MARCA=') && minS.includes('G.Estilo=') && minS.includes('estiloPorDefecto') && minS.includes('pedirGiro')) ok('el paquete incluye la identidad visual (js/ui/marca.js y js/ui/estilo.js) y lo de los plegables');
+else bad('el paquete no incluye js/ui/marca.js, js/ui/estilo.js o los ajustes de estilo y plegables de js/core/mods.js');
+if (/<link rel="stylesheet" href="css\/tokens-dex\.css">/.test(idx) && /<link rel="stylesheet" href="css\/nico\.css">/.test(idx)) ok('index.html carga css/tokens-dex.css y css/nico.css');
+else bad('index.html no carga css/tokens-dex.css o css/nico.css: reconstruir con node tools/build.js --privado');
 if (minS.includes('G.Claridad=') && ['jugadorVisible', 'numerosAgrupados', 'contornoDisparos', 'barrasTrasGolpe', 'vinetaDanio', 'biomasEnCiclo', 'destelloSinCongelar'].every(k => minS.includes(k)))
   ok('el paquete incluye la claridad en partida (js/entities/claridad.js) y sus ajustes');
 else bad('el paquete no incluye js/entities/claridad.js o sus ajustes de js/core/mods.js');
@@ -289,7 +299,19 @@ const HOOKS = [
   // Pantallas: móviles en vertical y plegables
   ['js/game.js', /const portrait = G\.Touch\.active && innerHeight > innerWidth && \(!G\.MODS \|\| !G\.MODS\.pedirGiro \|\| G\.MODS\.pedirGiro\(innerWidth, innerHeight\)\);\s*\/\/ MOD nico/,
     'plegables: «Gira el móvil» sólo en un móvil en vertical (checkOrientation)'],
-  ['js/ui/settings-ui.js', /if \(!G\.MODS \|\| !G\.MODS\.fijarHorizontal \|\| G\.MODS\.fijarHorizontal\(\)\) screen\.orientation\.lock\('landscape'\)/, 'plegables: la pantalla completa sólo fija la horizontal en un móvil']
+  ['js/ui/settings-ui.js', /if \(!G\.MODS \|\| !G\.MODS\.fijarHorizontal \|\| G\.MODS\.fijarHorizontal\(\)\) screen\.orientation\.lock\('landscape'\)/, 'plegables: la pantalla completa sólo fija la horizontal en un móvil'],
+  // Identidad visual «Dex de Expedición» (js/ui/estilo.js, js/ui/marca.js, css/tokens-dex.css, css/nico.css)
+  ['dev.html', /<link rel="stylesheet" href="css\/style\.css">\r?\n<link rel="stylesheet" href="css\/tokens-dex\.css"><!-- MOD nico[^\n]*\r?\n<link rel="stylesheet" href="css\/nico\.css"><!-- MOD nico/,
+    'estilo: tokens-dex.css y nico.css, justo después de style.css'],
+  ['dev.html', /src="js\/core\/mods\.js"><\/script>[^\n]*\r?\n<script defer src="js\/ui\/marca\.js"><\/script><!-- MOD nico/, 'estilo: marca.js justo después de mods.js'],
+  ['dev.html', /src="js\/core\/settings\.js"><\/script>\r?\n<script defer src="js\/ui\/estilo\.js"><\/script><!-- MOD nico/, 'estilo: estilo.js justo después de settings.js (antes de cualquier lienzo)'],
+  ['dev.html', /originales del proyecto\. <span>Letra del estilo Dex: M PLUS Rounded 1c \(OFL\)\.<\/span><!-- MOD nico --><\/p>/, 'estilo: el aviso legal cita la letra (OFL), sin tocar el texto de upstream'],
+  ['js/ui/settings-ui.js', /<\/div>`;\r?\n    \}\r?\n    if \(G\.Estilo\) G\.Estilo\.ajustes\(box, tab\);\s*\/\/ MOD nico[^\n]*\r?\n    wire\(box\);/, 'estilo: Ajustes pinta lo nuestro antes de wire(box) (render)'],
+  ['js/ui/run-ui.js', /<div class="key">\$\{i \+ 1\}<\/div>`;\r?\n      if \(G\.Estilo\) G\.Estilo\.carta\(el, c\);\s*\/\/ MOD nico/, 'estilo: cada carta de nivel (franja, icono y foco)'],
+  ['js/ui/menu.js', /G\.UI\.sprite\(\$\('menu-partner'\), mon\.dex, \{ lively: true, scale: 4, hero: true, shiny \}\);\r?\n    if \(G\.Estilo\) G\.Estilo\.companero\(\$\('menu-partner'\), mon\.dex, \{ shiny \}\);\s*\/\/ MOD nico/, 'estilo: el compañero del menú, a su tamaño'],
+  ['js/ui/gacha-ui.js', /c\.appendChild\(G\.UI\.spriteCanvas\(r\.dex, 132, 120, [^\n]*\r?\n      if \(G\.Estilo\) G\.Estilo\.premio\(c, r, n\);\s*\/\/ MOD nico/, 'estilo: el premio del gacha, a su tamaño'],
+  ['js/ui/gacha-ui.js', /feat\.appendChild\(G\.UI\.spriteCanvas\(dex, 170, 190, \{ lively: true, scale: 2, dir: 1 \}\)\);\r?\n      if \(G\.Estilo\) G\.Estilo\.destacado\(feat\.lastChild, dex\);\s*\/\/ MOD nico/, 'estilo: los destacados del gacha, sin cortar'],
+  ['js/core/input.js', /'tab'\]\.includes\(c\) && !\(c === 'tab' && G\.Estilo && G\.Estilo\.tabLibre\(\)\)\) e\.preventDefault\(\);\s*\/\/ MOD nico/, 'estilo: Tab recorre los menús (input.js sólo lo anula jugando)']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -2390,6 +2412,318 @@ function identidadChecks() {
     t('CREDITS.md cita las dos fuentes con su licencia (M PLUS Rounded 1c y Pixelify Sans, OFL)',
       /M PLUS Rounded 1c/.test(cr) && /Rounded M\+ Project Authors/.test(cr) && /OFL-MPLUSRounded1c\.txt/.test(cr) && /Pixelify Sans/.test(cr) && /Open Font License/.test(cr));
   } catch (e) { t('fuentes y licencia', false, String(e && e.stack || e)); }
+
+
+  // ---- B. Las cifras de css/tokens-dex.css y js/ui/marca.js coinciden (las comparte el DOM y el lienzo) ----
+  /** G.MARCA real (marca.js) en un contexto aparte. */
+  const marca = () => { const c = { console }; c.window = c; vm.createContext(c); vm.runInContext(rd('js/ui/marca.js'), c, { filename: 'js/ui/marca.js' }); return c.G.MARCA; };
+  try {
+    const M = marca(), css = rd('css/tokens-dex.css');
+    const raiz = css.slice(css.indexOf(':root {'), css.indexOf('@media'));
+    const vars = {};
+    for (const m of raiz.matchAll(/(--[\w-]+):\s*([^;]+);/g)) vars[m[1]] = m[2].trim();
+    const norm = v => String(v).replace(/\s+/g, '').toLowerCase(), camel = k => k.replace(/-([a-z0-9])/g, (_, x) => x.toUpperCase());
+    let iguales = 0;
+    const mal = [];
+    const cmp = (k, v) => { if (norm(vars[k]) === norm(v)) iguales++; else mal.push(`${k}: css=${vars[k]} js=${v}`); };
+    const alias = { '--color-ps-bajo-destello': 'psBajoDestello', '--color-cristal-hud': 'cristalHUD' };
+    for (const k of Object.keys(vars).filter(x => x.startsWith('--color-'))) {
+      const jk = alias[k] || camel(k.slice(8));
+      if (!(jk in M.color)) { mal.push(`${k}: no existe G.MARCA.color.${jk}`); continue; }
+      cmp(k, M.color[jk]);
+    }
+    for (const [tipo, [fondo]] of Object.entries(M.tipoPildora)) cmp('--tipo-' + tipo, fondo);
+    cmp('--tipo-filo', M.filoTipo);
+    for (const [k, j] of Object.entries({ '--fs-1': 'sm', '--fs-2': 'md', '--fs-3': 'lg', '--fs-4': 'xl', '--fs-5': 'x2', '--fs-6': 'x3' })) cmp(k, M.escalaTipo[j] + 'px');
+    M.espacio.forEach((v, i) => cmp('--space-' + i, v ? v + 'px' : '0'));
+    for (const i of [0, 1, 2, 3]) cmp('--radius-' + i, M.radio['r' + i] + 'px');
+    cmp('--font-peso-normal', M.peso.normal); cmp('--font-peso-fuerte', M.peso.fuerte);
+    cmp('--dur-micro', M.tiempo.micro + 'ms'); cmp('--dur-entrada', M.tiempo.entrada + 'ms');
+    const ps = [M.color.psAlto, M.color.psMedio, M.color.psBajo].map(norm);
+    t(`css/tokens-dex.css y js/ui/marca.js dicen lo mismo (${iguales} cifras: colores, tipos, letra, espacio, radios, tiempos) y la barra rival no es un color de PS`,
+      !mal.length && iguales >= 70 && !ps.includes(norm(M.color.rival)) && norm(M.color.rival) === '#9b6bff', mal);
+    t('G.MARCA sólo lleva lo visual: el horno, el iris, el golpe final y la tabla de Calidad son ajustes de js/core/mods.js (revisión cruzada)',
+      ['horneado', 'iris', 'golpeFinal', 'calidad'].every(k => !(k in M)) && M.escalaHUD(1440, 900) === 1.25 && M.escalaHUD(1920, 1080) === 1.5 && M.escalaHUD(1280, 720) === 1);
+  } catch (e) { t('tokens y marca', false, String(e && e.stack || e)); }
+
+  // ---- C. G.Estilo (js/ui/estilo.js) con settings.js, mods.js y marca.js reales ----
+  /** Un navegador mínimo para estilo.js: localStorage de mentira (que sobrevive a una «recarga»), un
+   *  CanvasRenderingContext2D con su accesor font y un document sin pantallas. */
+  const almacen = {};
+  function cargarEstilo({ mods = {}, guardado = null, alto = 900, extra = {} } = {}) {
+    if (guardado !== null) almacen['ps.settings'] = JSON.stringify(guardado);
+    const clases = new Set();
+    const c = {
+      console, innerHeight: alto, innerWidth: 1440,
+      localStorage: { getItem: k => (k in almacen ? almacen[k] : null), setItem: (k, v) => { almacen[k] = String(v); } },
+      matchMedia: () => ({ matches: false }), navigator: {}, location: { protocol: 'file:' },
+      document: { documentElement: { classList: { toggle: (k, on) => (on ? clases.add(k) : clases.delete(k)), contains: k => clases.has(k) } },
+        getElementById: () => null, querySelector: () => null, fonts: { load: () => Promise.resolve([]) }, body: null }
+    };
+    function Ctx() { this._f = '10px sans-serif'; }
+    Object.defineProperty(Ctx.prototype, 'font', { configurable: true, enumerable: true, get() { return this._f; }, set(v) { this._f = v; } });
+    c.CanvasRenderingContext2D = Ctx;
+    c.window = c; c.G = {};
+    vm.createContext(c);
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js', 'js/core/settings.js']) vm.runInContext(rd(f), c, { filename: f });
+    Object.assign(c.G.MODS, mods);
+    Object.assign(c.G, extra);
+    vm.runInContext(rd('js/ui/estilo.js'), c, { filename: 'js/ui/estilo.js' });
+    return { c, G: c.G, E: c.G.Estilo, clases, Ctx };
+  }
+  try {
+    for (const k of Object.keys(almacen)) delete almacen[k];
+    const a = cargarEstilo();
+    const pd = { actual: a.E.actual, clase: a.clases.has('estilo-dex') };
+    const b = cargarEstilo({ mods: { estiloPorDefecto: 'dex' } });
+    const pdDex = { actual: b.E.actual, clase: b.clases.has('estilo-dex') };
+    b.E.set('dex');
+    const c2 = cargarEstilo();   // «recarga» con lo guardado: gana al valor de mods.js
+    const recarga = c2.E.actual;
+    c2.E.set('clasico');
+    const vuelta = { actual: c2.E.actual, clase: c2.clases.has('estilo-dex'), guardado: JSON.parse(almacen['ps.settings']).estilo };
+    const raro = cargarEstilo({ guardado: { estilo: 'arcoiris' } }).E.actual;
+    const rechaza = c2.E.set('arcoiris') === false && c2.E.actual === 'clasico';
+    t("estilo: el valor por defecto sale de G.MODS.estiloPorDefecto ('clasico' en este lote); la elección se guarda en G.Settings, sobrevive a una recarga y gana al de mods.js; un valor raro vale el de mods.js",
+      pd.actual === 'clasico' && !pd.clase && pdDex.actual === 'dex' && pdDex.clase && recarga === 'dex' && vuelta.actual === 'clasico' && !vuelta.clase &&
+      vuelta.guardado === 'clasico' && raro === 'clasico' && rechaza, { pd, pdDex, recarga, vuelta, raro });
+    const mods = rd('js/core/mods.js');
+    t("js/core/mods.js: estiloPorDefecto: 'clasico' mientras se implementa la identidad", /\n  estiloPorDefecto: 'clasico',/.test(mods));
+  } catch (e) { t('interruptor de estilo', false, String(e && e.stack || e)); }
+
+  try {
+    // Fuente del lienzo: con Dex, «… Pixelify …» pasa a M PLUS (≥ 600 -> 800; el resto, 500); con Clásico, nada.
+    for (const k of Object.keys(almacen)) delete almacen[k];
+    const { E, Ctx } = cargarEstilo();
+    const FAM = '"M PLUS Rounded 1c","Segoe UI",system-ui,sans-serif';
+    const casos = {
+      '700 13px Pixelify,"Segoe UI",sans-serif': '800 13px ' + FAM, '600 10px Pixelify, monospace': '800 10px ' + FAM,
+      '400 11px Pixelify,"Segoe UI",system-ui,sans-serif': '500 11px ' + FAM, '16px Pixelify': '500 16px ' + FAM,
+      'bold 12px Pixelify, monospace': '800 12px ' + FAM, '700 14.5px Pixelify': '800 14.5px ' + FAM,
+      '12px sans-serif': '12px sans-serif', '700 20px "Segoe UI"': '700 20px "Segoe UI"'
+    };
+    const x = new Ctx(), clasico = {}, dex = {};
+    for (const f of Object.keys(casos)) { x.font = f; clasico[f] = x.font; }
+    E.set('dex');
+    for (const f of Object.keys(casos)) { x.font = f; dex[f] = x.font; }
+    const mal = Object.keys(casos).filter(f => clasico[f] !== f || dex[f] !== casos[f]);
+    const cacheIgual = E.fuenteCanvas('700 13px Pixelify') === E.fuenteCanvas('700 13px Pixelify');
+    // Las cadenas reales de upstream y de claridad.js: todas cambian con Dex.
+    const reales = [];
+    for (const f of ['js/ui/hud.js', 'js/entities/fx.js', 'js/entities/player.js', 'js/systems/events.js', 'js/game.js', 'js/ui/slots.js', 'js/entities/claridad.js']) {
+      for (const m of rd(f).matchAll(/font = (['`])([^'`$]*?\d+px[^'`]*?Pixelify[^'`]*)\1/g)) reales.push(m[2]);
+    }
+    const sinCambio = reales.filter(f => !/^(500|800) \d+(\.\d+)?px "M PLUS Rounded 1c"/.test(E.fuenteCanvas(f)));
+    t('fuente del lienzo (setter de CanvasRenderingContext2D.prototype.font): con Clásico ningún cambio; con Dex, «700 13px Pixelify…» -> «800 13px "M PLUS Rounded 1c"…», 600 -> 800, 400 y sin peso -> 500, «bold» -> 800; lo que no es Pixelify, igual',
+      !mal.length && cacheIgual && !sinCambio.length, { mal: mal.map(f => ({ f, clasico: clasico[f], dex: dex[f] })), sinCambio });
+  } catch (e) { t('fuente del lienzo', false, String(e && e.stack || e)); }
+
+  try {
+    // Ajustes: la sección «Estilo» (la primera de Gráficos), los créditos y el texto de los controles.
+    for (const k of Object.keys(almacen)) delete almacen[k];
+    const { E, G } = cargarEstilo();
+    const caja = () => {
+      const B = { html: '', pos: [], insertAdjacentHTML(p, h) { this.pos.push(p); this.html = p === 'afterbegin' ? h + this.html : this.html + h; },
+        querySelectorAll(sel) {
+          if (sel === '[data-estilo]') return [...B.html.matchAll(/data-estilo="([^"]+)"/g)].map(m => ({ dataset: { estilo: m[1] } }));
+          if (sel === 'ul.credits li') return B.lis || [];
+          if (sel === 'p.sub') return B.ps || [];
+          return [];
+        }, querySelector: () => null };
+      return B;
+    };
+    const g = caja();
+    g.html = '<h3 class="set-h">Idioma</h3>';
+    E.ajustes(g, 'gfx');
+    const botones = g.querySelectorAll('[data-estilo]');
+    t('Ajustes > Gráficos: «Estilo» es la primera sección, con su texto y los dos botones (Dex y Clásico, el actual marcado)',
+      g.pos[0] === 'afterbegin' && /^<h3 class="set-h">Estilo<\/h3>/.test(g.html) && g.html.indexOf('Estilo') < g.html.indexOf('Idioma') &&
+      g.html.includes(E.TEXTO_ESTILO) && botones.map(b => b.dataset.estilo).join() === 'dex,clasico' &&
+      /data-estilo="clasico" role="radio" aria-checked="true"/.test(g.html) && /data-estilo="dex" role="radio" aria-checked="false"/.test(g.html), g.html);
+    const ab = caja(), li = { textContent: 'Fuente: Pixelify Sans (OFL).', despues: '', insertAdjacentHTML(p, h) { this.despues = p + ' ' + h; } };
+    ab.lis = [{ textContent: 'Sprites: …', insertAdjacentHTML() {} }, li];
+    E.ajustes(ab, 'about');
+    t('Ajustes > Acerca de: «Letra del estilo Dex: M PLUS Rounded 1c (OFL)», justo después de Pixelify', /^afterend <li><b>Letra del estilo Dex:<\/b> M PLUS Rounded 1c \(OFL\)\.<\/li>$/.test(li.despues), li.despues);
+    const TXT = 'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal.';
+    const ctl = () => { const k = caja(); k.ps = [{ textContent: TXT }]; return k; };
+    const k1 = ctl(); E.ajustes(k1, 'ctl');
+    E.set('dex');
+    const k2 = ctl(); E.ajustes(k2, 'ctl');
+    G.HudDex = { columna: () => true };
+    const k3 = ctl(); E.ajustes(k3, 'ctl');
+    E.set('clasico');
+    const k4 = ctl(); E.ajustes(k4, 'ctl');
+    t('Ajustes > Controles: «de abajo» pasa a «de la derecha» sólo con Dex y las ranuras en columna (G.HudDex, lote 2); hoy, sin cambios',
+      k1.ps[0].textContent === TXT && k2.ps[0].textContent === TXT && k3.ps[0].textContent === TXT.replace('de abajo', 'de la derecha') && k4.ps[0].textContent === TXT);
+    // Las cartas de subida de nivel: --tc, filo, foco con Tab y la píldora (Dex).
+    G.Moves = { BY_ID: { ascuas: { type: 'fire' }, lenguetazo: { type: 'ghost' } } };
+    const carta = () => {
+      const nodo = { nodeType: 3, nodeValue: 'EVOLUCIÓN' }, chip = { style: {}, childNodes: [nodo] };
+      return { css: {}, style: { setProperty(k, v) { this.owner.css[k] = v; } }, dataset: {}, clases: new Set(), attrs: {}, teclas: 0, tabIndex: -1,
+        classList: { add(k) { this.owner.clases.add(k); } }, setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(k) { if (k === 'keydown') this.teclas++; },
+        querySelector: q => (q === '.tag-chip' ? chip : null), chip, nodo, init() { this.style.owner = this; this.classList.owner = this; return this; } }.init();
+    };
+    const cl = carta(); E.carta(cl, { key: 'new:ascuas', type: 'new', color: '#ff7b3d' });
+    E.set('dex');
+    const dx = carta(); E.carta(dx, { key: 'up:lenguetazo', type: 'up', color: '#7a6bc4' });
+    const ev = carta(); E.carta(ev, { key: 'evo:ascuas', type: 'evo', color: '#ffd23f' });
+    const st = carta(); E.carta(st, { key: 'stat:speed', type: 'stat', color: '#8fa3c4' });
+    t('cartas de nivel: --tc con el color del tipo (evolución en oro, mejoras con el suyo), filo en Fantasma, tabindex y role=button con Intro en los dos estilos; la píldora con su tinta (Fantasma oscurecido) y sin mayúsculas sólo en Dex',
+      cl.css['--tc'] === '#ff7b3d' && cl.tabIndex === 0 && cl.attrs.role === 'button' && cl.teclas === 1 && !cl.chip.style.background && cl.nodo.nodeValue === 'EVOLUCIÓN' &&
+      dx.css['--tc'] === '#7a6bc4' && dx.clases.has('tc-filo') && dx.dataset.tipo === 'ghost' && dx.chip.style.background === '#7164B6' && dx.chip.style.color === '#FFFFFF' &&
+      ev.css['--tc'] === '#FFCB3D' && ev.nodo.nodeValue === 'Evolución' && st.css['--tc'] === '#8fa3c4' && !st.dataset.tipo,
+      { clasico: cl.css, fantasma: [dx.css, dx.chip.style], evo: [ev.css, ev.nodo.nodeValue], mejora: st.css });
+  } catch (e) { t('Ajustes y cartas', false, String(e && e.stack || e)); }
+
+  try {
+    // Franja de tipo: ≥ 3:1 contra el fondo de la carta (cristal 2) en los 18 tipos, con el filo claro donde no llega.
+    const M = marca(), c = { console }; c.window = c; c.G = {}; vm.createContext(c); vm.runInContext(rd('js/core/util.js'), c, { filename: 'js/core/util.js' });
+    const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    const lum = v => { const [r, g, b] = v.map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+    const fondo = rgb(M.color.cristal2), filo = [238, 246, 247], af = 0.35;
+    const tabla = {}, mal = [];
+    for (const [tipo, col] of Object.entries(c.G.U.TYPE_COLOR)) {
+      const base = ratio(rgb(col), fondo);
+      const conFilo = M.tipoConFilo.includes(tipo) ? ratio(rgb(col).map((v, i) => Math.round(v * (1 - af) + filo[i] * af)), fondo) : null;
+      tabla[tipo] = +(Math.max(base, conFilo || 0)).toFixed(2);
+      if (!(base >= 3 || conFilo >= 3)) mal.push({ tipo, base: +base.toFixed(2), conFilo: conFilo && +conFilo.toFixed(2) });
+    }
+    t('franja de tipo: ≥ 3:1 contra el fondo de la carta en los 18 tipos (Fantasma, Dragón y Siniestro, con su filo claro de 1 px)', Object.keys(tabla).length === 18 && !mal.length, mal.length ? mal : tabla);
+  } catch (e) { t('contraste de la franja', false, String(e && e.stack || e)); }
+
+  try {
+    // Lienzos al tamaño en que se ven y sin cortes: encaje() (pura) y los tamaños del compañero y del premio.
+    for (const k of Object.keys(almacen)) delete almacen[k];
+    const { E } = cargarEstilo();
+    const dentro = (e, W, H) => e.fx - e.k * e.caja[0] >= 2 && e.fx + e.k * e.caja[2] <= W - 2 && e.fy - e.k * e.caja[1] >= 2 && e.fy + e.k * e.caja[3] <= H - 2;
+    // Cajas opacas medidas en el navegador (píxeles de arte respecto a los pies, dirección 1): Mewtwo y Eternatus.
+    const mewtwo = { Idle: [11.5, 32.5, 16.5, 3.5], Attack: [19.5, 31.5, 37.5, 25.5], Shoot: [18.5, 28.5, 25.5, 9.5], Charge: [13.5, 28.5, 15.5, 4.5] };
+    const eternatus = { Idle: [48.5, 60.5, 59.5, 23.5], Attack: [48.5, 60.5, 59.5, 23.5] };
+    const torchic = { Idle: [10, 23, 10, 2], Attack: [12, 25, 20, 15], Shoot: [11, 24, 14, 4], Charge: [10, 22, 10, 3] };
+    const m = E.encaje(mewtwo, 170, 190, 2, true), et = E.encaje(eternatus, 170, 190, 2, true), tc = E.encaje(torchic, 320, 240, 6, true), tq = E.encaje(torchic, 96, 76, 2, false);
+    // Upstream (ui.js): escala 2 y pies al 88 % de 190 = 167: el ataque de Mewtwo (25,5 por debajo de los pies) se salía 22 px.
+    const upstreamSeSale = 167 + 2 * mewtwo.Attack[3] > 190;
+    t('encaje(): Mewtwo en el destacado de 170x190 a ×2 con Idle, Charge, Shoot y Attack, todo dentro con 2 px de margen (con upstream, su ataque se salía por abajo); Eternatus, tan ancho, a ×1; Torchic en el compañero de 320x240 a ×6 sin el ataque que no cabe; sin «vida», sólo Idle',
+      upstreamSeSale && m.k === 2 && m.vida.join() === 'Charge,Shoot,Attack' && dentro(m, 170, 190) && et.k === 1 && dentro(et, 170, 190) &&
+      tc.k === 6 && !tc.vida.includes('Attack') && tc.vida.includes('Shoot') && dentro(tc, 320, 240) && tq.vida.length === 0 && dentro(tq, 96, 76), { m, et, tc, tq });
+  } catch (e) { t('encaje de los sprites', false, String(e && e.stack || e)); }
+  try {
+    // Tamaños: compañero 320x240 (208x150 en pantallas bajas), premio ×1 200x180 (160x140) y ×10 132x120 (96x76); el lienzo de upstream se releva.
+    const prueba = alto => {
+      for (const k of Object.keys(almacen)) delete almacen[k];
+      const lienzo = () => ({ width: 300, height: 150, getContext: () => ({}), getAttribute: () => null, replaceWith(x) { this.por = x; } });
+      const fot = (w, h, ax, ay) => ({ w, h, ax, ay, n: 1, r: 8 });
+      const { E, c } = cargarEstilo({ alto, extra: { Sprites: { PX: 2, meta: () => ({ a: { Idle: 1, Attack: 1 } }), animMeta: (d, a) => (a === 'Idle' ? fot(24, 32, 12, 24) : fot(40, 48, 20, 30)),
+        sheet: () => ({ ready: false }), preload: () => null, Animator: class { constructor() { this.scale = 1; } loop() {} } } } });
+      c.document.createElement = lienzo;
+      const viejo = Object.assign(lienzo(), { id: 'menu-partner', className: 'stage', width: 260, height: 200 });
+      E.companero(viejo, 4, { shiny: false });
+      const comp = { w: viejo.por.width, h: viejo.por.height, id: viejo.por.id, clase: viejo.por.className, e: E.colocacion(viejo.por) };
+      const premio = (n, rareza) => {
+        const v = lienzo(), card = { clases: [], querySelector: () => v, classList: { add: k => card.clases.push(k) } };
+        E.premio(card, { dex: 150, rarity: rareza, shiny: false }, n);
+        return { w: v.por.width, h: v.por.height, clase: card.clases[0], e: E.colocacion(v.por) };
+      };
+      return { comp, x1: premio(1, 5), x10: premio(10, 2) };
+    };
+    {
+      const pc = prueba(900), mv = prueba(390);
+      t('compañero del menú: lienzo de 320x240 (208x150 en pantallas bajas) que releva al de upstream con su id y su clase, hasta ×6; premio ×1 de 200x180 (160x140 en bajas) y ×10 de 132x120 (96x76), con su clase',
+        pc.comp.w === 320 && pc.comp.h === 240 && pc.comp.id === 'menu-partner' && pc.comp.clase === 'stage' && pc.comp.e && pc.comp.e.k >= 1 && pc.comp.e.k <= 6 &&
+        mv.comp.w === 208 && mv.comp.h === 150 && pc.x1.w === 200 && pc.x1.h === 180 && pc.x1.clase === 'premio-1' && mv.x1.w === 160 && mv.x1.h === 140 &&
+        pc.x10.w === 132 && pc.x10.h === 120 && mv.x10.w === 96 && mv.x10.h === 76 && mv.x10.clase === 'premio-10' && pc.x1.e.k <= 4 && mv.x10.e.k <= 2, { pc, mv });
+    }
+  } catch (e) { t('lienzos del compañero y del premio', false, String(e && e.stack || e)); }
+
+  try {
+    // disposicion(): bandas y zona libre del HUD (lote 2) y la pantalla dividida opcional.
+    for (const k of Object.keys(almacen)) delete almacen[k];
+    const { E } = cargarEstilo();
+    const S0 = { sup: 0, der: 0, inf: 0, izq: 0 }, muesca = { sup: 0, der: 47, inf: 21, izq: 47 };
+    const d = (w, h, op = {}) => E.disposicion(w, h, Object.assign({ seguras: S0 }, op));
+    const m844 = d(844, 390), m780 = d(780, 360), se = d(568, 320), ms = d(844, 390, { seguras: muesca, columnaIzq: 104 });
+    const pc = d(1440, 900), fhd = d(1920, 1080), p1280 = d(1280, 720);
+    const pleg = d(800, 870), plegH = d(870, 800);
+    const dv = d(800, 870, { dividida: 'auto' }), dh = d(1440, 900, { dividida: 'auto' }), dm = d(844, 390, { dividida: 'derecha' }), dp = d(800, 870, { dividida: 'abajo', proporcion: 0.45 });
+    const pct = x => +((x.bandas.sup + x.bandas.inf) / x.juego.h * 100).toFixed(1);
+    const dentro = x => x.libre.x >= x.juego.x && x.libre.y >= x.juego.y && x.libre.x + x.libre.w <= x.juego.x + x.juego.w + 1e-9 && x.libre.y + x.libre.h <= x.juego.y + x.juego.h + 1e-9;
+    t('disposición compacta (alto < 520): banda superior de 88 px a 844x390 (22,6 %) y abajo nada; ranuras en columna a la derecha (62 px); filas adaptables: 83 px a 780x360 y 71 a 568x320, todo ≤ 25 %; con muesca, los márgenes la respetan',
+      m844.variante === 'compacto' && m844.bandas.sup === 88 && m844.bandas.inf === 0 && m844.bandas.der === 62 && m844.ranuras === 'columna' && pct(m844) <= 25 &&
+      m780.bandas.sup === 83 && pct(m780) <= 25 && se.bandas.sup === 71 && pct(se) <= 25 && se.bandas.der === 6 + 44 + 6 &&
+      ms.bandas.der === 47 + 48 + 6 && ms.bandas.izq === 47 + 104 && ms.libre.w === 844 - 101 - 151 && dentro(ms),
+      { m844: m844.bandas, m780: m780.bandas, se: se.bandas, ms: ms.bandas });
+    t('disposición de escritorio: escala 1,25 a 1440x900 y 1,5 a 1920x1080 (1 a 1280x720); pila de arriba de 220 px y fila de ranuras abajo de 130 a 1440x900; un plegable desplegado (800x870, 870x800) usa la de escritorio',
+      pc.variante === 'escritorio' && pc.escala === 1.25 && pc.bandas.sup === 220 && pc.bandas.inf === 130 && pc.ranuras === 'fila' && fhd.escala === 1.5 && p1280.escala === 1 &&
+      pleg.variante === 'escritorio' && plegH.variante === 'escritorio' && dentro(pc) && dentro(pleg), { pc: pc.bandas, fhd: fhd.bandas, pleg: pleg.bandas });
+    t("pantalla dividida (opcional, estilo DS): 'auto' pone los controles abajo en un plegable (800x870: juego arriba de 435) y a la derecha en apaisado; el juego y los controles no se pisan y la zona libre queda dentro del juego",
+      dv.dividida === 'abajo' && dv.juego.h === 435 && dv.controles.y === 435 && dv.controles.h === 435 && dv.ranuras === 'controles' && dv.bandas.inf === 0 && dentro(dv) &&
+      dh.dividida === 'derecha' && dh.juego.w === 720 && dh.controles.x === 720 && dentro(dh) && dm.variante === 'compacto' && dm.bandas.der === 0 && dm.juego.w === 422 &&
+      dp.controles.h === Math.round(870 * 0.45) && dp.juego.h + dp.controles.h === 870,
+      { dv: [dv.juego, dv.controles, dv.libre], dh: [dh.juego, dh.controles], dm: [dm.juego, dm.bandas], dp: [dp.juego, dp.controles] });
+  } catch (e) { t('disposición del HUD', false, String(e && e.stack || e)); }
+
+  // ---- D. css/nico.css: los arreglos van en los dos estilos y la piel sólo bajo html.estilo-dex ----
+  try {
+    const css = rd('css/nico.css').replace(/\/\*[\s\S]*?\*\//g, '');
+    const corte = css.indexOf('html.estilo-dex body');
+    const reglas = parte => {
+      const out = [];
+      for (const m of parte.matchAll(/([^{};]+)\{/g)) {
+        const sel = m[1].trim();
+        if (!sel || sel.startsWith('@') || /^(from|to|\d+%)$/.test(sel)) continue;
+        let prof = 0, cur = '';
+        for (const ch of sel) { if (ch === '(') prof++; if (ch === ')') prof--; if (ch === ',' && !prof) { out.push(cur.trim()); cur = ''; } else cur += ch; }
+        out.push(cur.trim());
+      }
+      return out;
+    };
+    const siempre = reglas(css.slice(0, corte)), dex = reglas(css.slice(corte));
+    const malSiempre = siempre.filter(s => /estilo-dex/.test(s)), malDex = dex.filter(s => !s.startsWith('html.estilo-dex'));
+    t('css/nico.css: el bloque «siempre» (arreglos de los dos estilos) no depende del estilo y toda la piel Dex va bajo html.estilo-dex (Clásico = upstream + arreglos)',
+      corte > 0 && siempre.length > 20 && dex.length > 150 && !malSiempre.length && !malDex.length, { malSiempre, malDex: malDex.slice(0, 5) });
+    t('css/nico.css: el menú principal se oculta con cualquier .scr.dim abierta, en los dos estilos',
+      siempre.includes('body:has(.scr.dim:not(.hidden)) #scr-menu') && /body:has\(\.scr\.dim:not\(\.hidden\)\) #scr-menu \{ visibility: hidden; \}/.test(css));
+    t('css/nico.css no escala por CSS los lienzos del compañero, del premio ni los destacados del gacha (width/height: auto)',
+      /#scr-menu #menu-partner \{ width: auto; height: auto; \}/.test(css) && /#pull-results \.pcard canvas \{ width: auto; height: auto;/.test(css) && /#banner \.feat canvas \{ width: auto; height: auto; \}/.test(css));
+    t('avisos centrados (logros y mensajes): su animación de entrada conserva el translateX(-50%) (la «pop» de upstream lo anulaba y entraban desplazados)',
+      /\.toast, \.ach-pop \{ animation-name: pop-centrado; \}/.test(css) && /@keyframes pop-centrado \{ from \{ transform: translateX\(-50%\) scale\(\.94\);[^}]*\} to \{ transform: translateX\(-50%\);/.test(css) &&
+      /\.toast \{[^}]*transform: translateX\(-50%\)[^}]*animation: pop/.test(rd('css/style.css').replace(/\r/g, '')));
+    const sw = rd('sw.js');
+    t('sw.js guarda assets/fonts en caché (las fuentes de Dex funcionan sin internet tras la primera carga)', /assets\\\/\(pokemon\|icons\|fonts\)/.test(sw));
+  } catch (e) { t('css/nico.css', false, String(e && e.stack || e)); }
+
+  // ---- E. Inglés, finales de línea y ajustes documentados ----
+  try {
+    const c = { console, navigator: { language: 'en-US', languages: ['en-US'] }, location: { pathname: '/' },
+      localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} }, confirm: () => true, alert() {} };
+    c.CanvasRenderingContext2D = function () {};
+    c.CanvasRenderingContext2D.prototype = { fillText() {}, strokeText() {}, measureText() {} };
+    c.window = c; c.G = {};
+    vm.createContext(c);
+    for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
+    const EN = c.G.I18n.t;
+    const leg = /<span>([^<]+)<\/span><!-- MOD nico -->/.exec(rd('dev.html'));
+    const textos = ['Estilo', 'Dex', 'Clásico', 'Dex: menús de Pokédex y letra redondeada. Clásico: el aspecto del juego original.', 'Letra del estilo Dex:',
+      'Probabilidades', 'Cerrar', leg ? leg[1] : '(falta el texto legal)',
+      'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de la derecha para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal.'];
+    const sin = textos.filter(s => s !== 'Dex' && EN(s) === s);
+    t('todos los textos nuevos tienen inglés (i18n.js real): Estilo, Clásico, su explicación, los créditos, «Probabilidades», «Cerrar», el aviso legal y los controles con las ranuras a la derecha', !sin.length, sin);
+  } catch (e) { t('inglés de la identidad', false, String(e && e.stack || e)); }
+  try {
+    const ficheros = ['dev.html', 'css/style.css', 'css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/settings-ui.js', 'js/ui/run-ui.js',
+      'js/ui/menu.js', 'js/ui/gacha-ui.js', 'js/game.js', 'js/core/mods.js', 'js/data/lang-en-mod.js', 'js/entities/claridad.js', 'CREDITS.md', 'assets/fonts/OFL-MPLUSRounded1c.txt',
+      'tools/nico/check.js'].concat(ex('tools/nico/estilo-e2e.js') ? ['tools/nico/estilo-e2e.js'] : []);
+    const mezcla = ficheros.filter(f => { const s = rd(f), crlf = (s.match(/\r\n/g) || []).length, lf = (s.match(/\n/g) || []).length; return crlf && crlf !== lf; });
+    const nuevosCRLF = ['css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'assets/fonts/OFL-MPLUSRounded1c.txt'].filter(f => /\r/.test(rd(f)));
+    t('finales de línea: ningún fichero tocado mezcla CRLF y LF, y los nuevos van en LF', !mezcla.length && !nuevosCRLF.length, { mezcla, nuevosCRLF });
+  } catch (e) { t('finales de línea', false, String(e && e.stack || e)); }
+  try {
+    const c = { console }; c.window = c; c.G = {}; vm.createContext(c); vm.runInContext(rd('js/core/mods.js'), c, { filename: 'js/core/mods.js' });
+    const md = rd('CLAUDE.md');
+    const sin = Object.keys(c.G.MODS).filter(k => /^[a-z]/.test(k) && typeof c.G.MODS[k] !== 'function' && !md.includes('`' + k + '`'));
+    t('cada ajuste de js/core/mods.js tiene su fila en la tabla de CLAUDE.md', !sin.length, sin);
+  } catch (e) { t('ajustes documentados', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`identidad visual: ${r.length} casos bien`);

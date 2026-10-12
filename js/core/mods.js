@@ -171,6 +171,17 @@ G.MODS = {
    * ×10 también en un portátil de 1280x720) o «Continuar». false = como el original. */
   avisosTrasGacha: true,
 
+  /* ---- Identidad visual «Dex de Expedición» (elegida por Nico el 12-10-2026) ----
+   * Estilo que ve quien no lo ha cambiado en Ajustes > Gráficos > Estilo (js/ui/estilo.js):
+   *   'dex'      menús de Rotom-Dex (css/nico.css) y letra M PLUS Rounded 1c en todo, también en el
+   *              lienzo (Pixelify sólo en el logotipo). En los lotes siguientes: HUD Dex y entornos.
+   *   'clasico'  el aspecto del juego original, con la tanda 1 de claridad y los arreglos que no son
+   *              estética (menús sin el de detrás, gacha y fin de partida en móvil, lienzos del
+   *              compañero y del premio al tamaño en que se ven).
+   * La elección del jugador se guarda en su navegador y gana a este valor. Es local: en grupo, cada
+   * uno juega con el suyo. 'clasico' mientras se implementa la identidad (pasará a 'dex' al cerrarla). */
+  estiloPorDefecto: 'clasico',
+
   /* ---- Pantallas: móviles en vertical y plegables ----
    * «Gira el móvil» (tapa la partida y la pausa) sólo en una pantalla PEQUEÑA y claramente EN VERTICAL:
    * ancho/alto por debajo de giroAspectoMax Y el lado corto por debajo de giroLadoMax px CSS. Upstream

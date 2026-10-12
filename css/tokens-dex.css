@@ -1,0 +1,155 @@
+/* ============ tokens-dex.css — identidad «Dex de Expedición» (MOD nico) ============
+ * Contrato de diseño: variables y @font-face, nada más. Las mismas cifras que js/ui/marca.js
+ * (G.MARCA, lo que se dibuja en el lienzo); tools/nico/check.js comprueba que coinciden.
+ * Guía de marca del 12-10-2026 (brand.md, tokens.css de la propuesta, con las correcciones
+ * de la revisión cruzada).
+ *
+ * - Los tokens nuevos viven en :root y no pisan nada del original.
+ * - El estilo Dex se activa con la clase «estilo-dex» en <html> (Ajustes > Gráficos > Estilo,
+ *   js/ui/estilo.js). Sólo dentro de html.estilo-dex se reasignan las variables del original
+ *   (--ink, --gold…): en «Clásico» el juego queda como upstream.
+ * - La piel de los componentes va en css/nico.css y sólo consume estas variables.
+ * - Fuentes en local (el juego funciona sin internet), OFL: assets/fonts/OFL-MPLUSRounded1c.txt.
+ *   Los nombres de fichero no se reutilizan: sw.js guarda las fuentes para siempre.
+ */
+
+@font-face {
+  font-family: 'M PLUS Rounded 1c';
+  src: url('../assets/fonts/MPLUSRounded1c-500-latin.woff2') format('woff2');
+  font-weight: 400 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'M PLUS Rounded 1c';
+  src: url('../assets/fonts/MPLUSRounded1c-800-latin.woff2') format('woff2');
+  font-weight: 650 900; font-style: normal; font-display: swap;
+}
+/* El logotipo usa 'Pixelify', ya declarada en css/style.css (assets/fonts/PixelifySans.ttf). */
+
+:root {
+  /* ---------- carcasa de la Pokédex (lengüetas, logo, N.º del jefe, acción principal) ---------- */
+  --color-rojo: #D7263D;
+  --color-rojo-pulsado: #BE1D33;
+  --color-rojo-oscuro: #8C1328;
+  --color-rojo-borde: #5A0B19;
+
+  /* ---------- pantallas de cristal (interfaz) ---------- */
+  --color-fondo: #050E12;
+  --color-cristal: #0F2630;
+  --color-cristal-2: #173640;
+  --color-cristal-3: #1E4450;
+  --color-cristal-hud: rgba(15, 38, 48, 0.92);
+  --color-bisel: #3B6470;
+  --color-borde-control: #5A8A96;
+  --color-pantalla: #62E3DD;
+  --color-tinta: #EEF6F7;
+  --color-tinta-2: #A9C3C9;
+  --color-tinta-oscura: #0B1A20;
+  --color-lente: #2F7FE0;
+  --color-lente-oscura: #1B4FA0;
+  --color-lente-clara: #5AA8FF;
+  --color-lente-brillo: #CFE8FF;
+  --color-aro-lente: #F4F8FA;
+
+  /* ---------- datos de los juegos ---------- */
+  --color-ps-alto: #58D873;
+  --color-ps-medio: #FFCB3D;
+  --color-ps-bajo: #F2493B;
+  --color-ps-bajo-destello: #FF8A80;
+  --color-exp: #3DB5F0;
+  --color-rival: #9B6BFF;
+  --color-carril: rgba(2, 8, 11, 0.6);
+
+  /* ---------- semántica ---------- */
+  --color-oro: #FFCB3D;
+  --color-grieta: #B48AFF;
+  --color-grieta-claro: #E2D0FF;
+  --color-grieta-oscuro: #1A0B33;
+  --color-vinculo: #FF8AD8;
+  --color-peligro: #FF2440;
+  --color-peligro-texto: #FF8A80;
+  --color-escudo: #9FD8FF;
+
+  /* ---------- tipos: fondo de píldora ya resuelto para ≥4,5:1 (ver tokens.js) ---------- */
+  --tipo-normal: #B0A99F;  --tipo-fire: #FF7B3D;    --tipo-water: #4B9BFF;  --tipo-grass: #5FCB6A;
+  --tipo-electric: #FFD33D; --tipo-ice: #7FE0E0;    --tipo-fighting: #E0533D; --tipo-poison: #B45EC4;
+  --tipo-ground: #D6B25C;  --tipo-flying: #9BB8FF;  --tipo-psychic: #FF5F9E; --tipo-bug: #A3C43D;
+  --tipo-rock: #BFA96B;    --tipo-ghost: #7164B6;   --tipo-dragon: #6B58FF; --tipo-dark: #6B5C52;
+  --tipo-steel: #A8B8C4;   --tipo-fairy: #FF9ED8;
+  --tipo-filo: rgba(238, 246, 247, 0.35);   /* filo de 1 px en franjas de Fantasma, Dragón y Siniestro */
+
+  /* ---------- tipografía ---------- */
+  --font-datos: 'M PLUS Rounded 1c', 'Segoe UI', system-ui, sans-serif;
+  --font-logo: 'Pixelify', 'M PLUS Rounded 1c', sans-serif;
+  --font-peso-normal: 500;
+  --font-peso-fuerte: 800;
+  /* Escala única ≈1,2: 11 · 13 · 16 · 18 · 22 · 28 · 40. El DOM usa de 13 a 40; el lienzo, 11/13/16/18/28 (tokens.js). */
+  --fs-1: 13px;  /* etiquetas, metadatos, notas */
+  --fs-2: 16px;  /* cuerpo */
+  --fs-3: 18px;  /* títulos de carta, nombre en ficha */
+  --fs-4: 22px;  /* opciones del menú, títulos de sección */
+  --fs-5: 28px;  /* títulos de pantalla */
+  --fs-6: 40px;  /* display: «¡Nivel 6!», logo base */
+  --lh-cuerpo: 1.45;
+  --lh-titulo: 1.15;
+  --tracking-display: -0.01em;
+
+  /* ---------- espaciado (base 4) ---------- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --tap-min: 44px;
+
+  /* ---------- radios ---------- */
+  --radius-0: 4px;     /* chips de tipo, segmentos */
+  --radius-1: 6px;     /* kbd, chips pequeños */
+  --radius-2: 10px;    /* botones, cartas, campos */
+  --radius-3: 14px;    /* paneles, pantallas, cajas */
+  --radius-pildora: 999px;
+
+  /* ---------- sombras (no hay sombra difusa genérica: borde oscuro + caída) ---------- */
+  --shadow-panel: 0 0 0 1px rgba(2, 8, 11, 0.7), 0 16px 40px rgba(2, 8, 11, 0.5);
+  --shadow-panel-brillo: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --shadow-boton: inset 0 -3px 0 rgba(2, 8, 11, 0.5), 0 0 0 1px rgba(2, 8, 11, 0.6);
+  --shadow-boton-pulsado: inset 0 -1px 0 rgba(2, 8, 11, 0.5), 0 0 0 1px rgba(2, 8, 11, 0.6);
+  --shadow-boton-rojo: inset 0 -3px 0 #8C1328, 0 0 0 1px #5A0B19;
+  --shadow-escenario: 0 0 0 3px #071318, 0 12px 30px rgba(2, 8, 11, 0.45);
+
+  /* ---------- foco y movimiento ---------- */
+  --focus-anillo: 2px solid #62E3DD;
+  --focus-separacion: 2px;
+  --dur-micro: 150ms;
+  --dur-entrada: 180ms;
+  --curva: ease-out;
+}
+
+/* Pantallas bajas (móvil en horizontal): el cuerpo baja a 15 px por espacio
+   (excepción declarada en brand.md § 5); los títulos, un paso. */
+@media (max-height: 519.98px) {
+  :root {
+    --fs-2: 15px;
+    --fs-5: 22px;
+    --fs-6: 28px;
+  }
+}
+
+/* ---------- variables del original, reasignadas SOLO en estilo Dex ---------- */
+html.estilo-dex {
+  --ink: var(--color-tinta);
+  --muted: var(--color-tinta-2);
+  --gold: var(--color-oro);
+  --gold2: var(--color-oro);
+  --red: var(--color-ps-bajo);
+  --green: var(--color-ps-alto);
+  --edge: var(--color-bisel);
+  --edge-in: var(--color-bisel);
+  --edge-out: #071318;
+  --shadow: transparent;
+  --box1: var(--color-cristal-2);
+  --box2: var(--color-cristal);
+  --font: var(--font-datos);
+}

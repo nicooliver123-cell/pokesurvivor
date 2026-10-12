@@ -1,0 +1,412 @@
+/* ============ nico.css — menús de nuestra versión (MOD nico) ============
+ * Se carga después de css/style.css y css/tokens-dex.css (dev.html). No toca style.css de upstream:
+ * sólo vuelve a declarar. Dos bloques:
+ *
+ *   1. SIEMPRE (los dos estilos): arreglos que no son estética. Menús sin el de detrás, gacha de
+ *      un móvil en horizontal sin recortar a los legendarios y con sus botones dentro de la pantalla,
+ *      tiradas ×1 y ×10 sin desplazar, «Volver al menú» siempre a la vista y los lienzos del
+ *      compañero y del premio al tamaño en que se ven (los crea js/ui/estilo.js).
+ *   2. html.estilo-dex: la piel «Dex de Expedición» (cristal petróleo, carcasa roja, M PLUS Rounded 1c)
+ *      en las 22 pantallas. Sólo consume las variables de css/tokens-dex.css. Criterio de Nico tras ver las
+ *      maquetas (12-10-2026): COMPACTA (paneles con poco relleno, nada de cajas grandes que tapen el mundo),
+ *      el banner del gacha con su fondo y su escena del original, y el logo, el menú principal, el inicio
+ *      de sesión y «Pulsa para empezar» con la composición del original (sólo letra, bordes y colores).
+ *
+ * Pantallas bajas = alto < 520 px CSS (móvil en horizontal), como style.css.
+ */
+
+/* =====================================================================
+ * 1. SIEMPRE
+ * ===================================================================== */
+
+/* Los submenús se abren sin el menú principal detrás (se veía a través del velo). */
+body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
+
+/* Compañero del menú: su lienzo ya mide lo que se ve (320x240; 208x150 en pantallas bajas). */
+#scr-menu #menu-partner { width: auto; height: auto; }
+
+/* Premio del gacha: lienzos al tamaño en que se ven (estilo.js), nunca escalados por CSS. */
+#pull-results .pcard canvas { width: auto; height: auto; display: block; margin: 0 auto; }
+#pull-results .pcard.premio-1 { width: auto; min-width: 150px; }
+#pull-results .pcard.premio-10 { width: 146px; padding: 6px 4px; }   /* 132 + relleno + borde: caben 5 por fila en un plegable (800 de ancho) */
+
+/* Gacha en pantallas de 760 a 920 px de ancho (un plegable desplegado): el banner a todo el ancho y las
+   probabilidades debajo. Con la columna de 300 px al lado, los tres destacados (170 px cada uno) no
+   cabían y la caja se desplazaba en horizontal (upstream sólo pasaba a una columna por debajo de 760). */
+#scr-gacha .split > * { min-width: 0; }
+@media (max-width: 920px) and (min-height: 520px) { #scr-gacha .split { grid-template-columns: 1fr; } }
+#pull-results { padding-bottom: 64px; }   /* «Continuar» queda fijo abajo: que no tape la última fila */
+
+/* Fin de partida: «Volver al menú» siempre a la vista, aunque las estadísticas no quepan. */
+#scr-over .box { display: flex; flex-direction: column; max-height: calc(100dvh - 16px); }
+#scr-over #over-stats { min-height: 0; }
+#btn-again { position: sticky; bottom: 0; z-index: 1; flex-shrink: 0; align-self: center; }
+
+/* Avisos centrados (logros y mensajes): la animación «pop» de upstream cambia el transform y anulaba su
+   translateX(-50%), así que entraban desplazados medio ancho a la derecha durante 0,2 s (PLAN.md). La misma
+   animación, con el centrado dentro. */
+.toast, .ach-pop { animation-name: pop-centrado; }
+@keyframes pop-centrado { from { transform: translateX(-50%) scale(.94); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+
+/* Gacha: el botón «Probabilidades» y su capa sólo existen en pantallas bajas. */
+#gacha-prob { display: none; }
+#gacha-prob-capa { position: fixed; z-index: 46; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto;
+  box-shadow: 0 0 0 100vmax rgba(2, 8, 11, .72), 0 18px 50px rgba(0, 0, 0, .55); animation: none; }
+#gacha-prob-capa .rates { margin-top: 6px; }
+
+@media (max-height: 519.98px) {
+  /* --- Gacha en pantallas bajas: banner en dos columnas, destacados a su tamaño (170x190, sin
+   *     márgenes negativos ni altura fija: eso los cortaba) y los tres botones a la vista. --- */
+  body:has(#scr-gacha:not(.hidden)) #topbar { display: none; }   /* los tickets ya salen en el banner y en cada botón */
+  #scr-gacha { padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
+  #scr-gacha > .box { width: 100%; height: 100%; max-height: none; padding: 6px 10px; overflow-x: hidden; overflow-y: auto;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: 44px minmax(0, 1fr); column-gap: 8px; row-gap: 6px; }
+  #scr-gacha > .box > .row.between { display: contents; }
+  #scr-gacha > .box > .row.between > h2 { grid-column: 1; grid-row: 1; align-self: center; margin: 0; }
+  #scr-gacha #gacha-gens { grid-column: 2; grid-row: 1; margin: 0; padding: 0; align-items: stretch; scroll-snap-type: x proximity;
+    scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+  #scr-gacha #gacha-gens::-webkit-scrollbar { display: none; }
+  #scr-gacha #gacha-gens .gen-tab { scroll-snap-align: center; min-height: 44px; justify-content: center; padding: 2px 10px; }
+  #gacha-prob { display: inline-flex; align-items: center; grid-column: 3; grid-row: 1; min-height: 44px; }
+  #scr-gacha [data-back] { grid-column: 4; grid-row: 1; min-height: 44px; }
+  #scr-gacha .split { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; min-height: 0; margin: 0 !important; gap: 0; }
+  #scr-gacha .split > div:first-child { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(198px, 1fr) auto auto;
+    column-gap: 12px; row-gap: 6px; flex: 1 0 auto; min-height: 0; }
+  #scr-gacha #gacha-rates { display: none; }
+  #banner { grid-column: 1 / -1; min-height: 198px; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto 1fr;
+    column-gap: 10px; padding: 4px 4px 4px 12px; }
+  #banner > h3 { grid-column: 1; grid-row: 1; margin: 2px 0 0; font-size: 18px; }
+  #banner-desc { grid-column: 1; grid-row: 2; margin: 2px 0 !important; font-size: 13px;
+    display: -webkit-box; -webkit-line-clamp: 4; line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  #gacha-owned { grid-column: 1; grid-row: 3; font-size: 13px; }
+  #banner .feat { grid-column: 2; grid-row: 1 / -1; align-self: end; height: auto; margin: 0; gap: 0; overflow: visible; }
+  #banner .feat canvas { width: auto; height: auto; }
+  #scr-gacha .split > div:first-child > .row { grid-column: 1 / -1; margin: 0 !important; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  #scr-gacha .split > div:first-child > .row .btn { min-height: 44px; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #gacha-tickets, #gacha-pity { margin: 0 !important; font-size: 12px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #gacha-tickets { grid-column: 1; } #gacha-pity { grid-column: 2; text-align: right; }   /* en una sola línea */
+  /* Si la pantalla es estrecha, los destacados se acercan (sus lienzos son transparentes por los lados). */
+  @media (max-width: 760px) { #banner .feat canvas + canvas { margin-left: -46px; } }
+
+  /* --- Tiradas: ×10 en dos filas de 5 sin desplazar y «Continuar» en la esquina. --- */
+  #pull-fx { justify-content: flex-start; padding: max(10px, env(safe-area-inset-top)) 10px 10px; }
+  #pull-fx::before { display: none; }
+  #pull-results { padding-bottom: 0; }
+  #pull-close { position: fixed; right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); min-height: 44px; }
+  #pull-results .pcard.premio-10 { width: 110px; min-width: 0; padding: 4px; }
+  #pull-results .pcard.premio-10 .stars img { width: 12px; height: 12px; }
+  #pull-results .pcard.premio-10 b { font-size: 12px; max-width: 96px; margin: 0 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #pull-results .pcard.premio-10 .tag { font-size: 10px; max-width: 96px; margin: 0 auto;
+    display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  /* La evolución desbloqueada de un repetido: en la ×10 de una pantalla baja, sólo el texto (su sprite
+     de 40 px no cabe en dos filas de cinco cartas); en la ×1 y en escritorio, con su sprite. */
+  #pull-results .pcard.premio-10 .tag canvas { display: none !important; }
+
+  /* --- Fin de partida --- */
+  #scr-over .box { max-height: calc(100dvh - 12px); }
+
+  /* --- Sala: «Empezar partida» siempre a la vista (las tarjetas de los cuatro jugadores llenan el alto). --- */
+  #scr-lobby .box > .row:has(#lobby-start) { position: sticky; bottom: 0; z-index: 1; }
+}
+
+/* =====================================================================
+ * 2. ESTILO DEX («Dex de Expedición»): sólo con html.estilo-dex
+ * ===================================================================== */
+
+html.estilo-dex body { background: var(--color-fondo); font-family: var(--font-datos); -webkit-font-smoothing: antialiased; }
+html.estilo-dex .scr.dim { background: radial-gradient(circle at 50% 40%, rgba(6, 22, 28, .5), rgba(2, 8, 11, .86)); }
+
+/* ---------- pantalla de cristal (antes, la caja PMD azul de doble borde) ---------- */
+html.estilo-dex .box {
+  background: linear-gradient(180deg, #132F3A, var(--color-cristal));
+  border: 1px solid var(--color-bisel); border-radius: var(--radius-3);
+  box-shadow: var(--shadow-panel), var(--shadow-panel-brillo);
+  padding: var(--space-4); text-shadow: none;
+}
+/* Lengüeta roja colgando del borde superior. */
+html.estilo-dex .box::before {
+  content: ''; position: absolute; top: 0; left: var(--space-4); width: 36px; height: 4px; pointer-events: none;
+  border-radius: 0 0 4px 4px; background: var(--color-rojo); box-shadow: 0 1px 0 var(--color-rojo-borde);
+}
+html.estilo-dex .box.center::before { left: 50%; transform: translateX(-50%); }
+html.estilo-dex .box h1, html.estilo-dex .box h2, html.estilo-dex .box h3 { font-weight: 800; letter-spacing: 0; line-height: var(--lh-titulo); }
+html.estilo-dex .box h2 { font-size: var(--fs-4); }
+html.estilo-dex .box h3 { font-size: 16px; }
+html.estilo-dex .sub, html.estilo-dex .note { color: var(--color-tinta-2); font-size: var(--fs-1); line-height: var(--lh-cuerpo); }
+html.estilo-dex .sub { font-size: var(--fs-1); }
+html.estilo-dex p { line-height: var(--lh-cuerpo); }
+html.estilo-dex .gold { color: var(--color-oro); }
+html.estilo-dex .err { color: var(--color-peligro-texto); font-size: var(--fs-1); }
+
+/* ---------- botones ---------- */
+html.estilo-dex .btn {
+  font-family: var(--font-datos); font-weight: 800; font-size: 15px; color: var(--color-tinta);
+  min-height: 38px; padding: 0 14px; line-height: 1.2;
+  background: var(--color-cristal-2); border: 1px solid var(--color-borde-control); border-radius: var(--radius-2);
+  box-shadow: var(--shadow-boton); text-shadow: none; filter: none;
+  transition: background var(--dur-micro) var(--curva), border-color var(--dur-micro) var(--curva), transform .06s;
+}
+html.estilo-dex .btn:hover { filter: none; background: var(--color-cristal-3); border-color: var(--color-pantalla); }
+html.estilo-dex .btn:active { transform: translateY(2px); box-shadow: var(--shadow-boton-pulsado); }
+html.estilo-dex .btn:disabled { filter: saturate(.3) brightness(.75); cursor: not-allowed; transform: none; }
+html.estilo-dex .btn:disabled:hover { background: var(--color-cristal-2); border-color: var(--color-borde-control); }
+html.estilo-dex .btn.gold { background: var(--color-rojo); color: #fff; border-color: #F0566A; box-shadow: var(--shadow-boton-rojo); }
+html.estilo-dex .btn.gold:hover, html.estilo-dex .btn.gold:focus-visible { background: var(--color-rojo-pulsado); border-color: #FFB3BE; }
+html.estilo-dex .btn.gold:disabled:hover { background: var(--color-rojo); border-color: #F0566A; }
+html.estilo-dex .btn.ghost { background: transparent; border-color: var(--color-borde-control); box-shadow: none; }
+html.estilo-dex .btn.ghost:hover { background: var(--color-cristal-2); }
+html.estilo-dex .btn.small { position: relative; min-height: 32px; padding: 0 var(--space-3); font-size: var(--fs-1); }
+html.estilo-dex .btn.small::after { content: ''; position: absolute; inset: -6px -2px; }   /* zona de toque de 44 */
+html.estilo-dex body.touch .btn:not(.small) { min-height: var(--tap-min); }
+html.estilo-dex .btn.danger { background: #6E1424; border-color: var(--color-peligro-texto); color: #fff; }
+html.estilo-dex .btn.danger:hover { background: #7E1A2C; }
+html.estilo-dex .btn.google { background: #F4F8FA; color: #1F2A44; border-color: var(--color-borde-control); }
+html.estilo-dex a.btn { display: inline-flex; align-items: center; justify-content: center; }
+html.estilo-dex .row { gap: var(--space-3); }
+
+/* Foco visible con Tab en todo lo que se pulsa. */
+html.estilo-dex :is(.btn, .menu-item, .card, .cell, .pcard, .gen-tab, .chip, .tab, .answer, .seg button, .fav-slot, a, select, input, [tabindex]):focus-visible {
+  outline: var(--focus-anillo); outline-offset: var(--focus-separacion);
+}
+html.estilo-dex .field:focus-visible { outline: var(--focus-anillo); outline-offset: 0; }
+
+/* ---------- pestañas, chips, campos, paneles ---------- */
+html.estilo-dex .gen-tab, html.estilo-dex .tab, html.estilo-dex .chip, html.estilo-dex .seg { text-shadow: none; }
+html.estilo-dex .gen-tab {
+  min-height: 38px; justify-content: center; padding: 2px var(--space-3);
+  background: var(--color-cristal-2); border: 1px solid var(--color-borde-control); border-radius: var(--radius-2);
+}
+html.estilo-dex body.touch .gen-tab, html.estilo-dex body.touch .tab { min-height: var(--tap-min); }
+html.estilo-dex .gen-tab b { font-size: var(--fs-1); font-weight: 800; }
+html.estilo-dex .gen-tab small { font-size: 11px; color: var(--color-tinta-2); font-weight: 500; }
+html.estilo-dex .gen-tab:hover { border-color: var(--color-pantalla); }
+html.estilo-dex .gen-tab.on { background: var(--color-cristal-3); border-color: var(--color-borde-control); box-shadow: inset 0 -3px 0 var(--color-rojo); }
+html.estilo-dex .gen-tab.on b { color: #fff; }
+html.estilo-dex #set-tabs .gen-tab { font-weight: 800; font-size: 15px; }
+html.estilo-dex #set-tabs .gen-tab.on { color: #fff; }
+html.estilo-dex .tab {
+  display: flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 var(--space-2); font-weight: 800;
+  background: var(--color-cristal-2); border: 1px solid var(--color-borde-control); border-radius: var(--radius-2);
+}
+html.estilo-dex .tab.on { background: var(--color-cristal-3); border-color: var(--color-pantalla); box-shadow: inset 0 -3px 0 var(--color-rojo); }
+html.estilo-dex .chip {
+  position: relative; min-height: 32px; padding: 0 var(--space-3); font-size: var(--fs-1); font-weight: 800; color: var(--color-tinta);
+  background: var(--color-cristal-2); border: 1px solid var(--color-borde-control); border-radius: var(--radius-pildora);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+html.estilo-dex .chip::after { content: ''; position: absolute; inset: -6px 0; }
+html.estilo-dex .chip.on { border-color: var(--color-pantalla); color: var(--color-pantalla); background: var(--color-cristal-3); }
+html.estilo-dex .estilo-chips .chip { min-height: 40px; min-width: 112px; justify-content: center; font-size: 15px; }
+html.estilo-dex .seg { border: 1px solid var(--color-borde-control); border-radius: var(--radius-2); }
+html.estilo-dex .seg button { background: var(--color-cristal-2); text-shadow: none; min-height: 36px; font-weight: 800; }
+html.estilo-dex .seg button.on { background: var(--color-cristal-3); color: var(--color-pantalla); }
+html.estilo-dex label { color: var(--color-tinta-2); font-size: var(--fs-1); font-weight: 800; }
+html.estilo-dex .field { background: #0B1E26; color: var(--color-tinta); border: 1px solid var(--color-borde-control); border-radius: var(--radius-2); font-size: 16px; }
+html.estilo-dex .field:focus { border-color: var(--color-pantalla); }
+html.estilo-dex .panel { background: rgba(2, 8, 11, .22); border: 1px solid var(--color-bisel); border-radius: var(--radius-2); }
+html.estilo-dex kbd { border: 1px solid var(--color-borde-control); border-bottom-width: 2px; background: rgba(2, 8, 11, .35);
+  font-weight: 800; font-size: var(--fs-1); color: var(--color-tinta); border-radius: var(--radius-1); }
+html.estilo-dex .type { border-radius: var(--radius-0); font-weight: 800; font-size: 11px; text-shadow: none; }
+html.estilo-dex .progress { background: var(--color-carril); }
+html.estilo-dex .progress i { background: var(--color-pantalla); }
+html.estilo-dex input[type=range] { background: var(--color-carril); }
+html.estilo-dex input[type=range]::-webkit-slider-thumb { background: var(--color-pantalla); border: 2px solid var(--color-tinta); }
+html.estilo-dex input[type=range]::-moz-range-thumb { background: var(--color-pantalla); border: 2px solid var(--color-tinta); }
+html.estilo-dex ::-webkit-scrollbar-thumb { background: rgba(90, 138, 150, .55); }
+
+/* ---------- barra superior, avisos ---------- */
+html.estilo-dex .pill {
+  background: rgba(15, 38, 48, .94); border: 1px solid var(--color-bisel); box-shadow: 0 0 0 1px rgba(2, 8, 11, .6);
+  text-shadow: none; font-weight: 800; color: var(--color-tinta);
+}
+html.estilo-dex .topbar .btn.small { min-width: 36px; padding: 0 var(--space-2); }
+html.estilo-dex .credits-line { color: var(--color-tinta-2); text-shadow: none; background: rgba(15, 38, 48, .88); padding: 2px var(--space-2); border-radius: var(--radius-1); }
+html.estilo-dex .toast, html.estilo-dex .ach-pop { background: rgba(15, 38, 48, .97); border: 1px solid var(--color-bisel); text-shadow: none; color: var(--color-tinta); }
+html.estilo-dex .ach-pop { border-color: var(--color-bisel) !important; box-shadow: var(--shadow-panel), inset 4px 0 0 var(--color-oro); }
+html.estilo-dex .ach-pop b { color: var(--color-oro); }
+html.estilo-dex .ach-pop small { color: var(--color-tinta-2); }
+/* Pantalla de carga, «Pulsa para empezar» e inicio de sesión: los del original (decisión de Nico). Sólo se
+   conserva la letra pixel del título y se ponen a mano las sombras que el original saca de --shadow. */
+html.estilo-dex .boot-in h1 { font-family: var(--font-logo); text-shadow: 3px 3px 0 #a55f00, 6px 6px 0 #071318; }
+html.estilo-dex #rotate { background: rgba(5, 14, 18, .94); }
+
+/* ---------- logo: el del original (título pixel con su sombra y «Mundo Misterioso»), decisión de Nico ---------- */
+html.estilo-dex .logo .t1, html.estilo-dex .logo .t2, html.estilo-dex .about-logo { font-family: var(--font-logo); }
+html.estilo-dex .logo .t1 { text-shadow: 3px 3px 0 #a55f00, 6px 6px 0 #071318; }
+html.estilo-dex .logo .t2 { text-shadow: 2px 2px 0 #071318; }
+html.estilo-dex .login-tag { color: var(--color-tinta-2); }
+html.estilo-dex .legal-link, html.estilo-dex .login-links a { color: var(--color-tinta-2); }
+html.estilo-dex .legal-link:hover { color: var(--color-tinta); }
+html.estilo-dex .about-logo { text-shadow: 2px 2px 0 #a55f00, 4px 4px 0 #071318; }
+
+/* ---------- menú principal ---------- */
+html.estilo-dex .stage {
+  background: radial-gradient(ellipse at 50% 88%, rgba(98, 227, 221, .18), transparent 60%), linear-gradient(180deg, rgba(18, 52, 64, .9), rgba(11, 30, 38, .92));
+  border: 3px solid var(--stage-c, var(--color-bisel)); border-radius: var(--radius-3);
+  box-shadow: 0 0 0 3px #071318, 0 10px 26px rgba(2, 8, 11, .4);
+}
+html.estilo-dex .stage.shiny { box-shadow: 0 0 0 3px #071318, 0 0 22px rgba(154, 230, 255, .45); }
+html.estilo-dex .partner-card .nm { font-weight: 800; text-shadow: 2px 2px 0 #071318; }
+html.estilo-dex .partner-card .lv { text-shadow: 1px 1px 0 #071318; }
+html.estilo-dex #scr-menu .menu-right { background: linear-gradient(90deg, transparent, rgba(6, 18, 24, .7) 30%); }
+html.estilo-dex .menu-right .box { padding: var(--space-3); }
+html.estilo-dex .menu-item { font-weight: 800; font-size: 19px; text-shadow: none; color: var(--color-tinta); border-radius: var(--radius-2); letter-spacing: 0; }
+html.estilo-dex .menu-item small { font-weight: 500; font-size: var(--fs-1); color: var(--color-tinta-2); }
+html.estilo-dex .menu-item small.gold { color: var(--color-oro); }
+html.estilo-dex .menu-item:hover, html.estilo-dex .menu-item:focus-visible { background: var(--color-cristal-2); }
+html.estilo-dex .menu-item.play { font-size: 25px; color: var(--color-oro); }
+html.estilo-dex #menu-stats { color: var(--color-tinta-2) !important; font-size: var(--fs-1) !important; }
+html.estilo-dex #menu-stats b { color: var(--color-tinta) !important; font-weight: 800; }
+
+/* ---------- colección, iniciales, mejoras (rejillas de Pokémon) ---------- */
+html.estilo-dex .cell { background: rgba(2, 8, 11, .25); border: 1px solid rgba(59, 100, 112, .8); border-radius: var(--radius-2); }
+html.estilo-dex .cell:hover { border-color: var(--color-pantalla); background: rgba(98, 227, 221, .06); }
+html.estilo-dex .cell.on { border: 2px solid var(--color-oro); background: rgba(255, 203, 61, .10); }
+html.estilo-dex .cell.locked:hover { border-color: rgba(59, 100, 112, .8); background: rgba(2, 8, 11, .25); }
+html.estilo-dex .cell .no { color: var(--color-tinta-2); font-size: 11px; font-weight: 500; }
+html.estilo-dex .cell b { font-weight: 800; }
+html.estilo-dex .stat .bar, html.estilo-dex .mission .bar, html.estilo-dex .ach .bar { background: var(--color-carril); }
+html.estilo-dex .stat .bar i { background: var(--color-pantalla); }
+html.estilo-dex .mission .bar i, html.estilo-dex .ach .bar i { background: var(--color-oro); }
+html.estilo-dex .pips i { background: var(--color-carril); }
+html.estilo-dex .pips i.on { background: var(--color-oro); }
+html.estilo-dex .upg-item { border-radius: var(--radius-2); }
+html.estilo-dex select.field { font-family: var(--font-datos); }
+
+/* ---------- test de personalidad ---------- */
+html.estilo-dex .q { font-weight: 800; font-size: var(--fs-4); }
+html.estilo-dex .answer {
+  text-shadow: none; font-size: var(--fs-2); min-height: var(--tap-min); color: var(--color-tinta);
+  background: var(--color-cristal-2); border: 1px solid var(--color-borde-control); border-radius: var(--radius-2); padding-left: 20px;
+}
+html.estilo-dex .answer::before { display: none; }
+html.estilo-dex .answer:hover { background: var(--color-cristal-3); border-color: var(--color-pantalla); }
+html.estilo-dex .result .trait { color: var(--color-pantalla); font-weight: 800; }
+
+/* ---------- gacha: el banner conserva el fondo y la escena del original (decisión de Nico); sólo cambian el marco y la letra ---------- */
+html.estilo-dex .banner { border: 1px solid var(--color-bisel); border-radius: var(--radius-3); text-shadow: 2px 2px 0 rgba(2, 8, 11, .75); }
+html.estilo-dex .banner h3 { font-weight: 800; letter-spacing: 0; }
+html.estilo-dex .rates div { border-bottom: 1px solid rgba(169, 195, 201, .14); }
+html.estilo-dex .rates h3 { font-weight: 800; }
+html.estilo-dex #pull-fx { background: radial-gradient(circle at 50% 45%, #15404C, var(--color-fondo) 70%); }
+html.estilo-dex .pcard {
+  background: linear-gradient(180deg, var(--color-cristal-2), var(--color-cristal));
+  border: 2px solid var(--rc, var(--color-bisel)); border-radius: var(--radius-3); text-shadow: none;
+  box-shadow: 0 0 0 1px rgba(2, 8, 11, .7), 0 0 18px color-mix(in srgb, var(--rc, #fff) 40%, transparent);
+}
+html.estilo-dex .pcard b { font-weight: 800; }
+html.estilo-dex .pcard .tag { color: var(--color-tinta-2); }
+html.estilo-dex .pcard .new { color: var(--color-oro); font-weight: 800; }
+
+/* ---------- cartas de subida de nivel, objeto y vínculo: entradas del Dex ---------- */
+html.estilo-dex .cards { gap: var(--space-2); }
+html.estilo-dex .card {
+  position: relative; overflow: hidden; gap: var(--space-3); min-height: 56px;
+  background: var(--color-cristal-2); border: 1px solid var(--color-borde-control); border-radius: var(--radius-2);
+  padding: 10px 14px 10px 22px;   /* 8 de franja + 14 */
+  transition: background var(--dur-micro) var(--curva), border-color var(--dur-micro) var(--curva), transform .06s;
+}
+/* Franja de tipo de 8 px (de Estadio de la Liga) con el color de su tipo (--tc, js/ui/estilo.js). */
+html.estilo-dex .card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 8px; background: var(--tc, var(--color-bisel)); }
+html.estilo-dex .card.tc-filo::before { box-shadow: inset -1px 0 0 var(--tipo-filo); }
+html.estilo-dex .card:hover { background: var(--color-cristal-3); border-color: var(--color-pantalla); transform: none; }
+html.estilo-dex .card:active { transform: translateY(1px); }
+/* Icono tintado del tipo. */
+html.estilo-dex .card .ico {
+  flex: 0 0 44px; height: 44px; border-radius: var(--radius-2);
+  background: color-mix(in srgb, var(--tc, var(--color-bisel)) 34%, var(--color-cristal)) !important;
+  border: 1px solid color-mix(in srgb, var(--tc, var(--color-bisel)) 60%, transparent);
+}
+html.estilo-dex .card .nm { font-weight: 800; font-size: 16px; }
+html.estilo-dex .card .ds { color: var(--color-tinta-2); font-size: 14px; font-weight: 500; }
+html.estilo-dex .card .key { color: var(--color-tinta); border: 1px solid var(--color-borde-control); border-bottom-width: 2px;
+  background: rgba(2, 8, 11, .35); font-weight: 800; min-width: 28px; height: 28px; display: grid; place-items: center; padding: 0; }
+html.estilo-dex .tag-chip { border-radius: var(--radius-0); font-weight: 800; font-size: 11px; padding: 2px 8px; text-shadow: none; color: var(--color-tinta-oscura); }
+html.estilo-dex .card.evo { --tc: var(--color-oro); border-color: rgba(255, 203, 61, .7); background: linear-gradient(90deg, rgba(255, 203, 61, .16), var(--color-cristal-2) 60%); }
+html.estilo-dex .card.evo .nm { color: var(--color-oro); }
+html.estilo-dex .card.bond { --tc: var(--color-vinculo); border-color: rgba(255, 138, 216, .7); background: linear-gradient(90deg, rgba(255, 138, 216, .14), var(--color-cristal-2) 60%); }
+html.estilo-dex .card.bond .nm, html.estilo-dex .bond-title { color: var(--color-vinculo); }
+html.estilo-dex #item-cards .card { --tc: var(--color-oro); }
+html.estilo-dex .cards.done .card.picked { border: 2px solid var(--color-oro); opacity: 1; }
+html.estilo-dex .cards.done .card { opacity: .55; }
+html.estilo-dex #scr-levelup h2, html.estilo-dex #scr-item h2, html.estilo-dex #scr-bond h2, html.estilo-dex #scr-over h2, html.estilo-dex #scr-pause h2 { font-size: var(--fs-4); }
+html.estilo-dex #lvl-num { color: var(--color-pantalla); }
+html.estilo-dex #lvl-wait { color: var(--color-oro); }
+html.estilo-dex #scr-levelup .box, html.estilo-dex #scr-item .box { width: min(520px, 100%); }
+
+/* ---------- pausa y fin de partida ---------- */
+html.estilo-dex #btn-quit { color: var(--color-peligro-texto); }
+html.estilo-dex #btn-again { align-self: stretch; width: 100%; min-height: 48px; }
+html.estilo-dex .stats > div { background: var(--color-cristal-2); border: 1px solid var(--color-bisel); border-radius: var(--radius-2); }
+html.estilo-dex .stats > div > span:first-child { text-transform: none; color: var(--color-tinta-2); font-size: var(--fs-1); font-weight: 800; }
+html.estilo-dex .stats b { font-weight: 800; font-size: 20px; }
+html.estilo-dex .caught > span { text-transform: none; color: var(--color-tinta-2); }
+html.estilo-dex .support-ask { background: rgba(255, 203, 61, .08); border: 1px solid rgba(255, 203, 61, .45); border-radius: var(--radius-2); }
+
+/* ---------- ajustes, aviso legal, apoyo ---------- */
+html.estilo-dex .set-h { color: var(--color-tinta); font-weight: 800; font-size: 16px; }
+html.estilo-dex .set-row { border-bottom: 1px solid rgba(169, 195, 201, .14); min-height: 40px; }
+html.estilo-dex .set-row small { color: var(--color-tinta-2); font-size: var(--fs-1); }
+html.estilo-dex .set-row .switch { min-width: 58px; }
+html.estilo-dex #scr-settings .sub, html.estilo-dex .legal p, html.estilo-dex .credits { max-width: 65ch; }
+html.estilo-dex .keys span { color: var(--color-tinta-2); }
+html.estilo-dex .credits { color: var(--color-tinta-2); }
+html.estilo-dex .credits b { color: var(--color-tinta); }
+html.estilo-dex .legal h3 { color: var(--color-tinta); }
+html.estilo-dex .legal a, html.estilo-dex .boot-in a { color: var(--color-lente-brillo); }
+html.estilo-dex .sup-tab td { border-bottom: 1px solid rgba(169, 195, 201, .14); }
+html.estilo-dex .sup-tab tr.tot td { color: var(--color-oro); }
+html.estilo-dex .sync { box-shadow: 0 0 0 2px #071318; }
+
+/* ---------- amigos, sala, invitación, ranking ---------- */
+html.estilo-dex .fr-row, html.estilo-dex .rk-row, html.estilo-dex .mission, html.estilo-dex .ach, html.estilo-dex .leg-cell, html.estilo-dex .rk-me, html.estilo-dex .prof-marks div {
+  background: rgba(2, 8, 11, .25); border: 1px solid rgba(59, 100, 112, .7); border-radius: var(--radius-2);
+}
+html.estilo-dex .fr-row b, html.estilo-dex .rk-row .who b { font-weight: 800; }
+html.estilo-dex .fr-row .st, html.estilo-dex .rk-row .who small, html.estilo-dex .mission small, html.estilo-dex .ach small, html.estilo-dex .leg-cell small,
+html.estilo-dex .prof-marks span, html.estilo-dex .prof-medals small, html.estilo-dex .lob-card small { color: var(--color-tinta-2); }
+html.estilo-dex .dot.on { background: var(--color-ps-alto); box-shadow: 0 0 6px var(--color-ps-alto); }
+html.estilo-dex .dot.play { background: var(--color-oro); }
+html.estilo-dex .lob-card { background: rgba(2, 8, 11, .25); border-width: 2px; border-radius: var(--radius-3); }
+html.estilo-dex .lob-card b { font-weight: 800; }
+html.estilo-dex .lob-card.empty { border-color: rgba(90, 138, 150, .45); color: var(--color-tinta-2); }
+html.estilo-dex .rk-row.mine { border-color: var(--color-oro); background: rgba(255, 203, 61, .1); }
+html.estilo-dex .rk-row .pos, html.estilo-dex .rk-row .time { font-weight: 800; }
+html.estilo-dex .rk-row .time { color: var(--color-tinta); }
+html.estilo-dex .mission.ready { border-color: var(--color-oro); background: rgba(255, 203, 61, .1); }
+html.estilo-dex .ach.ok, html.estilo-dex .leg-cell.ok { border-color: rgba(255, 203, 61, .6); }
+html.estilo-dex .fav-slot { background: rgba(2, 8, 11, .28); border: 2px dashed rgba(90, 138, 150, .55); border-radius: var(--radius-3); }
+html.estilo-dex .fav-slots.view .fav-slot { border-style: solid; border-color: rgba(255, 203, 61, .55); }
+html.estilo-dex .prof-title { color: var(--color-oro); border: 1px solid var(--color-oro); border-radius: var(--radius-2); font-weight: 800; }
+html.estilo-dex a.plink { border-bottom-color: rgba(169, 195, 201, .5); }
+html.estilo-dex a.plink:hover { color: var(--color-pantalla); }
+
+/* ---------- pantallas bajas (móvil en horizontal) ---------- */
+@media (max-height: 519.98px) {
+  html.estilo-dex .box { padding: var(--space-2) var(--space-3); }
+  html.estilo-dex .box::before { left: var(--space-3); width: 36px; height: 4px; }
+  html.estilo-dex .box.center::before { left: 50%; }
+  html.estilo-dex .btn { min-height: 40px; padding: 0 var(--space-3); }
+  html.estilo-dex .btn.small { min-height: 32px; padding: 0 var(--space-2); }
+  html.estilo-dex .sub { margin-bottom: var(--space-2); }
+  html.estilo-dex .note { margin-top: var(--space-2); }
+  html.estilo-dex .menu-right .box { padding: 6px 8px; }
+  html.estilo-dex .menu-item { font-size: 15px; padding: 4px 6px; }
+  html.estilo-dex .menu-item small { font-size: 11px; }
+  html.estilo-dex .menu-item.play { font-size: 20px; }
+  html.estilo-dex .box h2 { font-size: 18px; }
+  html.estilo-dex .card { min-height: 52px; padding: 6px 10px 6px 18px; }
+  html.estilo-dex .card .ico { flex-basis: 38px; height: 38px; }
+  html.estilo-dex .card .nm { font-size: 15px; }
+  html.estilo-dex .card .ds { font-size: var(--fs-1); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  html.estilo-dex #scr-levelup h2, html.estilo-dex #scr-item h2, html.estilo-dex #scr-bond h2, html.estilo-dex #scr-over h2, html.estilo-dex #scr-pause h2 { font-size: 18px; }
+  html.estilo-dex .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 6px 0 10px; }
+  html.estilo-dex .stats b { font-size: 16px; }
+  html.estilo-dex #scr-pause .row .btn { flex: 1 1 0; }
+  html.estilo-dex .lob-card { min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.estilo-dex .btn, html.estilo-dex .menu-item, html.estilo-dex .card { transition: none; }
+}

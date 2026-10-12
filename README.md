@@ -12,7 +12,10 @@
 > tras un golpe y un borde rojo en la pantalla al recibir daño o con poca vida. Y
 > arregla tres fallos del original: el mapa ya no se convierte en una arena de la
 > grieta a partir del minuto 12, el fogonazo de la grieta no se queda al elegir la
-> fusión y los avisos de logro ya no tapan el resultado del gacha. No usa la
+> fusión y los avisos de logro ya no tapan el resultado del gacha. En **Ajustes >
+> Gráficos > Estilo** se elige entre **Dex** (menús de Pokédex y letra redondeada; la
+> identidad nueva, a medio hacer) y **Clásico** (el aspecto del original), y en un móvil
+> plegable desplegado se juega sin tener que girarlo. No usa la
 > infraestructura del juego original. Detalles en
 > [CLAUDE.md](CLAUDE.md); licencias y créditos en [LICENSE](LICENSE) y [CREDITS.md](CREDITS.md).
 >

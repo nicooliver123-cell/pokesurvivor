@@ -100,5 +100,13 @@ G.I18n.add({
   '¡Repetido! Desbloqueas {x} shiny': 'Duplicate! You unlock shiny {x}',
   '¡Repetido! Desbloqueas {x}': 'Duplicate! You unlock {x}',
   '· Un repetido desbloquea su siguiente evolución si aún no la tienes (si es shiny, en shiny); si ya no le queda ninguna, da Pokémonedas (un shiny, el triple).':
-    '· A duplicate unlocks its next evolution if you don\'t have it yet (shiny if it\'s shiny); if it has none left, it gives PokéCoins (triple for a shiny).'
+    '· A duplicate unlocks its next evolution if you don\'t have it yet (shiny if it\'s shiny); if it has none left, it gives PokéCoins (triple for a shiny).',
+  // Identidad visual «Dex de Expedición» (js/ui/estilo.js): Ajustes > Gráficos > Estilo, créditos y controles.
+  'Estilo': 'Style',
+  'Clásico': 'Classic',
+  'Dex: menús de Pokédex y letra redondeada. Clásico: el aspecto del juego original.': 'Dex: Pokédex menus and a rounded font. Classic: the look of the original game.',
+  'Letra del estilo Dex:': 'Dex style font:',
+  'Letra del estilo Dex: M PLUS Rounded 1c (OFL).': 'Dex style font: M PLUS Rounded 1c (OFL).',
+  'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de la derecha para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal.':
+    'Put your finger anywhere and drag to move: the joystick appears where you touch. Tap a move on the right to switch to it and the top-right button to pause. Play in landscape.'
 });

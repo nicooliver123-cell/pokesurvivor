@@ -52,6 +52,7 @@ G.RunUI = (() => {
         `<div class="ico" style="background:${c.color}33">${G.Icons.html(c.icon, 32)}</div>
          <div class="txt"><div class="nm">${c.title} ${tag}</div><div class="ds">${c.desc}</div></div>
          <div class="key">${i + 1}</div>`;
+      if (G.Estilo) G.Estilo.carta(el, c);   // MOD nico: franja e icono del tipo (Dex) y foco con Tab (js/ui/estilo.js)
       el.dataset.sfx = 'none';             // el juego pone su propio sonido al elegir
       el.onclick = () => pick(i);
       box.appendChild(el);

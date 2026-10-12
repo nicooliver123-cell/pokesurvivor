@@ -16,7 +16,7 @@ G.Input = (() => {
     if (!down.has(c)) pressed.add(c);
     down.add(c);
     // Evita que el navegador haga scroll con flechas/espacio durante el juego.
-    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'space', 'tab'].includes(c)) e.preventDefault();
+    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'space', 'tab'].includes(c) && !(c === 'tab' && G.Estilo && G.Estilo.tabLibre())) e.preventDefault();   // MOD nico: Tab recorre los menús (js/ui/estilo.js)
   });
   addEventListener('keyup', e => down.delete(code(e)));
   addEventListener('blur', () => { down.clear(); });

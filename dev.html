@@ -26,6 +26,8 @@
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preload" href="assets/fonts/PixelifySans.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/tokens-dex.css"><!-- MOD nico: estilo Dex, sus variables y su letra (M PLUS Rounded 1c, OFL) -->
+<link rel="stylesheet" href="css/nico.css"><!-- MOD nico: menús (arreglos de los dos estilos y piel Dex) -->
 </head>
 <body>
 
@@ -197,7 +199,7 @@
     <p>Sprites de <a href="https://github.com/PMDCollab/SpriteCollab" target="_blank" rel="noopener">SpriteCollab</a>
       (CC BY-NC 4.0, créditos completos en CREDITS.md del repositorio). Datos de la Pokédex de
       <a href="https://pokeapi.co/" target="_blank" rel="noopener">PokeAPI</a>. Fuente Pixelify Sans (OFL).
-      La música y los efectos de sonido son originales del proyecto.</p>
+      La música y los efectos de sonido son originales del proyecto. <span>Letra del estilo Dex: M PLUS Rounded 1c (OFL).</span><!-- MOD nico --></p>
     <h3>Contacto y retirada de contenido</h3>
     <p>Si eres titular de derechos y quieres que retiremos algo, abre un aviso en el repositorio
       de esta versión y lo quitaremos lo antes posible: <a id="legal-mail" href="#"></a></p><!-- MOD nico: avisos del fork, sin correo -->
@@ -473,10 +475,12 @@
 <!-- scripts:begin -->
 <script defer src="js/core/util.js"></script>
 <script defer src="js/core/mods.js"></script><!-- MOD nico: ajustes de nuestra versión -->
+<script defer src="js/ui/marca.js"></script><!-- MOD nico: cifras del estilo Dex para el lienzo (G.MARCA) -->
 <script defer src="js/core/i18n.js"></script>
 <script defer src="js/data/lang-en.js"></script>
 <script defer src="js/data/lang-en-mod.js"></script><!-- MOD nico: inglés de nuestros textos -->
 <script defer src="js/core/settings.js"></script>
+<script defer src="js/ui/estilo.js"></script><!-- MOD nico: interruptor «Estilo: Dex / Clásico» (G.Estilo) -->
 <script defer src="js/data/music.js"></script>
 <script defer src="js/data/pokedex.js"></script>
 <script defer src="js/data/sprites-meta.js"></script>

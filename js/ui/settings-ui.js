@@ -113,6 +113,7 @@ G.SettingsUI = (() => {
              <a class="btn small" href="${REPO}" target="_blank" rel="noopener">Código (GitHub)</a>
            </div>`;
     }
+    if (G.Estilo) G.Estilo.ajustes(box, tab);   // MOD nico: «Estilo» (primera de Gráficos), créditos y controles (js/ui/estilo.js)
     wire(box);
   }
 

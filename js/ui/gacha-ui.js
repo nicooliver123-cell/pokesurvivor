@@ -50,6 +50,7 @@ G.GachaUI = (() => {
     feat.innerHTML = '';
     for (const dex of G.Gacha.featured(gen)) {
       feat.appendChild(G.UI.spriteCanvas(dex, 170, 190, { lively: true, scale: 2, dir: 1 }));
+      if (G.Estilo) G.Estilo.destacado(feat.lastChild, dex);   // MOD nico: sin cortar al legendario (js/ui/estilo.js)
     }
 
     const pity = (s.pity && s.pity[gen]) || 0;
@@ -106,6 +107,7 @@ G.GachaUI = (() => {
       c.style.setProperty('--rc', r.shiny ? '#9ae6ff' : G.Gacha.RARITY_COLOR[r.rarity]);
       c.innerHTML = `<div class="stars">${G.UI.stars(r.rarity, 24)}</div>`;
       c.appendChild(G.UI.spriteCanvas(r.dex, 132, 120, { lively: r.rarity >= 4 || r.shiny, scale: 2, shiny: r.shiny }));
+      if (G.Estilo) G.Estilo.premio(c, r, n);   // MOD nico: el premio, en un lienzo del tamaño en que se ve (js/ui/estilo.js)
       const tag = r.isNew
         ? `<span class="new">${r.shiny ? '¡SHINY NUEVO!' : '¡NUEVO!'}</span>`
         : `Repetido · <span class="coin"></span> +${r.refund}`;
