@@ -1117,42 +1117,90 @@ G.HudDex = (() => {
       f.tam = tamE;
       f.anchoLab = f.lab ? medir(f.lab, 800, tamE) : 0;
     }
-    /** Lo que ocupa una flecha puesta en (ex, ey): su cuerpo y su etiqueta (alineada como en dibujarFlechas()). */
+    // Las etiquetas, dentro de la zona libre (si no, se recortaban en el borde de la pantalla o quedaban debajo de un
+    // panel: la del caído en una esquina); si la zona libre no da para una, dentro del rectángulo de juego.
+    const Lz = Z.w >= 40 && Z.h >= 30 ? Z : W;
+    const LX0 = Lz.x + 2, LX1 = Lz.x + Lz.w - 2, LY0 = Lz.y + 2, LY1 = Lz.y + Lz.h - 2;
+    /**
+     * Lo que ocupa una flecha puesta en (ex, ey): su cuerpo y su etiqueta. La etiqueta va al lado contrario de la punta
+     * y, si se saldría de la zona libre (una flecha en una esquina), se corre hacia dentro. dibujarFlechas() la pinta
+     * donde dice aquí: lx (izquierda del texto) y lb (línea base).
+     */
     const huella = (f, ex, ey) => {
       const R = f.alcance || 0, cajas = [{ x: ex - R, y: ey - R, w: 2 * R, h: 2 * R }];
+      let lx = null, lb = null;
       if (f.lab) {
-        const a = Math.atan2(f.sy - ey, f.sx - ex), ca = Math.cos(a), sa = Math.sin(a), w = f.anchoLab + 4;
-        const ax = ex - ca * f.dist, ay = ey - sa * f.dist + Math.round(f.tam * 0.36);
-        const lx = ca > 0.3 ? ax - w + 2 : ca < -0.3 ? ax - 2 : ax - w / 2;
-        cajas.push({ x: lx, y: ay - f.tam * 0.8 - 2, w, h: f.tam + 4 });
+        const a = Math.atan2(f.sy - ey, f.sx - ex), ca = Math.cos(a), sa = Math.sin(a), w = f.anchoLab;
+        const ax = ex - ca * f.dist, asc = Math.round(f.tam * 0.8) + 2, desc = Math.round(f.tam * 0.2) + 2;
+        lx = Math.round(Math.max(LX0 + 2, Math.min(LX1 - 2 - w, ca > 0.3 ? ax - w : ca < -0.3 ? ax : ax - w / 2)));
+        lb = Math.round(Math.max(LY0 + asc, Math.min(LY1 - desc, ey - sa * f.dist + Math.round(f.tam * 0.36))));
+        cajas.push({ x: lx - 2, y: lb - asc, w: w + 4, h: asc + desc, etiqueta: true });
       }
-      return cajas;
+      return { cajas, lx, lb };
     };
-    const choca = (f, ex, ey) => evitar.length > 0 && huella(f, ex, ey).some(c => evitar.some(o => c.x < o.x + o.w + 3 && o.x - 3 < c.x + c.w && c.y < o.y + o.h + 3 && o.y - 3 < c.y + c.h));
-    // Colocación: dentro de la zona libre menos el margen; si dos caen cerca, o una pisaría la píldora del ataque, se
-    // separa a lo largo del borde (±½, ±1, … ±4 separaciones desde donde tocaba).
-    const x0 = Z.x + M, x1 = Z.x + Z.w - M, y0 = Z.y + M, y1 = Z.y + Z.h - M;
-    const cxZ = x1 >= x0 ? null : Z.x + Z.w / 2, cyZ = y1 >= y0 ? null : Z.y + Z.h / 2;
-    const sep = Math.round((comp ? 40 : MA().hud.escritorio.flechas.separacionMin) * k);
+    const cruza = (c, o) => c.x < o.x + o.w + 3 && o.x - 3 < c.x + c.w && c.y < o.y + o.h + 3 && o.y - 3 < c.y + c.h;
     const puestas = [];
+    /** Lo malo de un sitio: pisar otra flecha o su etiqueta (se leían una encima de otra), pisar la píldora del ataque y,
+     *  menos, una etiqueta bajo un panel del HUD. 0 = libre. */
+    const coste = H => {
+      let c = 0;
+      for (const b of H.cajas) {
+        if (puestas.some(p => p.some(o => cruza(b, o)))) c += 4;
+        if (evitar.some(o => cruza(b, o))) c += 3;
+        if (b.etiqueta && paneles.some(o => cruza(b, o))) c += 1;
+      }
+      return c;
+    };
+    // El rótulo «Grieta · 30 s» de la grieta a la vista también cuenta (las demás etiquetas no lo pisan).
+    for (const f of out) {
+      if (f.tipo !== 'grietaVisible') continue;
+      // Como lo pinta dibujarFlechas(): la flecha que bota entre 46 y 56 px por encima y el rótulo 18 px más arriba.
+      const tw = medir('Grieta · ' + Math.ceil(f.rf.ttl) + ' s', 800, tamE) + 8;
+      puestas.push([{ x: f.sx - tw / 2, y: f.sy - 74 - tamE, w: tw, h: tamE + 12 }, { x: f.sx - 17, y: f.sy - 70, w: 34, h: 34 }]);
+    }
+    // Colocación: en el borde de la zona libre menos el margen, donde toca por la dirección del objetivo; si ahí pisa
+    // algo (otra flecha o su etiqueta, la píldora), se recorre ese borde, y si hace falta los de al lado, a pasos y a
+    // los dos lados a la vez, hasta el primer sitio libre: las flechas del mismo cuadrante (cooperativo con 3-4
+    // jugadores, jefe y compañero) se separan o se apilan con sus etiquetas, por prioridad (jefe > caído > grieta >
+    // compañero > evento > shiny). Sin sitio libre, el menos malo de los probados (el más cercano, a igual coste).
+    let x0 = Z.x + M, x1 = Z.x + Z.w - M, y0 = Z.y + M, y1 = Z.y + Z.h - M;
+    if (x1 < x0) x0 = x1 = Z.x + Z.w / 2;
+    if (y1 < y0) y0 = y1 = Z.y + Z.h / 2;
+    const Wr = x1 - x0, Hr = y1 - y0, per = 2 * (Wr + Hr);
+    /** Punto del borde a una distancia s (en el sentido de las agujas del reloj desde la esquina de arriba a la izquierda). */
+    const enBorde = s => {
+      s = ((s % per) + per) % per;
+      if (s <= Wr) return [x0 + s, y0];
+      if ((s -= Wr) <= Hr) return [x1, y0 + s];
+      if ((s -= Hr) <= Wr) return [x1 - s, y1];
+      return [x0, y1 - (s - Wr)];
+    };
+    /** Distancia por el borde del punto del borde más cercano a (x, y). */
+    const sobreBorde = (x, y) => {
+      const d = [y - y0, x1 - x, y1 - y, x - x0], m = Math.min(...d);
+      return m === d[0] ? x - x0 : m === d[1] ? Wr + (y - y0) : m === d[2] ? Wr + Hr + (x1 - x) : 2 * Wr + Hr + (y1 - y);
+    };
+    const paso = Math.max(6, Math.round(8 * k));
     out.sort((a, b) => b.prio - a.prio);
     for (const f of out) {
       if (f.tipo === 'grietaVisible') continue;
-      const bx = cxZ !== null ? cxZ : Math.max(x0, Math.min(x1, f.sx)), by = cyZ !== null ? cyZ : Math.max(y0, Math.min(y1, f.sy));
-      const vertical = (bx === x0 || bx === x1) && !(by === y0 || by === y1);
-      // Pisar la píldora es peor que quedar cerca de otra flecha; sin hueco, el sitio menos malo de los probados.
-      const coste = (ex, ey) => (choca(f, ex, ey) ? 2 : 0) + (puestas.some(p => Math.hypot(p.ex - ex, p.ey - ey) < sep) ? 1 : 0);
-      let mejor = { ex: bx, ey: by, c: coste(bx, by) };
-      for (let intento = 1; intento < 17 && mejor.c > 0; intento++) {
-        const paso = Math.ceil(intento / 2) * Math.round(sep / 2) * (intento % 2 ? 1 : -1);
-        const ex = vertical ? bx : Math.max(x0, Math.min(x1, bx + paso)), ey = vertical ? Math.max(y0, Math.min(y1, by + paso)) : by;
-        const c = coste(ex, ey);
-        if (c < mejor.c) mejor = { ex, ey, c };
+      let mejor = null;
+      const prueba = (ex, ey) => {
+        ex = Math.round(ex); ey = Math.round(ey);
+        const H = huella(f, ex, ey), c = coste(H);
+        if (!mejor || c < mejor.c) mejor = { ex, ey, H, c };
+        return c === 0;
+      };
+      const bx = Math.max(x0, Math.min(x1, f.sx)), by = Math.max(y0, Math.min(y1, f.sy));
+      if (!prueba(bx, by) && per > 0) {
+        const s0 = sobreBorde(bx, by);
+        busca: for (let d = paso; d <= per / 2; d += paso) {
+          for (const sg of [1, -1]) { const [ex, ey] = enBorde(s0 + sg * d); if (prueba(ex, ey)) break busca; }
+        }
       }
-      const { ex, ey } = mejor;
-      f.ex = ex; f.ey = ey; f.a = Math.atan2(f.sy - ey, f.sx - ex);
-      f.cajas = huella(f, ex, ey);
-      puestas.push(f);
+      f.ex = mejor.ex; f.ey = mejor.ey; f.a = Math.atan2(f.sy - f.ey, f.sx - f.ex);
+      f.cajas = mejor.H.cajas; f.lx = mejor.H.lx; f.lb = mejor.H.lb;
+      puestas.push(f.cajas);
     }
     return { lista: out, margen: M };
   }
@@ -1178,11 +1226,11 @@ G.HudDex = (() => {
     const C = COL(), comp = L.variante === 'compacto', k = comp ? L.kc : L.escala, u = v => Math.round(v * k), red = reducido();
     const tamE = comp ? u(MA().hud.compacto.flechas.etiqueta) : u(MA().hud.escritorio.flechas.etiqueta);
     const latido = red ? 0.5 : 0.5 + Math.sin(t * 7) * 0.5, pulso = red ? 1 : 0.65 + Math.sin(t * 1000 / 160) * 0.35;
-    const etiqueta = (txt, a, dist, col, lw = 3) => {
-      letra(ctx, 800, tamE);
-      const ca = Math.cos(a), sa = Math.sin(a);
-      ctx.textAlign = ca > 0.3 ? 'right' : ca < -0.3 ? 'left' : 'center';
-      contorno(ctx, txt, -ca * dist, -sa * dist + Math.round(tamE * 0.36), col, lw);
+    // La etiqueta, donde la colocó flechas() (lx, lb: dentro de la zona libre y sin pisar otra flecha).
+    const etiqueta = (f, col, lw = 3) => {
+      if (f.lx === null || f.lx === undefined) return;
+      letra(ctx, 800, tamE); ctx.textAlign = 'left';
+      contorno(ctx, f.lab, f.lx - Math.round(f.ex), f.lb - Math.round(f.ey), col, lw);
     };
     const punta = (a, rIn, rOut, ab, col, borde) => {
       ctx.beginPath();
@@ -1216,14 +1264,14 @@ G.HudDex = (() => {
         ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = g; ctx.fill();
         lenteJefe(ctx, f.e, r, dt);
         ctx.lineWidth = u(3); ctx.strokeStyle = C.rival; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
-        etiqueta(f.lab, a, f.dist, C.tinta);
+        etiqueta(f, C.tinta);
       } else if (f.tipo === 'grieta') {
         const q = k * (comp ? 0.8 : 1);
         ctx.globalAlpha = red ? 0.3 : 0.18 + latido * 0.22; ctx.fillStyle = C.grieta;
         ctx.beginPath(); ctx.arc(0, 0, (30 + latido * 8) * q, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
         punta(a, 20 * q * 1.12, 40 * q * 1.12, 2.45, C.grietaOscuro);
         punta(a, 20 * q, 40 * q, 2.45, latido > 0.5 ? C.grietaClaro : C.grietaMedio);
-        etiqueta(f.lab, a, f.dist, C.grietaClaro, 4);
+        etiqueta(f, C.grietaClaro, 4);
       } else if (f.tipo === 'companero' || f.tipo === 'caido') {
         const caido = f.tipo === 'caido', r = f.r;
         const col = caido ? (parpadea(t) ? C.tinta : C.peligroTexto) : f.m.color;
@@ -1232,12 +1280,12 @@ G.HudDex = (() => {
         ctx.lineWidth = 1; ctx.strokeStyle = C.trazoInterior; ctx.stroke();
         letra(ctx, 800, comp ? u(12) : u(13)); ctx.textAlign = 'center'; ctx.fillStyle = caido ? C.peligroTexto : f.m.color;
         ctx.fillText((f.m.name || '?').charAt(0).toUpperCase(), 0, Math.round((comp ? u(12) : u(13)) * 0.36));
-        etiqueta(f.lab, a, f.dist, caido ? C.peligroTexto : C.tinta);
+        etiqueta(f, caido ? C.peligroTexto : C.tinta);
       } else if (f.tipo === 'evento') {
         ctx.globalAlpha = red ? 1 : pulso;
         punta(a, 15 * k * 0.9, 30 * k * 0.9, 2.45, f.color, C.contorno);
         ctx.globalAlpha = 1;
-        etiqueta(f.lab, a, f.dist, f.color);
+        etiqueta(f, f.color);
       } else if (f.tipo === 'shiny') {
         ctx.globalAlpha = red ? 1 : pulso;
         punta(a, 12 * k, 24 * k, 2.5, C.pantalla);

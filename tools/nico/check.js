@@ -3426,6 +3426,86 @@ function hudDexChecks() {
       jugando && menu && alEmpezar && cartas && clasico && regla, { jugando, menu, alEmpezar, cartas, clasico, regla, props });
   } catch (e) { t('avisos de logro bajo el HUD Dex', false, String(e && e.stack || e)); }
 
+  // ---- N. Arreglos de la verificación de los lotes 1 y 2 ----
+  const cruzan = (a, b) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+  const pisaPliegueR = (r, pg) => (pg.eje === 'x' ? r.x < pg.pos + pg.ancho / 2 && r.x + r.w > pg.pos - pg.ancho / 2 : r.y < pg.pos + pg.ancho / 2 && r.y + r.h > pg.pos - pg.ancho / 2);
+  const dentroDe = (a, R) => a.x >= R.x - 0.5 && a.y >= R.y - 0.5 && a.x + a.w <= R.x + R.w + 0.5 && a.y + a.h <= R.y + R.h + 0.5;
+  /** Las etiquetas de flecha pintadas (texto con «· N m» o «Grieta · …»), como rectángulos. */
+  const etiquetasPintadas = ctx => ctx.ops.filter(o => o.op === 'texto' && (/· \d+ m$/.test(o.texto) || /^Grieta · \d+ m/.test(o.texto) || /^Meowth$/.test(o.texto)))
+    .map(o => ({ t: o.texto, x: o.x, y: o.y, w: o.x2 - o.x, h: o.y2 - o.y }));
+  /** Los problemas de las flechas del último fotograma: dos flechas (cuerpo o etiqueta) que se pisan, etiquetas fuera de la
+   *  zona libre o encima de una pieza del HUD, y etiquetas pintadas que se pisan, se salen de la pantalla o no están donde
+   *  dice flechas(). */
+  function problemasFlechas(H, ctx) {
+    const B = H.G.HudDex.bandas(), F = B.flechas, Z = B.zona, mal = [];
+    const pzs = piezas(H.G, H.pl).concat(B.pildora ? [{ n: 'pildora', ...B.pildora }] : []);
+    for (let i = 0; i < F.length; i++) for (let j = i + 1; j < F.length; j++) {
+      if (F[i].cajas.some(a => F[j].cajas.some(b => cruzan(a, b)))) mal.push(`${F[i].tipo}/${F[j].tipo} se pisan`);
+    }
+    for (const f of F) for (const c of f.cajas.filter(x => x.etiqueta)) {
+      if (!dentroDe(c, Z)) mal.push(`etiqueta de ${f.tipo} fuera de la zona libre`);
+      const p = pzs.find(q => cruzan(c, q));
+      if (p) mal.push(`etiqueta de ${f.tipo} sobre ${p.n}`);
+    }
+    const E = etiquetasPintadas(ctx), W = H.c.innerWidth, Hh = H.c.innerHeight;
+    for (let i = 0; i < E.length; i++) {
+      if (E[i].x < -0.5 || E[i].x + E[i].w > W + 0.5 || E[i].y < -0.5 || E[i].y + E[i].h > Hh + 0.5) mal.push(`«${E[i].t}» pintada fuera de la pantalla`);
+      for (let j = i + 1; j < E.length; j++) if (cruzan(E[i], E[j])) mal.push(`«${E[i].t}» y «${E[j].t}» pintadas una encima de otra`);
+    }
+    const cajasEt = F.flatMap(f => f.cajas.filter(x => x.etiqueta));
+    for (const e of E) if (!cajasEt.some(c => e.x >= c.x - 1 && e.x + e.w <= c.x + c.w + 1)) mal.push(`«${e.t}» no está donde la colocó flechas()`);
+    return { mal, n: F.length, etiquetas: E.length };
+  }
+  // N1. Flechas del mismo cuadrante (cooperativo con 3 compañeros y el jefe), en las cuatro esquinas: ni las flechas ni
+  //     sus etiquetas se pisan, y cada etiqueta queda entera dentro de la zona libre y fuera de los paneles.
+  try {
+    const res = [];
+    const ESQ = { 'arriba-der': [1, -1], 'abajo-der': [1, 1], 'arriba-izq': [-1, -1], 'abajo-izq': [-1, 1] };
+    const VPS = [[1440, 900], [1024, 768], [1920, 1080], [1280, 720], [844, 390, true], [844, 390, true, { sup: 0, der: 47, inf: 21, izq: 47 }], [780, 360, true], [724, 784, true], [784, 724, true]];
+    for (const [w, h, tactil = false, seguras] of VPS) {
+      for (const [esq, [sx, sy]] of Object.entries(ESQ)) {
+        const H = cargarHud({ w, h, tactil, seguras: seguras || { sup: 0, der: 0, inf: 0, izq: 0 } });
+        const cx = sx > 0 ? w : 0, cy = sy > 0 ? h : 0;
+        H.juego.jefes = [jefeFalso(cx + sx * 900, cy + sy * 500)];
+        H.juego.mates = [mateFalso('Ana', '#5FC8FF', cx + sx * 1500, cy + sy * 300, { dead: true }), mateFalso('Leo', '#7EE07A', cx + sx * 600, cy + sy * 1400),
+          mateFalso('Sol', '#FF8AD8', cx + sx * 2000, cy + sy * 900)];
+        const ctx = H.pintar();
+        const p = problemasFlechas(H, ctx);
+        if (p.mal.length || p.n !== 4 || p.etiquetas !== 4) res.push({ vp: `${w}x${h}${seguras ? ' muesca' : ''}`, esq, ...p });
+      }
+    }
+    t(`flechas del mismo cuadrante (jefe, compañero caído y dos compañeros, en las cuatro esquinas, en ${VPS.length} pantallas: escritorio, móvil con y sin muesca y el plegable): ni las flechas ni sus etiquetas se pisan, y cada etiqueta queda entera en la zona libre, fuera de los paneles y donde la colocó flechas()`,
+      !res.length, res.slice(0, 4));
+  } catch (e) { t('flechas del mismo cuadrante', false, String(e && e.stack || e)); }
+  // N2. Muchas a la vez en un cuadrante (jefe, 3 compañeros, la grieta, un shiny, el ladrón y el Pokémon perdido), y el
+  //     caído solo, justo en las esquinas de la derecha (su etiqueta se salía de la pantalla a 1440x900 y 1024x768).
+  try {
+    const res = [];
+    for (const [w, h, tactil = false] of [[1440, 900], [1024, 768], [1920, 1080], [724, 784, true]]) {
+      const H = cargarHud({ w, h, tactil });
+      const { juego, G } = H;
+      juego.jefes = [jefeFalso(w + 900, -500)];
+      juego.mates = [mateFalso('Ana', '#5FC8FF', w + 1500, -300, { dead: true }), mateFalso('Leo', '#7EE07A', w + 600, -1400), mateFalso('Sol', '#FF8AD8', w + 2000, -900)];
+      juego.rift = { x: w + 700, y: -700, ttl: 30, t: 9 };
+      juego.shinies = [{ x: w + 300, y: -200, dead: false }];
+      juego.otros = [{ behavior: 'thief', dead: false, x: w + 1200, y: -1200, name: 'Meowth' }];
+      G.Events.onNet(['ev', 'lp', 52, w + 800, -2000, 100, 0, w + 800, -2100, 0, 0]);
+      const ctx = H.pintar();
+      const p = problemasFlechas(H, ctx);
+      res.push({ vp: `${w}x${h}`, flechas: p.n, mal: p.mal.slice(0, 4) });
+    }
+    for (const [w, h, tactil = false] of [[1440, 900], [1024, 768], [844, 390, true], [724, 784, true]]) {
+      for (const y of [-400, h + 400, 0.62 * h]) {
+        const H = cargarHud({ w, h, tactil });
+        H.juego.mates = [mateFalso('Ana', '#5FC8FF', w + 3000, y, { dead: true })];
+        const ctx = H.pintar();
+        const p = problemasFlechas(H, ctx);
+        res.push({ vp: `${w}x${h} caído en y=${Math.round(y)}`, flechas: p.n, mal: p.mal.slice(0, 4) });
+      }
+    }
+    t('flechas: ocho a la vez en el mismo cuadrante (jefe, caído, dos compañeros, grieta, shiny, ladrón y Pokémon perdido) sin pisarse, en escritorio y en el plegable; y el compañero caído en las esquinas de la derecha y a media altura: su etiqueta, entera dentro de la zona libre (antes se salía de la pantalla a 1440x900 y 1024x768)',
+      res.every(x => !x.mal.length) && res.slice(0, 4).every(x => x.flechas === 8) && res.slice(4).every(x => x.flechas === 1), res);
+  } catch (e) { t('flechas: muchas a la vez y el caído en la esquina', false, String(e && e.stack || e)); }
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`HUD Dex: ${r.length} casos bien`);
   for (const [name, , detail] of failed) bad(`HUD Dex: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
