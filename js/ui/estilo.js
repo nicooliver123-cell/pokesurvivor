@@ -448,6 +448,14 @@ G.Estilo = (() => {
     clasico: { 1: [[132, 120, 2], [96, 76, 2], [132, 120, 2]], 10: [[132, 120, 2], [96, 76, 2], [120, 110, 2]] }
   };
   const ANCHO_ESTRECHO = 800;   // como el @media de css/nico.css para las cartas de la ×10
+  const UTIL_SEIS = 6 * 110 + 5 * 6;   // seis cartas de 110 con su separación (css/nico.css, pantallas bajas)
+  /** Pantalla para el premio: 0 normal, 1 baja, 2 alta de menos de 800 de ancho, 3 baja y estrecha (sólo la ×10). */
+  function pantallaPremio(n) {
+    const W = typeof innerWidth === 'number' ? innerWidth : 1440;
+    if (!compacto()) return W < ANCHO_ESTRECHO ? 2 : 0;
+    const sg = zonasSeguras(), util = W - Math.max(10, sg.izq) - Math.max(10, sg.der);   // el relleno de #pull-fx
+    return n !== 1 && util < UTIL_SEIS ? 3 : 1;
+  }
   /** gacha-ui.js, pull(): el premio, sin cortes, en un lienzo del tamaño en que se ve (TAM_PREMIO). */
   function premio(card, r, n) {
     const viejo = card && card.querySelector('canvas');
@@ -549,7 +557,8 @@ G.Estilo = (() => {
    *       'auto': abajo si la pantalla es casi cuadrada o alta, a la derecha si es apaisada) y
    *       proporcion: parte de la pantalla para los controles (0,5),
    *       columnaIzq: px de la columna de compañeros y chips en compacto (0 si no hay nada),
-   *       tactil: pantalla táctil (para el pliegue) }
+   *       tactil: pantalla táctil (para el pliegue),
+   *       pantalla: {w, h} de la pantalla entera o null (si falta, screen: el pliegue es del cristal, no de la ventana) }
    * Devuelve { variante: 'escritorio' | 'compacto', escala (u -> px en escritorio), kc (px ×kc en compacto),
    *            dividida, seguras, bordes: las zonas seguras que tocan a `juego` (sólo las de sus lados que dan
    *            al borde de la pantalla),
@@ -634,11 +643,32 @@ G.Estilo = (() => {
     const libre = { x: juego.x + bandas.izq, y: juego.y + bandas.sup, w: Math.max(0, juego.w - bandas.izq - bandas.der), h: Math.max(0, juego.h - bandas.sup - bandas.inf) };
     // Pliegue de un plegable abierto (el Magic V6: 724×784 con el pliegue vertical en x = 362; girado, 784×724 con
     // él en y = 362). La pantalla entera, no el rectángulo de juego: el pliegue es del cristal.
-    const PG = (C && C.pliegue) || { aspectoMax: 1.2, ladoMin: 600, ancho: 24 };
-    const corto = Math.min(w, h), largo = Math.max(w, h);
-    const pliegue = op.tactil && corto >= PG.ladoMin && largo / corto <= PG.aspectoMax
-      ? (w <= h ? { eje: 'x', pos: Math.round(w / 2), ancho: PG.ancho } : { eje: 'y', pos: Math.round(h / 2), ancho: PG.ancho }) : null;
+    const pliegue = op.tactil ? plieguePantalla(w, h, op.pantalla !== undefined ? op.pantalla : pantalla(w, h), (C && C.pliegue) || { aspectoMax: 1.2, ladoMin: 600, ancho: 24 }) : null;
     return { variante: esCompacto ? 'compacto' : 'escritorio', escala, kc, dividida, seguras: sg, bordes, juego, controles, filas, bandas, libre, ranuras, pliegue };
+  }
+
+  /** La pantalla entera (screen.width × screen.height, px CSS) si es creíble: no más pequeña que la ventana de w×h. */
+  function pantalla(w, h) {
+    const s = typeof screen !== 'undefined' && screen;
+    if (!s || !(s.width > 0) || !(s.height > 0) || s.width < w - 1 || s.height < h - 1) return null;
+    return { w: s.width, h: s.height };
+  }
+  /**
+   * Dónde estaría el pliegue de un plegable abierto en una ventana de w×h (sin saber la postura): parte por la mitad el
+   * lado corto de la PANTALLA (sc), no de la ventana. Con la barra del navegador, el Magic V6 en vertical da una ventana
+   * de 724×700 y el pliegue sigue siendo vertical, en x = 362 (antes, al ser la ventana más ancha que alta, se suponía
+   * horizontal); girado, 784×640, horizontal y 362 px por debajo de lo alto de la pantalla, que con las barras arriba (la
+   * de estado y la de direcciones de Chrome) queda en y = 640 − 362 = 278 (sin confirmar en el teléfono). Si la ventana
+   * no tiene el ancho (o casi el alto) de la pantalla, está en una pantalla dividida del sistema: sin pliegue. Sin `sc`,
+   * la ventana. Pura.
+   */
+  function plieguePantalla(w, h, sc, PG) {
+    const sw = sc ? sc.w : w, sh = sc ? sc.h : h, corto = Math.min(sw, sh), largo = Math.max(sw, sh);
+    if (corto < PG.ladoMin || largo / corto > PG.aspectoMax) return null;
+    if (sw <= sh) return w >= sw - 2 ? { eje: 'x', pos: Math.round(w / 2), ancho: PG.ancho } : null;
+    if (h >= sh - 2) return { eje: 'y', pos: Math.round(h / 2), ancho: PG.ancho };
+    if (h < sh * 0.75) return null;
+    return { eje: 'y', pos: Math.round(Math.max(h * 0.25, Math.min(h * 0.75, h - sh / 2))), ancho: PG.ancho };
   }
 
   // ===================================================================
@@ -659,7 +689,7 @@ G.Estilo = (() => {
   return {
     get actual() { return actual; }, get dex() { return actual === 'dex'; },
     set, porDefecto, hud, colocarLogro, fuenteCanvas, cargarFuentes, descargaEnReposo, ajustes, carta, tipoDeCarta, companero, premio,
-    destacado, encaje, colocacion, disposicion, zonasSeguras, ranurasEnColumna, capaProbabilidades, tabLibre,
+    destacado, encaje, colocacion, disposicion, zonasSeguras, pantalla, plieguePantalla, ranurasEnColumna, capaProbabilidades, tabLibre,
     on(fn) { oyentes.add(fn); },
     TEXTO_ESTILO, TAM_COMPANERO, TAM_PREMIO, HORIZONTAL_PLEGABLE, tiraPestanas
   };

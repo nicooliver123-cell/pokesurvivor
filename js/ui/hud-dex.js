@@ -207,13 +207,14 @@ G.HudDex = (() => {
   /**
    * c: { tactil, jefe, aviso: {texto, sub, tipo} | null, chips: [{texto, corto}], companeros: n, clima, ranuras: n,
    *      objeto, vinculo }
-   * op: { seguras, marco: {juego, controles}, medir(texto, peso, px) -> ancho }
+   * op: { seguras, marco: {juego, controles}, medir(texto, peso, px) -> ancho, pantalla: {w, h} | null (para el pliegue) }
    * Devuelve { variante, escala, kc, juego, controles, piezas, bandas, libre, columna, medidas }.
    */
   function maquetar(w, h, c, op = {}) {
     const mc = op.marco || marco(w, h);
     const seguras = op.seguras || (G.Estilo.zonasSeguras ? G.Estilo.zonasSeguras() : undefined);
-    const d = G.Estilo.disposicion(w, h, { seguras, juego: mc.juego, controles: mc.controles, tactil: !!c.tactil });
+    const pantalla = op.pantalla !== undefined ? op.pantalla : G.Estilo.pantalla ? G.Estilo.pantalla(w, h) : null;
+    const d = G.Estilo.disposicion(w, h, { seguras, juego: mc.juego, controles: mc.controles, tactil: !!c.tactil, pantalla });
     const medir = op.medir || ((t, peso, px) => String(t).length * px * (peso >= 650 ? 0.62 : 0.56));
     const L = d.variante === 'compacto' ? compacto(d, c, medir) : escritorio(d, c, medir);
     if (d.controles) controles(d, c, L);
@@ -263,6 +264,35 @@ G.HudDex = (() => {
     let w = 0;
     for (const v of variantesAviso(a, comp)) { w = medir(v, peso, tam); if (w <= max) return w; }
     return w;
+  }
+  /** Parte `t` en dos líneas por el espacio que deja la más larga más corta (`m(texto)` mide). Pura. */
+  function partirCon(t, m) {
+    let mejor = [t, ''], peor = Infinity;
+    for (let i = t.indexOf(' '); i > 0; i = t.indexOf(' ', i + 1)) {
+      const a = t.slice(0, i), b = t.slice(i + 1), w = Math.max(m(a), m(b));
+      if (w < peor) { peor = w; mejor = [a, b]; }
+    }
+    return mejor;
+  }
+  /** Alto de línea de un aviso en dos líneas. */
+  const lineaAviso = tam => Math.round(tam * 1.08);
+  /**
+   * Cómo cabe el texto de un aviso en `max` px (pura; `medir(texto, peso, px)`): la primera variante que cabe en una
+   * línea con la letra más grande de `tams`; si ninguna y `dos`, la primera que cabe en dos líneas (con la última letra);
+   * si no, la más corta, que irá recortada con «…». Devuelve { lineas, tam, ancho, recortar? }.
+   */
+  function encajeAviso(vs, peso, tams, max, medir, dos) {
+    for (const tam of tams) for (const v of vs) { const w = medir(v, peso, tam); if (w <= max) return { lineas: [v], tam, ancho: w }; }
+    const tam = tams[tams.length - 1];
+    if (dos) {
+      for (const v of vs) {
+        const p = partirCon(v, x => medir(x, peso, tam));
+        if (!p[1]) continue;
+        const w = Math.max(medir(p[0], peso, tam), medir(p[1], peso, tam));
+        if (w <= max) return { lineas: p, tam, ancho: w };
+      }
+    }
+    return { lineas: [vs[vs.length - 1]], tam, ancho: max, recortar: true };
   }
 
   /** Variante compacta (px ×kc). */
@@ -321,12 +351,22 @@ G.HudDex = (() => {
       const aw = Math.min(max, Math.ceil(anchoAviso(c.aviso, true, peso, tam, max - extra, medir) + extra));
       const ax = c.jefe ? R2 - aw : Math.max(L0, Math.min(R2 - aw, Math.round(centro - aw / 2)));
       P.aviso = { x: ax, y: y2, w: aw, h: f2 };
+      if (pg && pg.eje === 'x' && pisaPliegue(P.aviso, pg)) {
+        // Plegable abierto en vertical: el aviso, entero a un lado del pliegue (con el jefe, a la derecha; sin él, en el
+        // lado donde se lee mejor). Si no cabe en una línea, con la letra un punto menor y, si hace falta, en dos líneas.
+        const vs = variantesAviso(c.aviso, true), tams = [tam, r(11)], dos = f2 >= 2 * lineaAviso(r(11)) + 2;
+        const tope = c.jefe ? r(K.aviso.anchoMaxConJefe) : r(K.aviso.anchoMaxSolo);
+        const lados = [{ der: true, x0: Math.ceil(pb), x1: R2 }];
+        if (!c.jefe) lados.push({ der: false, x0: L0, x1: Math.floor(pa) });
+        for (const l of lados) { l.max = Math.min(tope, l.x1 - l.x0); l.e = encajeAviso(vs, peso, tams, l.max - extra, medir, dos); }
+        const nota = l => (l.e.recortar ? 4 : 0) + (l.e.lineas.length > 1 ? 2 : 0) + (l.e.tam < tam ? 1 : 0);
+        const L = lados.reduce((a, b) => (nota(b) < nota(a) ? b : a));
+        const w2 = Math.min(L.max, Math.ceil(L.e.ancho + extra));
+        P.aviso = { x: L.der ? (c.jefe ? L.x1 - w2 : L.x0) : L.x1 - w2, y: y2, w: w2, h: f2, tams, dos };
+      }
     }
-    if (pg && pg.eje === 'x') {
-      // El jefe acaba antes del pliegue (si no queda en menos de 200 px) y el aviso empieza después si cabe entero.
-      if (P.jefe && pisaPliegue(P.jefe, pg) && pa - L0 >= r(200)) P.jefe.w = Math.floor(pa - L0);
-      if (P.aviso && !c.jefe && pisaPliegue(P.aviso, pg) && R2 - pb >= P.aviso.w) P.aviso.x = Math.ceil(pb);
-    }
+    // El jefe acaba antes del pliegue (si no queda en menos de 200 px).
+    if (pg && pg.eje === 'x' && P.jefe && pisaPliegue(P.jefe, pg) && pa - L0 >= r(200)) P.jefe.w = Math.floor(pa - L0);
     const sup = y2 + f2;
     // ---- columna derecha: objeto, vínculo y ranuras (si los mandos no van aparte) ----
     let der = 0, colX = R0;
@@ -878,12 +918,17 @@ G.HudDex = (() => {
       letra(ctx, 800, u(E.grieta.titulo)); ctx.fillStyle = C.grietaTitulo; ctx.fillText(recortar(ctx, a.texto, maxT), cxT, Rc.y + u(22));
       letra(ctx, 500, u(E.grieta.sub)); ctx.fillStyle = C.grietaTexto; ctx.fillText(recortar(ctx, a.sub, maxT), cxT, Rc.y + u(41));
     } else {
-      const tam = comp ? u(12) : pista ? u(13) : u(E.tam);
-      letra(ctx, pista ? 500 : 800, tam); ctx.fillStyle = pista ? C.tinta2 : grieta ? C.grietaTitulo : C.tinta;
-      // El primer texto que cabe entero (la pista tiene versiones más cortas); si ninguno, el más corto con «…».
-      const vs = variantesAviso(a, comp);
-      const txt = vs.find(v => ancho(ctx, v) <= maxT) || recortar(ctx, vs[vs.length - 1], maxT);
-      ctx.fillText(txt, cxT, Rc.y + Rc.h / 2 + Math.round(tam * 0.36));
+      const tam = comp ? u(12) : pista ? u(13) : u(E.tam), peso = pista ? 500 : 800;
+      // El primer texto que cabe entero (la pista tiene versiones más cortas); junto al pliegue, también con la letra un
+      // punto menor o en dos líneas (Rc.tams, Rc.dos: lo decidió el maquetador con la misma cuenta); si no, con «…».
+      const e = encajeAviso(variantesAviso(a, comp), peso, Rc.tams || [tam], maxT, (t2, p, px) => { letra(ctx, p, px); return ancho(ctx, t2); }, !!Rc.dos);
+      letra(ctx, peso, e.tam); ctx.fillStyle = pista ? C.tinta2 : grieta ? C.grietaTitulo : C.tinta;
+      const yc = Rc.y + Rc.h / 2 + Math.round(e.tam * 0.36);
+      if (e.lineas.length > 1) {
+        const lh = lineaAviso(e.tam);
+        ctx.fillText(e.lineas[0], cxT, Math.round(yc - lh / 2));
+        ctx.fillText(e.lineas[1], cxT, Math.round(yc + lh / 2));
+      } else ctx.fillText(e.recortar ? recortar(ctx, e.lineas[0], maxT) : e.lineas[0], cxT, yc);
     }
     R(ctx);
   }

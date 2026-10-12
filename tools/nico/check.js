@@ -71,7 +71,10 @@
  *      pantalla dividida preparada (rectángulos de juego y de controles) e inglés. Y los arreglos de la verificación
  *      del lote 2: nombres de bioma y arena enteros en Rotom, pista de controles corta, flechas fuera de la píldora
  *      del ataque, «Caído» con muesca, nada sobre el pliegue del plegable, aire en las filas de compañeros y el
- *      aviso de logro bajo el HUD.
+ *      aviso de logro bajo el HUD. Y los de la verificación de los lotes 1 y 2: flechas del mismo cuadrante sin pisarse
+ *      y con su etiqueta entera en la zona libre (cuatro esquinas, 9 pantallas, ocho a la vez, el caído en las
+ *      esquinas), los avisos de la fila 2 a un lado del pliegue, el pliegue de la pantalla y no de la ventana, y la
+ *      caché de anchos que se vacía al cargar una fuente.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -3509,6 +3512,53 @@ function hudDexChecks() {
     t('flechas: ocho a la vez en el mismo cuadrante (jefe, caído, dos compañeros, grieta, shiny, ladrón y Pokémon perdido) sin pisarse, en escritorio y en el plegable; y el compañero caído en las esquinas de la derecha y a media altura: su etiqueta, entera dentro de la zona libre (antes se salía de la pantalla a 1440x900 y 1024x768)',
       res.every(x => !x.mal.length) && res.slice(0, 4).every(x => x.flechas === 8) && res.slice(4).every(x => x.flechas === 1), res);
   } catch (e) { t('flechas: muchas a la vez y el caído en la esquina', false, String(e && e.stack || e)); }
+  // N3. Plegable abierto en vertical: los avisos de la fila 2 respetan el pliegue (con y sin jefe, también los largos).
+  try {
+    const AVISOS = ['¡Kingambit salvaje apareció!', 'Guardas el vínculo: aprende otro movimiento para usarlo', '¡Un Meowth con un ticket ×10! ¡Atrápalo antes de que huya!',
+      'Pausa: Ana, Leo eligen fusión…', '¡Poder Furia! Tu ataque sube un 30 % durante 30 s', 'grieta', 'pista'];
+    const res = [];
+    for (const [w, h, pantalla] of [[724, 784], [724, 700, { w: 724, h: 784 }], [800, 870], [869, 941]]) {
+      for (const jefe of [true, false]) {
+        for (const a of AVISOS) {
+          const H = cargarHud({ w, h, tactil: true });
+          if (pantalla) H.G.Estilo.pantalla = () => pantalla;   // el Magic V6 en vertical con la barra del navegador
+          if (jefe) H.juego.jefes = [jefeFalso(w * 0.6, h * 0.6)];
+          if (a === 'grieta') H.juego.rift = { x: w * 0.3, y: h * 0.7, ttl: 30, t: 1 };
+          else if (a === 'pista') { H.st.time = 3; H.juego.banner = null; }
+          else H.juego.banner = { text: a, t: 3.2 };
+          H.pintar(); H.reloj.t += 400;
+          const ctx = H.pintar(), B = H.G.HudDex.bandas(), A = B.piezas.aviso, pg = B.pliegue;
+          if (!A || !pg) { res.push({ vp: `${w}x${h}`, a, mal: 'sin aviso o sin pliegue' }); continue; }
+          const tx = ctx.ops.filter(o => o.op === 'texto' && enRect(o, A));
+          const pisa = pisaPliegueR(A, pg) || tx.some(o => o.x < pg.pos + pg.ancho / 2 && o.x2 > pg.pos - pg.ancho / 2);
+          const recortado = tx.some(o => /…$/.test(o.texto) && !cortaUp(o.texto));
+          const j = B.piezas.jefe;
+          if (pisa || recortado || (j && pisaPliegueR(j, pg)) || (j && cruzan(j, A))) res.push({ vp: `${w}x${h}${jefe ? ' con jefe' : ''}`, a, aviso: A, textos: tx.map(o => o.texto), pisa, recortado });
+        }
+      }
+    }
+    t(`plegable abierto en vertical (724x784, 724x700 con la barra del navegador, 800x870 y 869x941; con y sin jefe): los avisos de la fila 2 (${AVISOS.length} textos: el del jefe, los largos de upstream, la grieta y la pista) quedan enteros a un lado del pliegue (con la letra un punto menor o en dos líneas si hace falta), sin «…» y sin pisar al jefe`,
+      !res.length, res.slice(0, 4));
+  } catch (e) { t('avisos y pliegue', false, String(e && e.stack || e)); }
+  // N5. El pliegue es de la pantalla, no de la ventana: con la barra del navegador (724x700 dentro de 724x784) sigue
+  //     vertical en x = 362; girado (784x640 dentro de 784x724), horizontal a 362 px de lo alto de la pantalla; en una
+  //     ventana del sistema partida o en un portátil táctil con la ventana casi cuadrada, sin pliegue.
+  try {
+    const H = cargarHud({ w: 724, h: 700, tactil: true }), E = H.G.Estilo, PG = H.G.MARCA.hud.compacto.pliegue;
+    const casos = {
+      'vertical con barra': E.plieguePantalla(724, 700, { w: 724, h: 784 }, PG), 'vertical': E.plieguePantalla(724, 784, { w: 724, h: 784 }, PG),
+      'girado con barra': E.plieguePantalla(784, 640, { w: 784, h: 724 }, PG), 'girado': E.plieguePantalla(784, 724, { w: 784, h: 724 }, PG),
+      'ventana partida': E.plieguePantalla(362, 784, { w: 724, h: 784 }, PG), 'portátil táctil': E.plieguePantalla(700, 650, { w: 1920, h: 1080 }, PG),
+      'sin pantalla (la ventana)': E.plieguePantalla(784, 724, null, PG)
+    };
+    H.G.Estilo.pantalla = () => ({ w: 724, h: 784 });
+    H.pintar();
+    const enHud = H.G.HudDex.bandas().pliegue;
+    const q = (k, eje, pos) => casos[k] && casos[k].eje === eje && casos[k].pos === pos;
+    t('el pliegue sale de la pantalla y no de la ventana: el Magic V6 en vertical con la barra del navegador (724x700) lo tiene vertical en x = 362 (también en el HUD), girado con la barra (784x640) horizontal en y = 278; sin pliegue en una ventana partida del sistema ni en un portátil táctil (pantalla 16:9)',
+      q('vertical con barra', 'x', 362) && q('vertical', 'x', 362) && q('girado con barra', 'y', 278) && q('girado', 'y', 362) && !casos['ventana partida'] && !casos['portátil táctil'] &&
+      q('sin pantalla (la ventana)', 'y', 362) && enHud && enHud.eje === 'x' && enHud.pos === 362, { casos, enHud });
+  } catch (e) { t('pliegue de la pantalla', false, String(e && e.stack || e)); }
   // N4. La caché de anchos del HUD se vacía cuando termina de cargar una fuente (document.fonts «loadingdone»).
   try {
     const H = cargarHud({ w: 844, h: 390, tactil: true });
