@@ -95,6 +95,26 @@ G.MODS = {
    * Entero. 1 = como el original. */
   ticketsMult: 2,
 
+  /* Probabilidad de shiny (decisión de Nico): ×shinyMult en los sitios donde se sortea:
+   * salvajes y jefes (1/4096), el legendario de la grieta (1/512) y el gacha (1/100, que
+   * pasa a 1,5 %; el cartel de probabilidades del gacha lo dice). En grupo, los salvajes y
+   * la grieta los sortea el anfitrión; el gacha, cada uno el suyo. 1 = como el original. */
+  shinyMult: 1.5,
+
+  /** spawner.js, rift.js y gacha.js: la probabilidad de shiny `p` con el ajuste (como mucho 1). */
+  probShiny(p) {
+    const k = +this.shinyMult;
+    return k > 0 && isFinite(k) ? Math.min(1, p * k) : p;
+  },
+
+  /** gacha-ui.js, refresh(): el cartel de probabilidades (su HTML ya pintado) con el % de shiny
+   *  del ajuste. Si upstream cambia ese texto, no toca nada (tools/nico/check.js lo vigila). */
+  notasGacha(html) {
+    if (typeof html !== 'string' || !G.Gacha) return html;
+    const pct = +(this.probShiny(G.Gacha.SHINY_RATE) * 100).toFixed(2) + '%';
+    return html.replace('<span>1%</span>', '<span>' + pct + '</span>');
+  },
+
   /** Multiplicador de tickets saneado: entero ≥ 1 (cualquier otro valor, 1). */
   multTickets() {
     const m = Math.floor(+this.ticketsMult);

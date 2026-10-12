@@ -73,7 +73,7 @@ G.Spawner = (() => {
   function rollShiny(dex) {
     if (!G.Sprites.hasShiny(dex)) return false;
     if (forceShiny > 0) { forceShiny--; return true; }
-    return Math.random() < SHINY_RATE;
+    return Math.random() < (G.MODS && G.MODS.probShiny ? G.MODS.probShiny(SHINY_RATE) : SHINY_RATE);   // MOD nico: shiny ×shinyMult
   }
 
   function spawnOne(pl, t, angle) {

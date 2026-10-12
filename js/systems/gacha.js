@@ -97,7 +97,7 @@ G.Gacha = (() => {
       const { rarity, list } = poolNear(want, gen);
       if (rarity === 5) save.pity[gen] = 0;
       const mon = G.U.pick(list);
-      const shiny = G.Sprites.hasShiny(mon.dex) && (forceShiny > 0 ? (forceShiny--, true) : Math.random() < SHINY_RATE);
+      const shiny = G.Sprites.hasShiny(mon.dex) && (forceShiny > 0 ? (forceShiny--, true) : Math.random() < (G.MODS && G.MODS.probShiny ? G.MODS.probShiny(SHINY_RATE) : SHINY_RATE));   // MOD nico: shiny ×shinyMult
 
       let isNew = false, refund = 0;
       if (shiny) {

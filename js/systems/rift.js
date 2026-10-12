@@ -90,7 +90,7 @@ G.Rift = (() => {
     const mon = G.U.pick(pool);
     const cfg = {
       tx: 5000 + Math.floor(Math.random() * 3000), ty: 5000 + Math.floor(Math.random() * 3000), r: ARENA_R,
-      dex: mon.dex, shiny: G.Sprites.hasShiny(mon.dex) && Math.random() < 1 / 512,
+      dex: mon.dex, shiny: G.Sprites.hasShiny(mon.dex) && Math.random() < (G.MODS && G.MODS.probShiny ? G.MODS.probShiny(1 / 512) : 1 / 512),   // MOD nico: shiny ×shinyMult
       // La arena es la de uno de sus tipos, al azar.
       type: forceType || G.U.pick(mon.types)
     };

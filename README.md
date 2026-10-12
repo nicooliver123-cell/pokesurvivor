@@ -87,8 +87,10 @@ doble: los que recoges en las runs y los de las misiones y los logros.
 
 Cada enemigo tiene 1/4096 de salir **shiny**: brilla, una flecha en el borde de
 la pantalla te dice dónde está, y si lo derrotas te lo quedas. En el gacha sale
-shiny 1 de cada 100 tiradas. En la colección eliges tu compañero en versión
-normal o shiny.
+shiny 1 de cada 100 tiradas. En esta versión los shiny salen un 50 % más: 1 de
+cada 2.731 enemigos, 1,5 de cada 100 tiradas y 1 de cada 341 legendarios de las
+grietas (en el original, 1 de cada 512). En la colección eliges tu compañero en
+versión normal o shiny.
 
 La música suena tras el primer clic (los navegadores no dejan reproducir sonido
 antes). Volumen y silencio: botón del altavoz arriba a la derecha, o en la pausa.

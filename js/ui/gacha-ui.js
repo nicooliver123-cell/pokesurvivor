@@ -64,6 +64,7 @@ G.GachaUI = (() => {
        · Los repetidos dan Pokémonedas (los shiny repetidos, el triple).<br>
        · Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y
          los jefes y los legendarios de las grietas dan tickets ×10.</p>`;
+    if (G.MODS && G.MODS.notasGacha) $('gacha-rates').innerHTML = G.MODS.notasGacha($('gacha-rates').innerHTML);   // MOD nico: % de shiny del ajuste
 
     const t = s.tickets;
     $('cost-1').innerHTML = `${G.Icons.html('ticket', 18)} 1`;

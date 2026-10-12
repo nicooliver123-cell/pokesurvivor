@@ -31,7 +31,8 @@
  *      (anfitrión e invitado): el legendario de esa grieta con el 60 % y las naturales intactas.
  *  10. Gacha y tickets: tickets ganados ×2 (bankTickets, syncTeam y la recogida de game.js, los
  *      premios de progress.js; sin cobro doble, sin restas, sin tocar las definiciones ni traer dos
- *      veces la partida oficial).
+ *      veces la partida oficial) y shiny ×1,5 (el gacha real sembrado, rollShiny de spawner.js y la línea
+ *      del legendario de rift.js tal cual, y el cartel del gacha con el refresh() real de gacha-ui.js).
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -172,7 +173,7 @@ if (!process.argv.includes('--sin-paquete')) {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 const minS = min.toString('utf8');
-if (['curacionEnemiga', 'anchoMaxJugador', 'grietaGarantizadaAntesDe', 'ticketsMult'].every(k => minS.includes(k))) ok('el paquete incluye js/core/mods.js');
+if (['curacionEnemiga', 'anchoMaxJugador', 'grietaGarantizadaAntesDe', 'ticketsMult', 'shinyMult'].every(k => minS.includes(k))) ok('el paquete incluye js/core/mods.js');
 else bad('el paquete no incluye js/core/mods.js (o una versión vieja)');
 if (minS.includes('pokesurvivor-partida') && minS.includes('imp-box')) ok('el paquete incluye el importador (js/core/importar.js y js/ui/importar-ui.js)');
 else bad('el paquete no incluye js/core/importar.js o js/ui/importar-ui.js');
@@ -219,7 +220,12 @@ const HOOKS = [
   ['js/game.js', /G\.MODS && G\.MODS\.textoTicket \? G\.MODS\.textoTicket\(p\.kind\) : p\.kind === 'ticket' \? '\+1 ticket' : '¡Ticket ×10!'/, 'tickets ×2: el texto que flota al coger uno'],
   ['js/systems/progress.js', /function grant\(r\) \{\r?\n\s*const s = G\.DB\.save;\r?\n\s*if \(!r\) return;\r?\n\s*if \(G\.MODS && G\.MODS\.premio\) r = G\.MODS\.premio\(r\);\s*\/\/ MOD nico/,
     'tickets ×2: premios de misiones y logros (grant)'],
-  ['js/systems/progress.js', /function rewardText\(r\) \{\r?\n\s*if \(G\.MODS && G\.MODS\.premio\) r = G\.MODS\.premio\(r\);\s*\/\/ MOD nico/, 'tickets ×2: el premio que se enseña (rewardText)']
+  ['js/systems/progress.js', /function rewardText\(r\) \{\r?\n\s*if \(G\.MODS && G\.MODS\.premio\) r = G\.MODS\.premio\(r\);\s*\/\/ MOD nico/, 'tickets ×2: el premio que se enseña (rewardText)'],
+  ['js/systems/spawner.js', /return Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(SHINY_RATE\) : SHINY_RATE\);\s*\/\/ MOD nico/, 'shiny ×1,5: salvajes y jefes (rollShiny)'],
+  ['js/systems/rift.js', /shiny: G\.Sprites\.hasShiny\(mon\.dex\) && Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(1 \/ 512\) : 1 \/ 512\),\s*\/\/ MOD nico/, 'shiny ×1,5: legendario de la grieta'],
+  ['js/systems/gacha.js', /Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(SHINY_RATE\) : SHINY_RATE\)\);\s*\/\/ MOD nico/, 'shiny ×1,5: gacha'],
+  ['js/ui/gacha-ui.js', /<span>1%<\/span><\/div>[\s\S]*?<\/p>`;\r?\n\s*if \(G\.MODS && G\.MODS\.notasGacha\) \$\('gacha-rates'\)\.innerHTML = G\.MODS\.notasGacha\(\$\('gacha-rates'\)\.innerHTML\);\s*\/\/ MOD nico/,
+    'shiny ×1,5: el cartel del gacha (el «1%» de upstream sigue ahí y el gancho lo cambia después de pintarlo)']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -1042,6 +1048,7 @@ function gachaChecks() {
   console.log('10. Gacha y tickets (js/core/mods.js con el código real)');
   const r = [];
   const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const medidas = [];
   const nuevoMods = () => { const c = { console }; vm.createContext(c); c.G = {}; vm.runInContext(rd('js/core/mods.js'), c, { filename: 'js/core/mods.js' }); return c; };
   /** G.I18n.t real en inglés (i18n.js con lang-en.js y lang-en-mod.js), con un navegador mínimo. */
   function traductorIngles() {
@@ -1186,8 +1193,90 @@ ${fTicket}      }
       x.ok && G.MODS.ticketsMult === 2 && r1.tickets.t1 === 14 && r1.tickets.t10 === 2 && r2.tickets.t1 === 14 && r2.tickets.t10 === 2, { r1: r1.tickets, r2: r2.tickets });
   } catch (e) { t('importador con mods.js', false, String(e && e.stack || e)); }
 
+  // ---- B. Shiny ×shinyMult ----
+  /** Azar reproducible (mulberry32). */
+  const semilla = s => () => { s = s + 0x6D2B79F5 | 0; let x = Math.imul(s ^ s >>> 15, 1 | s); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; };
+  /** El gacha real (y lo que le haga falta) con Math.random controlado: primero `R.cola`, luego `R.gen`. */
+  function gacha(extra = []) {
+    const c = { console };
+    vm.createContext(c);
+    c.window = c; c.G = {};
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', ...extra, 'js/core/sprites.js', 'js/systems/gacha.js'])
+      vm.runInContext(rd(f), c, { filename: f });
+    const R = { cola: [], gen: semilla(1) };
+    c.__rnd = () => (R.cola.length ? R.cola.shift() : R.gen());
+    vm.runInContext('Math.random = () => __rnd()', c);
+    return { c, G: c.G, R };
+  }
+  const trozoDe = (f, re, que) => { const m = rd(f).match(re); if (!m) throw new Error(`no encuentro en ${f}: ${que}`); return m[0]; };
+  try {
+    const M = nuevoMods().G.MODS;
+    const p = [1 / 4096, 1 / 512, 1 / 100].map(x => M.probShiny(x));
+    t('shiny: por defecto ×1,5 (1/4096 -> 1/2731, 1/512 -> 1/341, 1 % -> 1,5 %), nunca más de 1', M.shinyMult === 1.5 && Math.abs(p[0] - 1.5 / 4096) < 1e-15 &&
+      Math.abs(p[1] - 1.5 / 512) < 1e-15 && Math.abs(p[2] - 0.015) < 1e-15 && M.probShiny(0.9) === 1, p);
+    const raros = [0, -1, NaN, 'x', Infinity].map(v => { M.shinyMult = v; return M.probShiny(0.01); });
+    M.shinyMult = 1;
+    t('shiny: con un ajuste no válido o con 1, la del original', raros.every(x => x === 0.01) && M.probShiny(0.01) === 0.01, raros);
+    // Gacha real, 100.000 tiradas sembradas en los 9 banners: proporción de shiny entre los que tienen sprite shiny.
+    const tasa = (mult, s, n = 100000) => {
+      const { G, R } = gacha();
+      R.gen = semilla(s); G.MODS.shinyMult = mult;
+      const save = { tickets: { t1: n, t10: 0 }, owned: {}, shiny: {}, coins: 0, stats: {}, pity: {} };
+      let sh = 0, con = 0;
+      for (let i = 0; i < n / 10; i++) for (const x of G.Gacha.pull(save, 10, 1 + (i % 9))) if (G.Sprites.hasShiny(x.dex)) { con++; if (x.shiny) sh++; }
+      return +(sh / con * 100).toFixed(3);
+    };
+    const g15 = tasa(1.5, 7), g1 = tasa(1, 8);
+    medidas.push(`gacha ${g15} % (con 1: ${g1} %)`);
+    t(`gacha real con shinyMult 1,5: ${g15} % de shiny en 100.000 tiradas (1,35-1,65 %); con 1: ${g1} % (0,85-1,15 %)`, g15 >= 1.35 && g15 <= 1.65 && g1 >= 0.85 && g1 <= 1.15, { g15, g1 });
+    // Salvajes y jefes: rollShiny de js/systems/spawner.js, tal cual.
+    const fRoll = trozoDe('js/systems/spawner.js', /  function rollShiny\(dex\) \{[\s\S]*?\r?\n  \}\r?\n/, 'rollShiny');
+    const fRate = trozoDe('js/systems/spawner.js', /const SHINY_RATE = [^;\n]+;/, 'SHINY_RATE');
+    const salvaje = (mult, s, n) => {
+      const { c, G, R } = gacha();
+      R.gen = semilla(s); G.MODS.shinyMult = mult; G.Sprites.hasShiny = () => true;
+      vm.runInContext(`var __roll = (() => { let forceShiny = 0; ${fRate}\n${fRoll}\n return rollShiny; })();`, c, { filename: 'js/systems/spawner.js (rollShiny)' });
+      let k = 0;
+      for (let i = 0; i < n; i++) if (c.__roll(1)) k++;
+      return +(k / n * 4096).toFixed(3);
+    };
+    const s15 = salvaje(1.5, 11, 2e6), s1 = salvaje(1, 12, 2e6);
+    medidas.push(`salvajes ×${s15} (con 1: ×${s1})`);
+    t(`salvajes y jefes (rollShiny real): ${s15} veces 1/4096 con 1,5 (1,35-1,65); con 1, ${s1} (0,85-1,15)`, s15 >= 1.35 && s15 <= 1.65 && s1 >= 0.85 && s1 <= 1.15, { s15, s1 });
+    // Legendario de la grieta: la línea de start() en js/systems/rift.js, tal cual.
+    const fLeg = trozoDe('js/systems/rift.js', /dex: mon\.dex, shiny: G\.Sprites\.hasShiny\(mon\.dex\) && Math\.random\(\) < [^\n]*?,(?=\s*\/\/)/, 'el shiny del legendario');
+    const grieta = (mult, s, n) => {
+      const { c, G, R } = gacha();
+      R.gen = semilla(s); G.MODS.shinyMult = mult; G.Sprites.hasShiny = () => true;
+      vm.runInContext(`var __leg = mon => ({ ${fLeg} });`, c, { filename: 'js/systems/rift.js (start)' });
+      let k = 0;
+      for (let i = 0; i < n; i++) if (c.__leg({ dex: 150 }).shiny) k++;
+      return +(k / n * 512).toFixed(3);
+    };
+    const r15 = grieta(1.5, 21, 4e5), r1 = grieta(1, 22, 4e5);
+    medidas.push(`grieta ×${r15} (con 1: ×${r1})`);
+    t(`legendario de la grieta (start() real): ${r15} veces 1/512 con 1,5 (1,35-1,65); con 1, ${r1} (0,85-1,15)`, r15 >= 1.35 && r15 <= 1.65 && r1 >= 0.85 && r1 <= 1.15, { r15, r1 });
+    // Cartel del gacha: refresh() real de js/ui/gacha-ui.js con un DOM mínimo.
+    const cartel = mult => {
+      const { c, G } = gacha();
+      G.MODS.shinyMult = mult;
+      const els = {};
+      const el = id => els[id] || (els[id] = { id, innerHTML: '', textContent: '', disabled: false, style: {}, classList: { toggle() {}, add() {}, remove() {} }, appendChild() {} });
+      G.UI = { $: el, show() {}, stars: () => '*', spriteCanvas: () => ({}), refreshCoins() {} };
+      G.Icons = { html: k => `[${k}]` };
+      G.DB = { save: { owned: {}, shiny: {}, pity: {}, tickets: { t1: 0, t10: 0 } } };
+      c.document = { querySelectorAll: () => [] };
+      vm.runInContext(rd('js/ui/gacha-ui.js'), c, { filename: 'js/ui/gacha-ui.js' });
+      G.GachaUI.open();
+      return els['gacha-rates'].innerHTML;
+    };
+    const c15 = cartel(1.5), c1 = cartel(1);
+    t('cartel del gacha (refresh() real): «1.5%» de shiny con 1,5 y «1%» con 1, como el original', /\[shiny\] Shiny<\/span><span>1\.5%<\/span>/.test(c15) && !c15.includes('<span>1%</span>') &&
+      /\[shiny\] Shiny<\/span><span>1%<\/span>/.test(c1), c15.slice(c15.indexOf('[shiny]'), c15.indexOf('[shiny]') + 60));
+  } catch (e) { t('shiny con el código real', false, String(e && e.stack || e)); }
+
   const failed = r.filter(x => !x[1]);
-  if (!failed.length) ok(`gacha y tickets: ${r.length} casos bien`);
+  if (!failed.length) ok(`gacha y tickets: ${r.length} casos bien` + (medidas.length ? ` (shiny: ${medidas.join(', ')})` : ''));
   for (const [name, , detail] of failed) bad(`gacha: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
