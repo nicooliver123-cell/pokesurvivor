@@ -38,10 +38,14 @@
  *      repetido -> su evolución (js/data/evolutions.js sin ciclos y sólo con especies del juego; pull() real
  *      con las tiradas guionizadas: Bulbasaur, Eevee, shiny, ×10 en orden, ramas; la carta y el inglés).
  *      La grieta: también la primera natural antes del límite lleva el 60 % (las posteriores, enteras).
+ *      Avisos de logro: los de una tirada esperan a que cierres el resultado (progress.js real).
  *  11. Claridad en partida (js/entities/claridad.js con fx.js, enemy.js y mods.js reales): números de daño
- *      sumados por enemigo (también el escudo aparte y el invitado), su vida y su subida sin depender de los
- *      FPS; barras de vida sólo 1,5 s tras un cambio (y quién las conserva); qué tapa a tu Pokémon, el contorno
- *      a escala, el aro, el chevrón y los compañeros; el borde rojo (golpe, vida baja, «menos sacudidas»).
+ *      sumados por enemigo (también el invitado; el escudo aparte, a la derecha sin tocarlo), su vida y su
+ *      subida sin depender de los FPS; barras de vida sólo 1,5 s tras un cambio (y quién las conserva); qué
+ *      tapa a tu Pokémon (también lo alto con los pies lejos), el contorno a escala, el aro, el chevrón y los
+ *      compañeros; el borde rojo (golpe, vida baja, «menos sacudidas»). Y que lo que copia de upstream sigue
+ *      igual: disparoHostil() frente a G.VFX.draw (vfx.js real) y a la llamada de projectile.js, y repintar()
+ *      frente a Animator.draw (sprites.js real).
  *  12. Arreglos de upstream: el bioma a los 0-120 min con world.js y tiles.js reales (nombre, líquido y daño de
  *      los charcos; control: upstream da «Grieta · …» a los 12 min y se rompe a los 84) y el fogonazo de la
  *      grieta, que se apaga también al elegir fusión (frame() de game.js tal cual).
@@ -2025,6 +2029,113 @@ function claridadChecks() {
     W.G.VFX = { SHAPES: { ball: { w: 5, h: 5 } }, sprite: () => { throw new Error('no debería pedir el sprite'); } };
     t('contornoDisparos = false: projectile.js pinta como siempre', W.C.disparoHostil(lienzo(), 'ball', 'normal', 0, 0, 0, 1, 1, 0) === false);
   } catch (e) { t('disparos enemigos', false, String(e && e.stack || e)); }
+
+  // ---- F. Lo que claridad.js repite de upstream sigue coincidiendo con él ----
+  // disparoHostil() pinta como G.VFX.draw y repintar() elige celda y posición como Animator.draw: si upstream
+  // cambia cualquiera de los dos, el disparo contorneado o tu Pokémon repintado dejarían de coincidir.
+  /** Un lienzo de mentira que apunta las llamadas (con sus números) y lo que se le asigna, en orden. */
+  const grabadora = () => {
+    const o = { ops: [], imgs: [], globalAlpha: 0.8 };
+    return new Proxy(o, {
+      get(x, k) { if (k in x) return x[k]; return (...a) => { x.ops.push([k, ...a.map(v => (typeof v === 'number' ? +v.toFixed(4) : typeof v))]); if (k === 'drawImage') x.imgs.push(a); }; },
+      set(x, k, v) { x[k] = v; x.ops.push(['=' + k, typeof v === 'number' ? +v.toFixed(4) : v]); return true; }
+    });
+  };
+  /** Un canvas de mentira que guarda qué píxeles se pintan (para el contorno de claridad.js); legible o no. */
+  const canvasPx = (legible = true) => {
+    const c = { width: 0, height: 0 };
+    let d = null;
+    const x = {
+      fillStyle: '', globalCompositeOperation: '',
+      fillRect(px, py, w, h) {
+        if (!d || d.length !== c.width * c.height * 4) d = new Uint8ClampedArray(c.width * c.height * 4);
+        for (let yy = py; yy < py + h; yy++) for (let xx = px; xx < px + w; xx++) if (xx >= 0 && yy >= 0 && xx < c.width && yy < c.height) d[(yy * c.width + xx) * 4 + 3] = 255;
+      },
+      getImageData(px, py, w, h) {
+        if (!legible) throw new Error('SecurityError: lienzo contaminado');
+        return { data: d && w === c.width && h === c.height ? d : new Uint8ClampedArray(w * h * 4) };
+      },
+      clearRect() {}, drawImage() {}
+    };
+    c.getContext = () => x;
+    return c;
+  };
+  try {
+    // F1. projectile.js: el gancho recibe lo mismo que la llamada a G.VFX.draw que sustituye.
+    const src = rd('js/entities/projectile.js');
+    const m = /G\.Claridad\.disparoHostil\(([^\n]*)\)\) continue;[^\n]*\r?\n\s*G\.VFX\.draw\(([\s\S]*?)\);/.exec(src);
+    const partir = s => { const out = []; let d = 0, cur = ''; for (const ch of s) { if ('([{'.includes(ch)) d++; if (')]}'.includes(ch)) d--; if (ch === ',' && d === 0) { out.push(cur.trim()); cur = ''; } else cur += ch; } if (cur.trim()) out.push(cur.trim()); return out; };
+    const gancho = m ? partir(m[1]) : [], vfx = m ? partir(m[2]) : [];
+    const op = {};
+    if (vfx[5]) for (const kv of partir(vfx[5].replace(/^\{|\}$/g, ''))) { const i = kv.indexOf(':'); op[(i < 0 ? kv : kv.slice(0, i)).trim()] = (i < 0 ? kv : kv.slice(i + 1)).trim(); }
+    t('projectile.js: el disparo contorneado recibe lo mismo que la llamada a G.VFX.draw que sustituye (posición, ángulo, alfa, escala y fotograma)',
+      gancho.length === 9 && vfx.length === 6 && vfx.slice(0, 5).join('|') === gancho.slice(0, 5).join('|') && Object.keys(op).sort().join() === 'alpha,angle,frame,scale' &&
+      op.angle === gancho[5] && op.alpha === gancho[6] && op.scale === gancho[7] && op.frame === gancho[8], { gancho, vfx: vfx.slice(0, 5), op });
+
+    // F2. disparoHostil() frente a G.VFX.draw() real (vfx.js): mismo centro, giro, alfa y suavizado; 1 píxel de arte más por lado.
+    const c = { console, document: { createElement: () => canvasPx() } };
+    vm.createContext(c);
+    c.window = c; c.G = { Sprites: { PX: 2 } };
+    for (const f of ['js/core/util.js', 'js/entities/vfx.js', 'js/core/mods.js', 'js/entities/claridad.js']) vm.runInContext(rd(f), c, { filename: f });
+    const G = c.G, PX = G.Sprites.PX;
+    let casos = 0, mal = [];
+    for (const shape of Object.keys(G.VFX.SHAPES)) for (const angle of [0, 0.3, 0.5, 1, 2, 2.9, -1.2]) for (const scale of [1, 1.5]) for (const alpha of [1, 0.5]) for (const frame of [0, 3]) {
+      const a = grabadora(), b = grabadora();
+      G.VFX.draw(a, shape, 'fire', 100.6, 50.2, { angle, alpha, scale, frame });
+      const pinto = G.Claridad.disparoHostil(b, shape, 'fire', 100.6, 50.2, angle, alpha, scale, frame);
+      const k = PX * scale, oa = a.ops, ob = b.ops;
+      const ok1 = pinto && oa.length === ob.length && oa.every((x, i) => (x[0] === 'drawImage'
+        ? ob[i][0] === 'drawImage' && Math.abs(ob[i][2] - (x[2] - k)) < 1e-6 && Math.abs(ob[i][3] - (x[3] - k)) < 1e-6 && Math.abs(ob[i][4] - (x[4] + 2 * k)) < 1e-6 && Math.abs(ob[i][5] - (x[5] + 2 * k)) < 1e-6
+        : JSON.stringify(x) === JSON.stringify(ob[i])));
+      const cv = b.imgs[0] && b.imgs[0][0], orig = a.imgs[0] && a.imgs[0][0];
+      const ok2 = cv && orig && cv.width === orig.width + 2 && cv.height === orig.height + 2;
+      casos++;
+      if (!ok1 || !ok2) mal.push({ shape, angle, scale, alpha, frame, vfx: oa, claridad: ob });
+    }
+    t(`disparoHostil() pinta como G.VFX.draw (vfx.js real, ${casos} casos: todas las formas, giros, escalas, alfas y fotogramas), con el sprite 1 píxel de arte más grande por lado`,
+      casos > 0 && !mal.length, mal.slice(0, 2));
+  } catch (e) { t('disparoHostil frente a G.VFX.draw', false, String(e && e.stack || e)); }
+
+  try {
+    // F3. repintar() (tu Pokémon tapado) frente a Animator.draw real (sprites.js): misma hoja, celda y posición;
+    // el contorno, a ±1 píxel de arte. Con una geometría de mentira en G.SPRITE_META y hojas que se cargan a mano.
+    const fot = (w, h, ax, ay, n) => ({ w, h, ax, ay, n, r: 8, d: Array(n).fill(4) });
+    const c = { console, performance: { now: () => 0 }, document: { createElement: () => canvasPx(false) } };
+    c.Image = class { constructor() { this.width = 256; this.height = 512; this.onload = this.onerror = null; } set src(v) { this._src = v; } get src() { return this._src; } };
+    vm.createContext(c);
+    c.window = c;
+    c.G = { SPRITE_META: { 25: { s: 1, sh: 1, a: { Idle: fot(32, 40, 16, 34, 2), Walk: fot(32, 40, 16, 34, 4), Attack: fot(48, 56, 24, 44, 3) }, sa: { Idle: fot(36, 44, 18, 38, 2) } } } };
+    for (const f of ['js/core/util.js', 'js/core/sprites.js', 'js/core/mods.js', 'js/entities/claridad.js']) vm.runInContext(rd(f), c, { filename: f });
+    const G = c.G, S = G.Sprites, C = G.Claridad;
+    G.Coop = { active: false, puppets: () => [] };
+    const cargar = (anim, shiny = false) => { const s = S.sheet(25, anim, shiny); s.img.onload(); return s; };
+    cargar('Idle'); cargar('Idle', true);
+    const casos = [
+      { nombre: 'Idle cargada (fotograma 1, dirección 3)', cur: 'Idle', frame: 1, dir: 3 },
+      { nombre: 'Attack sin cargar: enseña Idle, fotograma 0', cur: 'Attack', frame: 2, dir: 5 },
+      { nombre: 'Attack cargada, fotograma y dirección fuera de la hoja', cur: 'Attack', frame: 7, dir: 11, carga: 'Attack' },
+      { nombre: 'reducido ×0,47 (anchoMaxJugador)', cur: 'Walk', frame: 3, dir: 2, carga: 'Walk', escala: 0.47 },
+      { nombre: 'shiny con su propia geometría', cur: 'Idle', frame: 1, dir: 6, shiny: true }
+    ];
+    const mal = [];
+    for (const k of casos) {
+      if (k.carga) cargar(k.carga, !!k.shiny);
+      const anim = new S.Animator(25, k.escala || 1, !!k.shiny);
+      Object.assign(anim, { cur: k.cur, frame: k.frame, dir: k.dir });
+      const pl = { x: 100.7, y: 200.6, r: 10, bodyH: 40, dead: false, invuln: 0, flash: 0, anim };
+      const delante = { x: 100, y: 210, r: 10, bodyH: 40, dead: false, anim: new S.Animator(25, 1) };
+      G.Game = { player: pl };
+      const L = grabadora();
+      C.escenaOrdenada([{ y: pl.y, ent: pl }, { y: delante.y, ent: delante }]);
+      C.encima(L);
+      const im = L.imgs, real = im[4], copias = im.slice(0, 4), o = Math.max(1, S.PX * (k.escala || 1));
+      const bien = im.length === 5 && copias.every(a => a[0] === S.white(real[0]) && [1, 2, 3, 4, 7, 8].every(i => Math.abs(a[i] - real[i]) < 1e-9)) &&
+        copias.map(a => [a[5] - real[5], a[6] - real[6]].join()).sort().join('|') === [[-o, 0], [0, -o], [0, o], [o, 0]].map(v => v.join()).sort().join('|');
+      if (!bien) mal.push({ caso: k.nombre, dibujos: im.length, real: real && real.slice(1), copias: copias.map(a => a.slice(1)) });
+    }
+    t(`repintar() elige la misma hoja, celda y posición que Animator.draw (sprites.js real, ${casos.length} casos: carga, respaldo de Idle, fuera de la hoja, reducido y shiny); el contorno, a ±1 píxel de arte`,
+      !mal.length, mal);
+  } catch (e) { t('repintar frente a Animator.draw', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`claridad en partida: ${r.length} casos bien`);
