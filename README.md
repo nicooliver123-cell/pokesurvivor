@@ -69,7 +69,8 @@ los enemigos. A veces se abre una **grieta**: entra y lucharás contra un
 **legendario** en una arena aparte. En esta versión siempre se abre una antes de
 los 2 minutos de juego, con el legendario al 60 % de su vida, para que consigas el
 **vínculo** y fusiones movimientos; si no entras antes de que se cierre, no vuelve.
-Las demás grietas salen como en el original.
+(Si la grieta normal del original se adelanta y sale antes, ésa es la tuya: también
+con el legendario al 60 %.) Las demás grietas salen como en el original.
 
 Hay **tabla de tipos** (un Rayo Burbuja le quita más a un Charmander) y,
 de vez en cuando, **climas** (sol, lluvia, arena, nieve, niebla) que potencian

@@ -919,6 +919,28 @@ function grietaChecks() {
   const eF = { maxHp: 4190, hp: 4190 }, eN = { maxHp: 4190, hp: 4190 };
   M.vidaLegendario(eF, { forzada: 1 }); M.vidaLegendario(eN, { forzada: 0 });
   t('vidaLegendario: el de su arena, con el 60 % (4.190 -> 2.514); el de otra, igual', eF.maxHp === 2514 && eF.hp === 2514 && eN.maxHp === 4190 && eN.hp === 4190);
+  // La PRIMERA grieta de la partida, si es la natural y se abre antes del límite, cuenta como la garantizada.
+  {
+    const natural = { ttl: 45 }, despues = { ttl: 45 };
+    cm.G.Rift = { rift: null };
+    const plN = {}; M.grietaGarantizada(plN, 0, false, true);
+    cm.G.Rift.rift = natural;
+    const pide = M.grietaGarantizada(plN, 105, true, true);
+    const n1 = M.arenaGarantizada(plN, natural, 106), n2 = M.arenaGarantizada(plN, natural, 107), n3 = M.arenaGarantizada(plN, despues, 200);
+    const plTarde = {}; M.grietaGarantizada(plTarde, 0, false, true);
+    cm.G.Rift.rift = despues; M.grietaGarantizada(plTarde, 125, true, true);
+    const tarde = M.arenaGarantizada(plTarde, despues, 126);
+    const plInv = {}; M.grietaGarantizada(plInv, 0, false, false);
+    cm.G.Rift.rift = natural; M.grietaGarantizada(plInv, 105, true, false);
+    const inv = M.arenaGarantizada(plInv, natural, 106);
+    M.grietaGarantizadaAntesDe = 0;
+    const plOff = {}; M.grietaGarantizada(plOff, 105, true, true);
+    M.grietaGarantizadaAntesDe = LIM;
+    const off = M.arenaGarantizada(plOff, natural, 106);
+    delete cm.G.Rift;
+    t('la primera grieta, si es natural y se abre antes del límite, queda marcada (una vez); pasada la hora límite, en el invitado o con el ajuste a 0, no',
+      pide === false && n1 === 1 && n2 === 0 && n3 === 0 && tarde === 0 && inv === 0 && off === 0, { pide, n1, n2, n3, tarde, inv, off });
+  }
 
   // ---- B. js/systems/rift.js real ----
   const scaleHp = n => 1 + 0.3 * Math.max(0, n - 1);
@@ -997,18 +1019,45 @@ function grietaChecks() {
     t('solitario: en toda la partida (400 s) sólo la garantizada y la natural; se pidió abrir una vez y nada marcó la partida como debug',
       S.grietas.length === 2 && S.pide === 1 && S.banderas.length === 0 && J1.pl.bonds === 2, { grietas: S.grietas.length, pide: S.pide, banderas: S.banderas });
   }
-  // Solitario: una natural antes de la hora (hora 106,5 s; la tirada de los 105 s sale) -> no se fuerza.
+  // Solitario: una natural antes de la hora (hora 106,5 s; la tirada de los 105 s sale) -> no se fuerza, y como es la
+  // PRIMERA de la partida y se abre antes de los 120 s, su legendario sale con el 60 % (~3 % de las partidas). La
+  // siguiente natural, ya con su vida completa.
   {
     const J2 = juego(), { S, R } = J2;
     S.rnd = 0.9; J2.paso(); S.rnd = 0.1;
     J2.hastaQue(() => R.rift, 130);
     const tNat = S.time;
     J2.entrar();
-    const L = J2.legendario();
+    const L = J2.legendario(), marca = R.arena && R.arena.forzada;
     L.e.dead = true; J2.paso(); J2.hastaQue(() => !R.inArena, S.time + 10);
+    const tFin = S.time;
     S.rnd = 0.5; J2.hastaQue(() => false, 130);
-    t('solitario: si a los 105 s sale una natural (hora 106,5), no se fuerza ninguna; su legendario, entero',
-      tNat >= 105 - DT && tNat < 105 + 2 * DT && S.grietas.length === 1 && S.pide === 0 && R.arena === null && L.e.maxHp === vidaNormal(L.t, 1), { natural: tNat, grietas: S.grietas.length });
+    t('solitario: si a los 105 s sale una natural (hora 106,5), no se fuerza ninguna; es la primera: su legendario, con el 60 % (arena marcada)',
+      tNat >= 105 - DT && tNat < 105 + 2 * DT && S.grietas.length === 1 && S.pide === 0 && R.arena === null && marca === 1 &&
+      L.e.maxHp === Math.round(vidaNormal(L.t, 1) * 0.6) && L.e.hp === L.e.maxHp, { natural: tNat, grietas: S.grietas.length, vida: L.e.maxHp, sinMod: vidaNormal(L.t, 1) });
+    S.rnd = 0.1;
+    J2.hastaQue(() => R.rift, tFin + 40);
+    J2.entrar();
+    const L2 = J2.legendario();
+    t('solitario: tras esa natural, la siguiente natural sale con su legendario entero (arena sin marca)',
+      S.grietas.length === 2 && R.inArena && R.arena.forzada === 0 && L2 && L2.e !== L.e && L2.e.maxHp === vidaNormal(L2.t, 1), L2 && { t: L2.t, vida: L2.e.maxHp });
+  }
+  // Grupo: la primera natural del anfitrión antes del límite también lleva el 60 % (el invitado recibe la arena marcada).
+  {
+    const H = juego({ papel: 'anfitrion' }), I = juego({ papel: 'invitado' });
+    const reparte = () => {
+      for (const m of H.S.enviados.splice(0)) I.R.onEvent(m);
+      for (const m of I.S.alHost.splice(0)) if (m[0] === 're') H.R.enterRequest();
+    };
+    const ambos = () => { H.paso(); I.paso(); reparte(); };
+    H.S.rnd = 0.9; I.S.rnd = 0.9; ambos(); H.S.rnd = 0.1;
+    while (!H.R.rift && H.S.time < 130) ambos();
+    ambos();
+    I.entrar(); reparte(); ambos();
+    const L = H.legendario();
+    t('grupo: la primera natural (105 s, antes de la hora 106,5) del anfitrión: arena marcada en los dos y su legendario con el 60 % de la vida de dos',
+      H.S.pide === 0 && H.R.inArena && I.R.inArena && H.R.arena.forzada === 1 && I.R.arena.forzada === 1 && L && L.e.maxHp === Math.round(vidaNormal(L.t, 2) * 0.6),
+      L && { t: L.t, vida: L.e.maxHp, sinMod: vidaNormal(L.t, 2) });
   }
   // Grupo: el anfitrión la abre y la anuncia; el invitado no abre ninguna, la recibe en el mismo sitio, entra,
   // el anfitrión crea la arena marcada y su legendario (60 % de la vida de grupo); al vencerlo, los dos con vínculo.

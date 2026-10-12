@@ -77,10 +77,12 @@ G.MODS = {
    * 0 = desactivado (como el original). */
   grietaGarantizadaAntesDe: 120,
 
-  /* Vida del legendario de ESA grieta (la garantizada), sobre la normal: 0,6 =
-   * el 60 %. A los 110 s son unos 2.500 en solitario y 4.600 en dúo (sin rebaja,
-   * 4.200 y 7.600). Las grietas naturales no cambian. En grupo lo decide el
-   * anfitrión y el invitado recibe su vida. 1 = sin rebaja. */
+  /* Vida del legendario de ESA grieta, sobre la normal: 0,6 = el 60 %. Es la
+   * PRIMERA grieta de la partida si se abre antes de grietaGarantizadaAntesDe,
+   * sea la forzada o la natural (la tirada de los 105 s, en ~3 % de las partidas,
+   * cuando cae antes de la hora elegida). A los 110 s son unos 2.500 en solitario y
+   * 4.600 en dúo (sin rebaja, 4.200 y 7.600). Las grietas posteriores no cambian.
+   * En grupo lo decide el anfitrión y el invitado recibe su vida. 1 = sin rebaja. */
   grietaGarantizadaVida: 0.6,
 
   /* Tickets del gacha GANADOS (decisión de Nico): cada uno cuenta por ticketsMult.
@@ -221,7 +223,14 @@ G.MODS = {
       st = { hora: a + Math.random() * (b - a), hecha: false, intentoT: -Infinity, grieta: null, usada: false, cierreT: 0 };
       this._grietas.set(pl, st);
     }
-    if (hayGrieta) { st.hecha = true; return false; }   // ya hay (o hubo) una: natural o ésta
+    if (hayGrieta) {                                      // ya hay (o hubo) una: natural o ésta
+      // La PRIMERA grieta de la partida, si se abre antes del límite, es la garantizada aunque sea
+      // la natural (la tirada de los 105 s): su legendario también sale con grietaGarantizadaVida.
+      const r = G.Rift && G.Rift.rift;
+      if (!st.hecha && manda && time < lim && r && !st.grieta) this.grietaAbierta(pl, r, time);
+      st.hecha = true;
+      return false;
+    }
     if (st.hecha || !manda || !(time >= st.hora) || !(time < lim)) return false;
     if (G.EnemyMgr && G.EnemyMgr.bossAlive && G.EnemyMgr.bossAlive()) return false;
     if (time - st.intentoT < 1) return false;           // open() no encontró sitio: otra vez en 1 s
@@ -235,7 +244,8 @@ G.MODS = {
     return st ? st.hora : null;
   },
 
-  /** rift.js, update(): se acaba de abrir la grieta garantizada (`rift`, con su ttl). */
+  /** rift.js, update(): se acaba de abrir la grieta garantizada (`rift`, con su ttl). También
+   *  grietaGarantizada(), cuando la primera de la partida es una natural abierta antes del límite. */
   grietaAbierta(pl, rift, time) {
     const st = pl && typeof pl === 'object' ? this._grietas.get(pl) : null;
     if (!st || !rift) return;
