@@ -59,9 +59,9 @@
  *      monedas; el cartel dice 1.5% de shiny y la nota nueva de los repetidos.
  *  12. Claridad en partida (js/entities/claridad.js), en el invitado: mientras golpea, un único
  *      número vivo por enemigo que suma sus golpes y los que anuncia el anfitrión; la barra de vida
- *      de cada copia que acaba de golpear se ve (la vida le llega por red) y las heridas sin cambio
- *      reciente no la llevan; y los disparos que A hace salir hacia B (con 'es') se pintan en B con
- *      el contorno rojo, que se comprueba en el lienzo de verdad (píxeles #ff2440).
+ *      de cada copia que acaba de golpear se ve (la vida le llega por red) y una copia herida cuya
+ *      vida no cambia (escudo permanente) no la lleva; y los disparos que A hace salir hacia B (con
+ *      'es') se pintan en B con el contorno rojo, que se comprueba en el lienzo de verdad (#ff2440).
  *
  * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
  * desde el último golpe que el propio invitado predijo en ella (lo mide la trampa):
@@ -955,17 +955,22 @@ async function guaranteedRift(A, B) {
       const b = G.Coop.mates[0].pl;
       const mk = (dex, dx) => { const e = new G.Enemy({ dex, hp: 1e6, spd: 0, dmg: 0, xp: 0, behavior: 'healer', shotCd: 99, range: 0 }, b.x + dx, b.y - 60, { hp: 1, spd: 1, dmg: 1 }); G.EnemyMgr.add(e); return e; };
       const libre = mk(143, -70), conEscudo = mk(242, 70);
+      // Para la claridad: un enemigo normal, herido desde que nace y con escudo permanente (su vida no cambia).
+      const quieta = new G.Enemy({ dex: 19, hp: 1e6, spd: 0, dmg: 0, xp: 0, behavior: 'ranged', shotCd: 99, range: 0 }, b.x, b.y - 150, { hp: 1, spd: 1, dmg: 1 });
+      quieta.hp = quieta.maxHp * 0.5; quieta.shield = quieta.maxHp; quieta.shieldT = 8;
+      G.EnemyMgr.add(quieta);
       window.__escudoT = setInterval(() => {
         conEscudo.shield = conEscudo.maxHp; conEscudo.shieldT = 8;
+        quieta.shield = quieta.maxHp; quieta.shieldT = 8;
         for (const e of G.EnemyMgr.queryCircle(b.x, b.y, 420)) if (!e.dead && e !== libre && e.id % 2 === 0) { e.shield = Math.max(e.shield, e.maxHp * 0.35); e.shieldT = 8; }
       }, 300);
       window.__hpTrap.fase = 'invitado';
-      return { libre: libre.id, conEscudo: conEscudo.id };
+      return { libre: libre.id, conEscudo: conEscudo.id, quieta: quieta.id };
     });
     await sleep(800);   // que lleguen las copias y el bit de escudo
     // Claridad en el invitado, mientras golpea (js/entities/claridad.js): un único número vivo por enemigo (sus
     // golpes y los que anuncia el anfitrión, sumados) y la barra de cada copia que acaba de golpear (sin escudo:
-    // con escudo la vida no cambia), visible; las heridas sin cambio reciente, sin barra.
+    // con escudo la vida no cambia), visible; una copia herida cuya vida no cambia (la 'quieta'), sin barra.
     await B.page.evaluate(() => {
       const M = window.__claridad = { muestras: 0, maxPorClave: 0, golpesMax: 0, golpes: 0, barraTrasGolpe: 0, ocultas: 0 };
       M.timer = setInterval(() => {
@@ -998,16 +1003,20 @@ async function guaranteedRift(A, B) {
       window.__hpTrap.fase = 'B-mod';
     }, { d: dianas, lat: LAT });
     await sleep(8000);
-    const claridadB = await B.page.evaluate(() => {
+    const claridadB = await B.page.evaluate(id => {
       const M = window.__claridad;
       clearInterval(M.timer); G.Enemy.prototype.hurt = M.hurt; G.Claridad.barra = M.barra;
-      return { muestras: M.muestras, maxPorClave: M.maxPorClave, golpesMax: M.golpesMax, golpes: M.golpes, barraTrasGolpe: M.barraTrasGolpe, ocultas: M.ocultas };
-    });
+      // La copia herida que no cambia (escudo permanente): en el original llevaría barra; aquí, no.
+      const q = G.EnemyMgr.get(id);
+      const quieta = q ? { herida: q.hp < q.maxHp, escudo: !!(q.net && q.net.st & 4), barra: G.Claridad.barra(q) } : null;
+      return { muestras: M.muestras, maxPorClave: M.maxPorClave, golpesMax: M.golpesMax, golpes: M.golpes, barraTrasGolpe: M.barraTrasGolpe, ocultas: M.ocultas, quieta };
+    }, dianas.quieta);
     report.claridadInvitado = claridadB;
     check('Claridad en el invitado: un único número vivo por enemigo, que suma sus golpes y los del anfitrión',
       claridadB.muestras >= 40 && claridadB.maxPorClave === 1 && claridadB.golpesMax >= 2, claridadB);
-    check('Claridad en el invitado: la barra de vida se ve tras cada golpe suyo (la vida le llega por red) y las heridas sin cambio reciente no la llevan',
-      claridadB.golpes >= 20 && claridadB.barraTrasGolpe === claridadB.golpes && claridadB.ocultas > 0, claridadB);
+    check('Claridad en el invitado: la barra de vida se ve tras cada golpe suyo (la vida le llega por red) y una copia herida sin cambios no la lleva',
+      claridadB.golpes >= 10 && claridadB.barraTrasGolpe === claridadB.golpes && claridadB.quieta && claridadB.quieta.herida && claridadB.quieta.escudo &&
+      claridadB.quieta.barra === false, claridadB);
     // Control del invitado: su cliente como el original (curacionEnemiga=true sólo en B: no cambia
     // nada del anfitrión). Debe ver el rebote que la prueba tiene que saber detectar.
     await B.page.evaluate(() => { G.MODS.curacionEnemiga = true; window.__hpTrap.fase = 'B-original'; });
@@ -1018,27 +1027,35 @@ async function guaranteedRift(A, B) {
 
     // ---- Disparos enemigos con contorno rojo, también en el invitado (le llegan con 'es') ----
     await B.page.evaluate(() => {
-      const D = window.__disparos = { hostiles: 0, contorneados: 0 };
-      const sp = G.Projectiles.spawn, dh = G.Claridad.disparoHostil;
-      D.sp = sp; D.dh = dh;
-      G.Projectiles.spawn = function (o) { if (o && o.friendly === false) D.hostiles++; return sp.apply(this, arguments); };
-      G.Claridad.disparoHostil = function () { const r = dh.apply(this, arguments); if (r) D.contorneados++; return r; };
+      const D = window.__disparos = { hostiles: 0, contorneados: 0, llamadas: 0, dibujos: 0, enLista: 0, pos: [], estado: G.Game.state };
+      const sp = G.Projectiles.spawn, dh = G.Claridad.disparoHostil, dr = G.Projectiles.draw;
+      D.sp = sp; D.dh = dh; D.dr = dr;
+      G.Projectiles.spawn = function (o) {
+        if (o && o.friendly === false) { D.hostiles++; const p = G.Game.player; D.pos.push([Math.round(o.x - p.x), Math.round(o.y - p.y)]); }
+        return sp.apply(this, arguments);
+      };
+      G.Projectiles.draw = function () { D.dibujos++; D.enLista = Math.max(D.enLista, G.Projectiles.all().filter(p => !p.friendly).length); return dr.apply(this, arguments); };
+      G.Claridad.disparoHostil = function () { D.llamadas++; const r = dh.apply(this, arguments); if (r) D.contorneados++; return r; };
     });
     const tiros = await A.page.evaluate(() => {
       const b = G.Coop.mates[0].pl;
       const cerca = G.EnemyMgr.all().filter(e => !e.dead && !e.boss).sort((x, y) => G.U.dist2(x.x, x.y, b.x, b.y) - G.U.dist2(y.x, y.y, b.x, b.y)).slice(0, 3);
+      // A unos 180 de B: lejos, sus disparos se descartan fuera de cámara, y encima de B le dan en el mismo fotograma,
+      // antes de pintarse.
+      cerca.forEach((e, i) => { e.x = b.x + Math.cos(i * 2.1) * 180; e.y = b.y + Math.sin(i * 2.1) * 130; });
       for (const e of cerca) e.shoot(b.x - e.x, b.y - e.y, 0.5, 3, 0.2);   // su propio shoot(): lo anuncia con 'es'
       return cerca.length * 3;
     });
     await sleep(900);
     const disparosB = await B.page.evaluate(() => {
       const D = window.__disparos;
-      G.Projectiles.spawn = D.sp; G.Claridad.disparoHostil = D.dh;
+      G.Projectiles.spawn = D.sp; G.Claridad.disparoHostil = D.dh; G.Projectiles.draw = D.dr;
       // El sprite contorneado de verdad (lienzo del navegador): 1 píxel de arte más por lado y píxeles #ff2440.
       const cv = G.VFX.sprite('fire', 'fire', 0), c = G.Claridad.conContorno(cv);
       const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
       let rojos = 0; for (let i = 0; i < d.length; i += 4) if (d[i] === 0xff && d[i + 1] === 0x24 && d[i + 2] === 0x40 && d[i + 3] === 255) rojos++;
-      return { hostiles: D.hostiles, contorneados: D.contorneados, sprite: [cv.width, cv.height], contorno: [c.width, c.height], pixelesRojos: rojos };
+      return { hostiles: D.hostiles, contorneados: D.contorneados, sprite: [cv.width, cv.height], contorno: [c.width, c.height], pixelesRojos: rojos,
+        llamadas: D.llamadas, dibujos: D.dibujos, enLista: D.enLista, posRespectoB: D.pos.slice(0, 9), estado: D.estado, estadoAhora: G.Game.state };
     });
     report.disparosInvitado = Object.assign({ disparadosPorA: tiros }, disparosB);
     check('Disparos enemigos: en el invitado (llegan del anfitrión con \'es\') se pintan con su contorno rojo #ff2440 de 1 píxel de arte',
