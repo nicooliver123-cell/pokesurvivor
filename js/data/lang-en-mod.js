@@ -118,5 +118,9 @@ G.I18n.add({
   'Atq ×{x}': 'Atk ×{x}', 'Vel ×{x}': 'Spd ×{x}',
   'Horda {x} · {x} s': '{x} horde · {x} s', 'Hora dorada · {x} s': 'Golden hour · {x} s',
   'Grieta {x}': 'Rift {x}', 'Grieta · {x} s': 'Rift · {x} s',
-  '¡Se ha abierto una grieta!': 'A rift has opened!', '¡Grieta abierta! Sigue la flecha morada': 'Rift open! Follow the purple arrow'
+  '¡Se ha abierto una grieta!': 'A rift has opened!', '¡Grieta abierta! Sigue la flecha morada': 'Rift open! Follow the purple arrow',
+  // Versiones cortas de la pista de controles (si la larga no cabe).
+  'WASD moverse · 1-4, Q, E o clic: cambiar ataque · Esc pausa': 'WASD move · 1-4, Q, E or click: switch move · Esc pause',
+  'WASD · 1-4 / Q / E · Esc pausa': 'WASD · 1-4 / Q / E · Esc pause',
+  'Arrastra para moverte · toca un ataque para cambiarlo': 'Drag to move · tap a move to switch', 'Arrastra · toca un ataque': 'Drag · tap a move'
 });

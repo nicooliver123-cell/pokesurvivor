@@ -138,9 +138,29 @@ G.Estilo = (() => {
   let falloHud = false;
   function hud(ctx, w, h, pl, st) {
     if (actual !== 'dex' || !G.HudDex || !pl) return false;
-    try { G.HudDex.draw(ctx, w, h, pl, st); return true; } catch (e) {
+    try { G.HudDex.draw(ctx, w, h, pl, st); colocarLogro(); return true; } catch (e) {
       if (!falloHud) { falloHud = true; console.warn('[Estilo] el HUD Dex ha fallado; se pinta el de upstream', e); }
       return false;
+    }
+  }
+
+  /** Dónde sale el aviso de logro: con Dex y en partida (jugando, o esperando a que un compañero elija su fusión), la
+   *  clase hud-dex-logro en <html> y --hud-dex-sup = lo que ocupa arriba el HUD Dex; css/nico.css pone el aviso 8 px
+   *  por debajo (en pantallas de 521 px de alto o más; en las bajas sigue abajo, como en upstream). Fuera de partida,
+   *  donde siempre. Se mira antes de cada aviso (G.MODS.avisoEnEspera, al principio de showNext() de progress.js) y
+   *  tras pintar el HUD Dex en cada fotograma (un aviso que salió en el menú baja al empezar la partida); sólo se toca
+   *  el DOM si cambia. */
+  let logro = { raiz: null, en: null, sup: null };
+  function colocarLogro() {
+    const raiz = doc && doc.documentElement;
+    if (!raiz || !raiz.classList) return;
+    if (logro.raiz !== raiz) logro = { raiz, en: null, sup: null };
+    const st = G.Game && G.Game.state;
+    const en = actual === 'dex' && !!G.HudDex && (st === 'playing' || st === 'held');
+    if (en !== logro.en) { raiz.classList.toggle('hud-dex-logro', en); logro.en = en; }
+    if (en && raiz.style) {
+      const v = Math.round(G.HudDex.bandaSup()) + 'px';
+      if (v !== logro.sup) { raiz.style.setProperty('--hud-dex-sup', v); logro.sup = v; }
     }
   }
 
@@ -528,7 +548,8 @@ G.Estilo = (() => {
    *       dividida: false | 'auto' | 'abajo' | 'arriba' | 'derecha' | 'izquierda' (dónde van los CONTROLES;
    *       'auto': abajo si la pantalla es casi cuadrada o alta, a la derecha si es apaisada) y
    *       proporcion: parte de la pantalla para los controles (0,5),
-   *       columnaIzq: px de la columna de compañeros y chips en compacto (0 si no hay nada) }
+   *       columnaIzq: px de la columna de compañeros y chips en compacto (0 si no hay nada),
+   *       tactil: pantalla táctil (para el pliegue) }
    * Devuelve { variante: 'escritorio' | 'compacto', escala (u -> px en escritorio), kc (px ×kc en compacto),
    *            dividida, seguras, bordes: las zonas seguras que tocan a `juego` (sólo las de sus lados que dan
    *            al borde de la pantalla),
@@ -538,7 +559,10 @@ G.Estilo = (() => {
    *            bandas: {sup, inf, izq, der}   lo que el HUD reserva DENTRO de `juego` en el peor caso (jefe y
    *            aviso a la vez; G.HudDex.bandas() da las del último fotograma, iguales arriba y abajo),
    *            libre: {x, y, w, h}   `juego` menos las bandas,
-   *            ranuras: 'fila' | 'columna' | 'controles' }
+   *            ranuras: 'fila' | 'columna' | 'controles',
+   *            pliegue: null | {eje: 'x' | 'y', pos, ancho}   dónde estaría el pliegue de un plegable abierto
+   *            (táctil, casi cuadrado y con el lado corto ≥ 600: parte por la mitad el lado corto; eje 'x' = línea
+   *            vertical en x = pos). Sin saber la postura, el HUD compacto aparta sus piezas de esa franja. }
    * Variante: compacta si `juego` mide menos de 520 de alto (móvil en horizontal) o si es más estrecho que
    * la fila de arriba de escritorio con la entrada del jefe (884 u: plegable abierto, ventana estrecha); si
    * no, escritorio. Cifras en G.MARCA.hud.
@@ -608,7 +632,13 @@ G.Estilo = (() => {
       }
     }
     const libre = { x: juego.x + bandas.izq, y: juego.y + bandas.sup, w: Math.max(0, juego.w - bandas.izq - bandas.der), h: Math.max(0, juego.h - bandas.sup - bandas.inf) };
-    return { variante: esCompacto ? 'compacto' : 'escritorio', escala, kc, dividida, seguras: sg, bordes, juego, controles, filas, bandas, libre, ranuras };
+    // Pliegue de un plegable abierto (el Magic V6: 724×784 con el pliegue vertical en x = 362; girado, 784×724 con
+    // él en y = 362). La pantalla entera, no el rectángulo de juego: el pliegue es del cristal.
+    const PG = (C && C.pliegue) || { aspectoMax: 1.2, ladoMin: 600, ancho: 24 };
+    const corto = Math.min(w, h), largo = Math.max(w, h);
+    const pliegue = op.tactil && corto >= PG.ladoMin && largo / corto <= PG.aspectoMax
+      ? (w <= h ? { eje: 'x', pos: Math.round(w / 2), ancho: PG.ancho } : { eje: 'y', pos: Math.round(h / 2), ancho: PG.ancho }) : null;
+    return { variante: esCompacto ? 'compacto' : 'escritorio', escala, kc, dividida, seguras: sg, bordes, juego, controles, filas, bandas, libre, ranuras, pliegue };
   }
 
   // ===================================================================
@@ -628,7 +658,7 @@ G.Estilo = (() => {
 
   return {
     get actual() { return actual; }, get dex() { return actual === 'dex'; },
-    set, porDefecto, hud, fuenteCanvas, cargarFuentes, descargaEnReposo, ajustes, carta, tipoDeCarta, companero, premio,
+    set, porDefecto, hud, colocarLogro, fuenteCanvas, cargarFuentes, descargaEnReposo, ajustes, carta, tipoDeCarta, companero, premio,
     destacado, encaje, colocacion, disposicion, zonasSeguras, ranurasEnColumna, capaProbabilidades, tabLibre,
     on(fn) { oyentes.add(fn); },
     TEXTO_ESTILO, TAM_COMPANERO, TAM_PREMIO, HORIZONTAL_PLEGABLE, tiraPestanas

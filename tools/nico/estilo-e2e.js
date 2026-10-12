@@ -45,7 +45,9 @@
  *      G.HudDex.bandas() y la de check.js (≤ 20 % del alto en un móvil); pares Dex/Clásico; tocar la ranura 2 la activa y
  *      la pausa responde (844x390, con el dedo); contraste de los textos en píxeles reales en bosque, cueva, volcán, arena
  *      y lluvia (p10 ≥ 3:1, mediana ≥ 4,5:1); el HUD Dex cuesta de media como mucho 0,3 ms más que el de upstream en la misma escena (escritorio); capturas con 4 jugadores; y
- *      con movimiento reducido no parpadea nada.
+ *      con movimiento reducido no parpadea nada. Con la letra de verdad, cada bioma y cada arena salen enteros en el
+ *      sensor de Rotom y la pista de controles del principio sale entera; el aviso de logro en partida va bajo la banda
+ *      de arriba del HUD (también el que salió en el menú); y en el plegable abierto nada pisa el pliegue.
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
@@ -613,6 +615,61 @@ const CONTRASTE_PIXELES = async () => {
   }
   return out;
 };
+/** Con la letra de verdad: el sensor de Rotom con cada bioma y cada arena (con y sin clima) y la pista de controles del
+ *  principio, pintados en un lienzo aparte. Devuelve los textos recortados con «…» o con «Grieta · » en Rotom, y la pista. */
+const TEXTOS_ENTEROS = async () => {
+  const W = innerWidth, H = innerHeight, pl = G.Game.player, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), textos = [], ft = ctx.fillText;
+  ctx.fillText = function (t, x, y) { const m = ctx.getTransform(); textos.push({ t: String(t), x: m.a * x + m.e, y: m.d * y + m.f }); return ft.call(this, t, x, y); };
+  const dentro = (o, R) => R && o.x >= R.x - 1 && o.x <= R.x + R.w + 1 && o.y >= R.y - 1 && o.y <= R.y + R.h + 1;
+  const bn = G.World.biomeName, dW = Object.getOwnPropertyDescriptor(G.Weather, 'current'), ban = G.Spawner.banner;
+  const lluvia = { name: 'Lluvia', icon: 'wrain', left: 67, mult: { water: 1.5, fire: 0.5 }, kind: 'rain' };
+  const malos = [];
+  let n = 0;
+  try {
+    for (const clima of [null, lluvia]) {
+      Object.defineProperty(G.Weather, 'current', { get: () => clima, configurable: true });
+      for (const b of G.Tiles.BIOMES) {
+        G.World.biomeName = () => b.name;
+        textos.length = 0;
+        G.HudDex.draw(ctx, W, H, pl, { time: 100 });
+        const B = G.HudDex.bandas(), R = B.piezas.rotom;
+        if (R.modo === 'cara') continue;
+        const tx = textos.filter(o => dentro(o, R)).map(o => o.t), limpio = b.name.replace(/^Grieta · /, '');
+        const debe = !clima || B.variante !== 'compacto';
+        if (tx.some(x => /…/.test(x) || /^Grieta ·/.test(x)) || (debe && !tx.join(' ').includes(limpio))) malos.push({ clima: !!clima, nombre: b.name, tx });
+        n++;
+      }
+    }
+  } finally { G.World.biomeName = bn; Object.defineProperty(G.Weather, 'current', dW); }
+  // La pista de controles (los primeros 14 s, con la ranura de avisos libre).
+  let pista = null;
+  try {
+    G.Spawner.banner = () => null;
+    G.HudDex.Avisos.reiniciar();
+    G.HudDex.draw(ctx, W, H, pl, { time: 3 });
+    await new Promise(r => setTimeout(r, 350));
+    textos.length = 0;
+    G.HudDex.draw(ctx, W, H, pl, { time: 3.4 });
+    const v = G.HudDex.Avisos.visible, A = G.HudDex.bandas().piezas.aviso;
+    const tx = textos.filter(o => dentro(o, A)).map(o => o.t);
+    pista = { tx, variantes: v && v.variantes, larga: !!(v && v.variantes && tx[0] === v.variantes[0]) };
+  } finally { G.Spawner.banner = ban; G.HudDex.Avisos.reiniciar(); }
+  return { n, malos, pista };
+};
+/** Un aviso de logro (el elemento de progress.js) en plena partida: dónde sale con el HUD Dex. */
+const LOGRO = () => {
+  let el = document.getElementById('ach-pop');
+  if (!el) { el = document.createElement('div'); el.id = 'ach-pop'; el.className = 'box ach-pop'; document.body.appendChild(el); }
+  el.innerHTML = '<div><b>¡Logro: Prueba!</b><small>Nuevo título: Prueba</small></div>';
+  el.classList.remove('hidden');
+  G.MODS.avisoEnEspera(() => {});
+  const r = el.getBoundingClientRect(), B = G.HudDex.bandas();
+  const out = { top: Math.round(r.top), bottom: Math.round(r.bottom), sup: Math.round(B.juego.y + B.sup), alto: innerHeight, estado: G.Game.state, clase: document.documentElement.classList.contains('hud-dex-logro') };
+  el.remove();
+  return out;
+};
 const percentil = (v, p) => { const s = v.slice().sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : 0; };
 const VP_HUD = {
   pc: VP.pc, movil: VP.movil, movilBajo: VP.movilBajo, pleg1: VP.pleg1, pleg2: VP.pleg2, exterior: VP.exterior,
@@ -626,6 +683,13 @@ async function pruebaHud(browser) {
     if (!await entrar(P)) { check(`${nv}: HUD: se entra a jugar`, false); await P.ctx.close(); continue; }
     await page.evaluate(() => { G.Estilo.set('dex'); G.Flow.play(); });
     await sleep(1200);
+    // El aviso de logro que salió en el menú («Primer compañero», del invitado nuevo) baja al empezar la partida.
+    const logroMenu = await page.evaluate(() => {
+      const el = document.getElementById('ach-pop');
+      if (!el || el.classList.contains('hidden')) return null;
+      const r = el.getBoundingClientRect();
+      return { top: Math.round(r.top), bottom: Math.round(r.bottom), sup: Math.round(G.HudDex.bandaSup()), alto: innerHeight, texto: el.textContent.trim().slice(0, 40) };
+    });
     await page.evaluate(ESCENA_HUD, {});
     await sleep(2200);    // que se vaya la píldora del ataque y se horneen los sprites
     // La banda superior medida en píxeles (HUD sin mundo) es la que dice el HUD (y check.js).
@@ -634,6 +698,36 @@ async function pruebaHud(browser) {
     const compacto = b.variante === 'compacto';
     check(`${nv}: HUD Dex (${b.variante}, ×${b.escala}): la banda de arriba medida en píxeles con el HUD en un lienzo aparte (${b.filaOpaca} px) es la de G.HudDex.bandas() (${b.sup})${compacto && v.h < 520 ? ', ≤ 20 % del alto (criterio de Nico)' : ''}`,
       b.flechas === 0 && Math.abs(b.filaOpaca - b.sup) <= 1 && (!compacto || v.h >= 520 || (b.sup + b.inf) / v.h <= 0.2), b);
+    // Con la letra de verdad: ningún nombre de bioma o de arena recortado en Rotom y la pista de controles entera.
+    const te = await page.evaluate(TEXTOS_ENTEROS);
+    report.medidas['hud-textos-' + nv] = te;
+    check(`${nv}: con la letra de verdad, el sensor de Rotom enseña entero cada bioma y cada arena (${te.n} casos, con y sin lluvia; sin «Grieta · » ni «…») y la pista de controles del principio sale entera${clave === 'pc' ? ' (la larga)' : ''}: «${te.pista && te.pista.tx[0]}»`,
+      te.n >= 40 && !te.malos.length && te.pista && te.pista.tx.length === 1 && te.pista.variantes.includes(te.pista.tx[0]) && !/…/.test(te.pista.tx[0]) && (clave !== 'pc' || te.pista.larga),
+      { malos: te.malos.slice(0, 5), pista: te.pista });
+    await sleep(700);    // la ranura de avisos vuelve a enseñar el del jefe (se ha vaciado para mirar la pista)
+    // El aviso de logro en partida: bajo la banda de arriba del HUD (en pantallas bajas, abajo, como upstream).
+    if (['pc', 'tab', 'movil', 'pleg2'].includes(clave)) {
+      const lg = await page.evaluate(LOGRO);
+      report.medidas['hud-logro-' + nv] = lg;
+      const bajo = v.h < 521;
+      const menuOk = !logroMenu || (bajo ? logroMenu.bottom >= logroMenu.alto - 30 : logroMenu.top >= logroMenu.sup + 8 - 3);
+      report.medidas['hud-logro-menu-' + nv] = logroMenu;
+      check(`${nv}: un aviso de logro en partida con el HUD Dex sale ${bajo ? 'abajo (pantalla baja, como upstream)' : `bajo la banda de arriba del HUD (${lg.top} px ≥ ${lg.sup} + 8)`} y no tapa la ranura de avisos ni la entrada del jefe; ${logroMenu ? `el que salió en el menú («${logroMenu.texto}») también, al empezar la partida (${logroMenu.top} px)` : 'no quedaba ninguno del menú'}`,
+        lg.estado === 'playing' && lg.clase && (bajo ? lg.bottom >= lg.alto - 30 && lg.top > lg.sup : lg.top >= lg.sup + 8 - 3) && menuOk, { lg, logroMenu });
+    }
+    // El plegable abierto: nada del HUD sobre el pliegue (por si está a medio plegar).
+    if (clave === 'pleg1' || clave === 'pleg2') {
+      const pg = await page.evaluate(() => {
+        const B = G.HudDex.bandas(), P = B.piezas, g = B.pliegue, L = [];
+        for (const k of ['ficha', 'contador', 'rotom', 'pausa', 'jefe', 'aviso', 'objeto', 'vinculo']) if (P[k]) L.push({ n: k, ...P[k] });
+        ['ranuras', 'chips', 'companeros'].forEach(k => (P[k] || []).forEach((r, i) => L.push({ n: k + i, ...r })));
+        const pisa = g ? L.filter(p => g.eje === 'x' ? p.x < g.pos + g.ancho / 2 && p.x + p.w > g.pos - g.ancho / 2 : p.y < g.pos + g.ancho / 2 && p.y + p.h > g.pos - g.ancho / 2).map(p => p.n) : null;
+        return { pliegue: g, pisa };
+      });
+      report.medidas['hud-pliegue-' + nv] = pg;
+      check(`${nv}: plegable abierto: ninguna pieza del HUD Dex (contador, jefe, aviso, ranuras, objeto…) pisa la franja del pliegue (${pg.pliegue ? `${pg.pliegue.eje === 'x' ? 'vertical en x' : 'horizontal en y'} = ${pg.pliegue.pos}` : 'sin pliegue'})`,
+        pg.pliegue && !pg.pisa.length, pg);
+    }
     // Pares Dex/Clásico del mismo momento (bosque, jefe con su aviso y lluvia).
     await captura(page, `hud-jefe-dex-${nv}`);
     await estilo(page, 'clasico');

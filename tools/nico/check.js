@@ -68,7 +68,10 @@
  *      del jefe en #9B6BFF con 3 marcas y más gruesa que tus PS; flechas (fuera de pantalla o tapado, dentro de la
  *      zona libre); ranura de avisos con cola; toques donde se pintan (≥ 44 px); cooperativo; contraste de cada texto;
  *      red de seguridad (fallback a upstream, Clásico = upstream, huellas e inventario de hud.js y events.js);
- *      pantalla dividida preparada (rectángulos de juego y de controles) e inglés.
+ *      pantalla dividida preparada (rectángulos de juego y de controles) e inglés. Y los arreglos de la verificación
+ *      del lote 2: nombres de bioma y arena enteros en Rotom, pista de controles corta, flechas fuera de la píldora
+ *      del ataque, «Caído» con muesca, nada sobre el pliegue del plegable, aire en las filas de compañeros y el
+ *      aviso de logro bajo el HUD.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -3269,7 +3272,159 @@ function hudDexChecks() {
       'Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo', 'WASD moverse  ·  1-4 / Q / E o clic en un ataque para cambiarlo  ·  Esc pausa', 'Lluvia · 67 s'];
     const sin = textos.filter(s => EN(s) === s);
     t('inglés de los textos del HUD Dex (i18n.js real): PS, N.º, Despejado, Caído, los chips, la horda y la hora dorada, la grieta, los compañeros, «Has caído», la pista de controles y el clima', !sin.length, sin);
+    const cortas = ['WASD moverse  ·  1-4, Q, E o clic: cambiar ataque  ·  Esc pausa', 'WASD  ·  1-4 / Q / E  ·  Esc pausa', 'Arrastra para moverte  ·  toca un ataque para cambiarlo', 'Arrastra  ·  toca un ataque'];
+    const cortasSin = cortas.filter(s => EN(s) === s || /[áéíóú]|moverse|ataque|pausa|Arrastra/.test(EN(s)));
+    t('inglés de las versiones cortas de la pista de controles', !cortasSin.length, cortasSin.length ? cortasSin : cortas.map(EN));
   } catch (e) { t('inglés del HUD', false, String(e && e.stack || e)); }
+
+  // ---- M. Arreglos de la verificación del lote 2 ----
+  const enRect = (o, R) => o.ancla && o.ancla[0] >= R.x - 0.5 && o.ancla[0] <= R.x + R.w + 0.5 && o.ancla[1] >= R.y - 0.5 && o.ancla[1] <= R.y + R.h + 0.5;
+  const cortaUp = s => /…$/.test(s) && !/(elige fusión|todos|grieta)…$/.test(s);
+  // M1. Nombres de arena enteros en el sensor de Rotom (sin «Grieta · »; con la letra un punto menor o en dos líneas).
+  try {
+    const tiles = rd('js/world/tiles.js'), ini = tiles.indexOf('const ARENA_THEMES');
+    const arenas = [...tiles.slice(ini, tiles.indexOf('};', ini)).matchAll(/name: '([^']+)'/g)].map(m => 'Grieta · ' + m[1]);
+    const nombres = ['Bosque Umbrío', 'Cueva Cristal', 'Volcán Ceniza', ...arenas];
+    const malos = [], vistos = {};
+    for (const [w, h, tactil] of [[1440, 900], [1920, 1080], [1024, 768], [724, 784, true], [784, 724, true], [844, 390, true], [780, 360, true], [568, 320, true]]) {
+      const H = cargarHud({ w, h, tactil });
+      for (const clima of [null, { name: 'Lluvia', icon: 'wrain', left: 67, mult: { water: 1.5, fire: 0.5 } }]) {
+        H.juego.clima = clima;
+        for (const n of nombres) {
+          H.juego.bioma = n;
+          const ctx = H.pintar(), B = H.G.HudDex.bandas(), R = B.piezas.rotom;
+          if (R.modo === 'cara') { vistos[`${w}x${h}`] = 'cara'; continue; }
+          const tx = ctx.ops.filter(o => o.op === 'texto' && enRect(o, R)).map(o => o.texto);
+          const limpio = n.replace(/^Grieta · /, ''), junto = tx.join(' ');
+          const debeVerse = !clima || B.variante !== 'compacto';
+          if (tx.some(x => /…/.test(x) || /^Grieta ·/.test(x)) || (debeVerse && !junto.includes(limpio))) malos.push({ vp: `${w}x${h}`, clima: !!clima, n, tx });
+          vistos[`${w}x${h}`] = (vistos[`${w}x${h}`] || 0) + 1;
+        }
+      }
+    }
+    t(`sensor de Rotom: los ${nombres.length} nombres (3 biomas y ${arenas.length} arenas) enteros, sin «Grieta · » ni «…», con y sin clima, en escritorio (1440x900, 1920x1080, 1024x768), el plegable abierto (724x784, 784x724) y los móviles (844x390, 780x360, 568x320)`,
+      arenas.length === 18 && !malos.length, malos.length ? malos.slice(0, 6) : vistos);
+    // Un nombre que no cabe ni con la letra menor (Rotom estrecho): en dos líneas, entero y sin «Despejado».
+    const H = cargarHud({ w: 844, h: 390, tactil: true });
+    H.juego.bioma = 'Grieta · Bosque Encantado de las Hadas Eternas';
+    const ctx = H.pintar(), R = H.G.HudDex.bandas().piezas.rotom;
+    const tx = ctx.ops.filter(o => o.op === 'texto' && enRect(o, R)).map(o => o.texto);
+    t('sensor de Rotom: un nombre que no cabe en una línea ni con la letra un punto menor va en dos líneas, entero (sin «…» ni «Despejado»)',
+      tx.length === 2 && tx.join(' ') === 'Bosque Encantado de las Hadas Eternas' && !tx.some(x => /…/.test(x)), tx);
+  } catch (e) { t('nombres de arena en Rotom', false, String(e && e.stack || e)); }
+  // M2. La pista de controles: si la larga no cabe, una más corta entera (no «… · Es…»).
+  try {
+    const res = [];
+    for (const [w, h, tactil, jefe] of [[1024, 768, false], [1280, 720, false], [568, 320, true, true], [844, 390, true]]) {
+      const H = cargarHud({ w, h, tactil });
+      H.st.time = 3; H.juego.banner = null;
+      if (jefe) H.juego.jefes = [jefeFalso(w * 0.6, h * 0.6)];
+      H.pintar(); H.reloj.t += 400;
+      const ctx = H.pintar(), A = H.G.HudDex.bandas().piezas.aviso;
+      const tx = A ? ctx.ops.filter(o => o.op === 'texto' && enRect(o, A)).map(o => o.texto) : [];
+      const vs = H.G.HudDex.Avisos.visible && H.G.HudDex.Avisos.visible.variantes || [];
+      res.push({ vp: `${w}x${h}`, tx, ok: tx.length === 1 && vs.includes(tx[0]) && !/…/.test(tx[0]) });
+    }
+    // (Con la letra de verdad, a 1024x768 cabe la del medio y a 1280x720 la larga: lo mira estilo-e2e.js; aquí el ancho es
+    // el de mentira, más ancho que el real.)
+    t('pista de controles: a 1024x768 (y en un móvil pequeño con el jefe al lado) sale una versión que cabe entera, sin «…»; con sitio, la larga', res.every(x => x.ok) && res[3].tx[0] === 'Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo', res);
+  } catch (e) { t('pista de controles', false, String(e && e.stack || e)); }
+  // M3. La píldora del ataque activo (compacto, dentro de la zona libre) no la pisa ninguna flecha ni su etiqueta.
+  try {
+    const res = [];
+    for (const [w, h, seguras, caida] of [[844, 390], [844, 390, null, true], [844, 390, { sup: 0, der: 47, inf: 21, izq: 47 }], [724, 784]]) {
+      const H = cargarHud({ w, h, tactil: true, seguras: seguras || { sup: 0, der: 0, inf: 0, izq: 0 } });
+      H.pl.slots[1][0].name = 'Danza Espada';   // un nombre largo: la píldora llega hasta donde va la etiqueta de la flecha
+      H.pintar();
+      const S1 = H.G.HudDex.bandas().piezas.ranuras[1], yc = S1.y + S1.h / 2;
+      // Sol (o Ana, caída) lejos a la derecha, justo a la altura de la ranura activa, donde va la píldora.
+      H.juego.mates = [caida ? mateFalso('Ana', '#5FC8FF', w + 2500, yc + 15, { dead: true }) : mateFalso('Sol', '#FF8AD8', w + 2000, yc + 15)];
+      const ctx = H.pintar(), B = H.G.HudDex.bandas();
+      // La píldora, en lo pintado: el relleno bajo el nombre del ataque activo.
+      const it = ctx.ops.findIndex(o => o.op === 'texto' && o.texto === 'Danza Espada');
+      const fp = it > 0 ? ctx.ops.slice(0, it).reverse().find(o => o.op === 'fill' && o.ancla === undefined && o.x <= o.x2 && (ctx.ops[it].ancla[0] >= o.x && ctx.ops[it].ancla[0] <= o.x2 && ctx.ops[it].ancla[1] >= o.y && ctx.ops[it].ancla[1] - 8 <= o.y2)) : null;
+      const pil = fp ? { x: fp.x, y: fp.y, w: fp.x2 - fp.x, h: fp.y2 - fp.y } : null;
+      const choca = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      const cajas = B.flechas.flatMap(f => f.cajas || []);
+      const etiquetas = ctx.ops.filter(o => o.op === 'texto' && /· \d+ m$/.test(o.texto)).map(o => ({ x: o.x, y: o.y, w: o.x2 - o.x, h: o.y2 - o.y, t: o.texto }));
+      const pisan = pil ? [...cajas, ...etiquetas].filter(c => choca(c, pil)) : null;
+      res.push({ vp: `${w}x${h}${seguras ? ' muesca' : ''}${caida ? ' caída' : ''}`, pildora: pil, igualQueBandas: !!(B.pildora && pil && Math.abs(B.pildora.x - pil.x) < 1 && Math.abs(B.pildora.y - pil.y) < 1), flechas: B.flechas.map(f => [f.tipo, Math.round(f.y)]), pisan: pisan && pisan.map(c => c.t || 'cuerpo') });
+    }
+    t('flechas y píldora del ataque: en compacto, ninguna flecha ni su etiqueta pisa la píldora del ataque activo (también con muesca y en el plegable), aunque el compañero (o el caído) esté a su altura y el ataque tenga un nombre largo',
+      res.every(x => x.pildora && x.igualQueBandas && x.flechas.length === 1 && x.pisan && !x.pisan.length), res);
+  } catch (e) { t('flechas y píldora', false, String(e && e.stack || e)); }
+  // M4. «Caído» en una columna estrecha (muesca): una cruz y la barra vacía, nunca «Ca…».
+  try {
+    const H = cargarHud({ w: 844, h: 390, tactil: true, seguras: { sup: 0, der: 47, inf: 21, izq: 47 } });
+    H.juego.mates = [mateFalso('Ana', '#5FC8FF', 400, 200, { dead: true }), mateFalso('Leo', '#7EE07A', 450, 220)];
+    const ctx = H.pintar(), C0 = H.G.HudDex.bandas().piezas.companeros[0];
+    const tx = ctx.ops.filter(o => o.op === 'texto' && o.y >= C0.y - 1 && o.y2 <= C0.y + C0.h + 1 && o.x >= C0.x - 1 && o.x2 <= C0.x + C0.w + 2).map(o => o.texto);
+    const cruz = ctx.ops.some(o => o.op === 'stroke' && o.x >= C0.x && o.x2 <= C0.x + C0.w && o.y >= C0.y && o.y2 <= C0.y + C0.h && o.x2 - o.x <= 12 && o.x2 - o.x >= 5);
+    const ancho = C0.w;
+    // Y sin muesca, con sitio, sigue diciendo «Caído».
+    const H2 = cargarHud({ w: 844, h: 390, tactil: true });
+    H2.juego.mates = H.juego.mates;
+    const tx2 = H2.pintar().ops.filter(o => o.op === 'texto').map(o => o.texto);
+    t('«Caído» en la columna estrecha de compañeros (844x390 con muesca de 47/47/21): una cruz y la barra vacía en vez de «Ca…»; con sitio, «Caído»',
+      !tx.some(x => /…/.test(x)) && (tx.includes('Caído') || cruz) && tx2.includes('Caído'), { ancho, tx, cruz });
+  } catch (e) { t('«Caído» en columna estrecha', false, String(e && e.stack || e)); }
+  // M5. Plegable abierto: nada del HUD encima del pliegue (por si está a medio plegar: libro o mesa).
+  try {
+    const res = [];
+    for (const [w, h, jefe] of [[724, 784, true], [724, 784, false], [784, 724, true], [800, 870, true], [869, 941, true]]) {
+      const H = cargarHud({ w, h, tactil: true });
+      escenaCompleta(H);
+      // Un aviso que cabe entero a un lado del pliegue (uno que no cabe lo cruza: antes eso que recortarlo).
+      H.juego.banner = { text: '¡Onix salvaje apareció!', t: 3.2 };
+      if (!jefe) H.juego.jefes = [];
+      H.pintar();
+      const B = H.G.HudDex.bandas(), pg = B.pliegue;
+      const L = piezas(H.G, H.pl);
+      const pisa = pg ? L.filter(p => pg.eje === 'x' ? p.x < pg.pos + pg.ancho / 2 && p.x + p.w > pg.pos - pg.ancho / 2 : p.y < pg.pos + pg.ancho / 2 && p.y + p.h > pg.pos - pg.ancho / 2).map(p => p.n) : null;
+      res.push({ vp: `${w}x${h}${jefe ? '' : ' sin jefe'}`, pliegue: pg, pisa });
+    }
+    const sin = [[724, 784, false], [844, 390, true], [1024, 768, true], [1440, 900, true]].map(([w, h, tactil]) => { const H = cargarHud({ w, h, tactil }); H.pintar(); return H.G.HudDex.bandas().pliegue; });
+    t('plegable abierto (táctil, casi cuadrado, lado corto ≥ 600): el pliegue parte el lado corto (724x784: vertical en x = 362; 784x724: horizontal en y = 362) y ninguna pieza del HUD lo pisa (contador, jefe, aviso que cabe a un lado, ranuras, objeto, compañeros, chips); con ratón, en un móvil o en una tableta 4:3, no hay pliegue',
+      res.every(x => x.pliegue && !x.pisa.length) && res[0].pliegue.eje === 'x' && res[0].pliegue.pos === 362 && res[2].pliegue.eje === 'y' && res[2].pliegue.pos === 362 && sin.every(x => x === null), { res, sin });
+  } catch (e) { t('pliegue del plegable', false, String(e && e.stack || e)); }
+  // M6. Filas de compañeros en escritorio: aire entre la insignia y el nombre, y entre el nombre y la barra.
+  try {
+    const res = [];
+    for (const [w, h] of [[1024, 768], [1440, 900]]) {
+      const H = cargarHud({ w, h });
+      H.juego.mates = [mateFalso('Ana', '#5FC8FF', w / 2 + 100, h / 2), mateFalso('e2eA_deaa94', '#7EE07A', w / 2 - 100, h / 2)];
+      const ctx = H.pintar(), B = H.G.HudDex.bandas(), k = B.escala, E = H.G.MARCA.hud.escritorio.companeros;
+      B.piezas.companeros.forEach((R, i) => {
+        const nom = ctx.ops.find(o => o.op === 'texto' && o.y >= R.y - 2 && o.y2 <= R.y + R.h + 2 && o.x > R.x + 4 && o.texto !== 'Caído' && !/^[A-Z]$/.test(o.texto));
+        const finInsignia = R.x + Math.round(6 * k) + 2 * Math.round(E.insignia * k), barra = R.x + Math.round(E.barra.x * k);
+        res.push({ vp: `${w}x${h}`, n: nom && nom.texto, aire: nom && +(nom.x - finInsignia).toFixed(1), hastaBarra: nom && +(barra - nom.x2).toFixed(1) });
+      });
+    }
+    t('compañeros en escritorio: al menos 4 px entre la insignia y el nombre, y entre el nombre y su barra', res.length === 4 && res.every(x => x.n && x.aire >= 4 && x.hastaBarra >= 4), res);
+  } catch (e) { t('filas de compañeros', false, String(e && e.stack || e)); }
+  // M7. Avisos de logro en partida con el HUD Dex: bajo su banda de arriba (G.MODS.avisoEnEspera -> G.Estilo.colocarLogro).
+  try {
+    const H = cargarHud({ w: 1440, h: 900 });
+    H.pintar();
+    const clases = new Set(), props = {};
+    H.c.document.documentElement = { classList: { toggle(c, v) { if (v) clases.add(c); else clases.delete(c); }, contains: c => clases.has(c) }, style: { setProperty(k, v) { props[k] = v; } } };
+    const sup = H.G.HudDex.bandas().sup;
+    H.G.Game.state = 'playing'; H.G.MODS.avisoEnEspera(() => {});
+    const jugando = clases.has('hud-dex-logro') && props['--hud-dex-sup'] === sup + 'px';
+    H.G.Game.state = 'ui'; H.G.MODS.avisoEnEspera(() => {});
+    const menu = !clases.has('hud-dex-logro');
+    // Un aviso que salió en el menú (sin la clase) baja al empezar la partida: lo mira el HUD Dex al pintarse.
+    H.G.Game.state = 'playing'; H.pintar();
+    const alEmpezar = clases.has('hud-dex-logro');
+    H.G.Game.state = 'levelup'; H.pintar();
+    const cartas = !clases.has('hud-dex-logro');
+    H.G.Game.state = 'playing'; H.G.Estilo.set('clasico'); H.G.MODS.avisoEnEspera(() => {});
+    const clasico = !clases.has('hud-dex-logro');
+    const css = rd('css/nico.css');
+    const regla = /@media \(min-height: 521px\) \{\s*html\.estilo-dex\.hud-dex-logro \.ach-pop \{ top: calc\(var\(--hud-dex-sup, 56px\) \+ 8px\); \}\s*\}/.test(css);
+    t(`avisos de logro en partida con el HUD Dex: la clase hud-dex-logro y --hud-dex-sup (${sup} px a 1440x900) al salir cada aviso y al pintarse el HUD (un aviso del menú baja al empezar la partida), y css/nico.css lo pone 8 px por debajo (en pantallas de 521 px de alto o más); en el menú, con las cartas de nivel o con Clásico, donde siempre`,
+      jugando && menu && alEmpezar && cartas && clasico && regla, { jugando, menu, alEmpezar, cartas, clasico, regla, props });
+  } catch (e) { t('avisos de logro bajo el HUD Dex', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`HUD Dex: ${r.length} casos bien`);

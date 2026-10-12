@@ -29,8 +29,14 @@
  *   G.HudDex.ponerMarco((w, h) => ({ juego: {x, y, w, h}, controles: {x, y, w, h, lado} | null }))
  * cambia esos rectángulos (null vuelve al de por defecto); G.Estilo.disposicion(w, h, { dividida }) ya sabe
  * partir la pantalla. G.HudDex.bandas() da lo que el HUD reserva en el último fotograma
- * ({sup, inf, izq, der, zona, juego, controles, variante, piezas}): la zona libre para el encuadre (lote 4) y
- * para las flechas. G.HudDex.columna() dice si las ranuras van en columna (el texto de Ajustes > Controles).
+ * ({sup, inf, izq, der, zona, juego, controles, variante, piezas, flechas, pildora, pliegue}): la zona libre para el
+ * encuadre (lote 4) y para las flechas. G.HudDex.columna() dice si las ranuras van en columna (el texto de Ajustes >
+ * Controles) y G.HudDex.bandaSup(), hasta dónde llega el HUD por arriba (el aviso de logro va debajo).
+ *
+ * Plegable abierto (táctil, casi cuadrado, lado corto ≥ 600: el Magic V6), sin saber si está plano o a medio plegar:
+ * en compacto, el contador, el jefe y el aviso se apartan del pliegue vertical, y las ranuras, el objeto, los
+ * compañeros y los chips del horizontal (G.Estilo.disposicion da `pliegue`). Un aviso que no cabe entero a un lado
+ * lo cruza (antes eso que recortarlo). Con la postura de verdad (Viewport Segments), en el lote de la pantalla dividida.
  */
 G.HudDex = (() => {
   const TAU = Math.PI * 2;
@@ -129,6 +135,21 @@ G.HudDex = (() => {
     while (t.length > 1 && ancho(ctx, t + '…') > max) t = t.slice(0, -1);
     return t + '…';
   }
+  /** Pone la letra más grande de `tams` con la que `t` cabe en `max` y devuelve `t`; si no cabe con ninguna, la última
+   *  y `t` recortado con «…». */
+  function encajar(ctx, peso, tams, t, max) {
+    for (const px of tams) { letra(ctx, peso, px); if (ancho(ctx, t) <= max) return t; }
+    return recortar(ctx, t, max);
+  }
+  /** Parte un texto en dos líneas por el espacio que deja la más larga más corta (con la fuente ya puesta). */
+  function partir(ctx, t) {
+    let mejor = [t, ''], peor = Infinity;
+    for (let i = t.indexOf(' '); i > 0; i = t.indexOf(' ', i + 1)) {
+      const a = t.slice(0, i), b = t.slice(i + 1), m = Math.max(ancho(ctx, a), ancho(ctx, b));
+      if (m < peor) { peor = m; mejor = [a, b]; }
+    }
+    return mejor;
+  }
   const ingles = () => !!(G.I18n && G.I18n.lang === 'en');
   /** «1.204» (en inglés, «1,204»). */
   const milesCache = new Map();
@@ -182,7 +203,7 @@ G.HudDex = (() => {
   function maquetar(w, h, c, op = {}) {
     const mc = op.marco || marco(w, h);
     const seguras = op.seguras || (G.Estilo.zonasSeguras ? G.Estilo.zonasSeguras() : undefined);
-    const d = G.Estilo.disposicion(w, h, { seguras, juego: mc.juego, controles: mc.controles });
+    const d = G.Estilo.disposicion(w, h, { seguras, juego: mc.juego, controles: mc.controles, tactil: !!c.tactil });
     const medir = op.medir || ((t, peso, px) => String(t).length * px * (peso >= 650 ? 0.62 : 0.56));
     const L = d.variante === 'compacto' ? compacto(d, c, medir) : escritorio(d, c, medir);
     if (d.controles) controles(d, c, L);
@@ -192,7 +213,46 @@ G.HudDex = (() => {
     const bandas = { sup: d.bandas.sup, inf: d.bandas.inf, izq: L.izq || 0, der: L.der || 0 };
     const libre = { x: J.x + bandas.izq, y: J.y + bandas.sup, w: Math.max(0, J.w - bandas.izq - bandas.der), h: Math.max(0, J.h - bandas.sup - bandas.inf) };
     return { variante: d.variante, escala: d.escala, kc: d.kc, juego: J, controles: d.controles, bordes: d.bordes, piezas: P, bandas, libre,
-      columna: d.ranuras === 'columna', ranurasModo: d.ranuras, m: L.m, filas: d.filas };
+      columna: d.ranuras === 'columna', ranurasModo: d.ranuras, m: L.m, filas: d.filas, pliegue: d.pliegue };
+  }
+
+  /** ¿Pisa el rectángulo r la franja del pliegue? (con el pliegue en el eje 'x', una línea vertical en x = pos). */
+  function pisaPliegue(r, pg) {
+    if (!pg || !r) return false;
+    const a = pg.pos - pg.ancho / 2, b = pg.pos + pg.ancho / 2;
+    return pg.eje === 'x' ? r.x < b && r.x + r.w > a : r.y < b && r.y + r.h > a;
+  }
+  /** Aparta una pila vertical de piezas de la franja de un pliegue horizontal: la parte en dos por el hueco que pide
+   *  menos desplazamiento (las de arriba suben y las de abajo bajan) sin salir de [arriba, abajo]; si no se puede,
+   *  la deja como está. No separa una pieza montada sobre la anterior (la insignia del vínculo sobre el objeto). */
+  function apartarPila(lista, pg, arriba, abajo) {
+    const L = lista.filter(Boolean);
+    if (!pg || pg.eje !== 'y' || !L.some(r => pisaPliegue(r, pg))) return;
+    const pa = pg.pos - pg.ancho / 2, pb = pg.pos + pg.ancho / 2;
+    L.sort((a, b) => a.y - b.y);
+    const top = L[0].y, bot = Math.max(...L.map(r => r.y + r.h));
+    let mejor = null;
+    for (let k = 0; k <= L.length; k++) {
+      if (k > 0 && k < L.length && L[k].y < L[k - 1].y + L[k - 1].h) continue;
+      const finA = k ? Math.max(...L.slice(0, k).map(r => r.y + r.h)) : -Infinity;
+      const iniB = k < L.length ? Math.min(...L.slice(k).map(r => r.y)) : Infinity;
+      const sube = Math.max(0, Math.ceil(finA - pa)), baja = Math.max(0, Math.ceil(pb - iniB));
+      if ((k && top - sube < arriba) || (k < L.length && bot + baja > abajo)) continue;
+      if (!mejor || sube + baja < mejor.c) mejor = { k, sube, baja, c: sube + baja };
+    }
+    if (mejor) L.forEach((r, i) => { r.y += i < mejor.k ? -mejor.sube : mejor.baja; });
+  }
+
+  /** Los textos posibles de un aviso, del más largo al más corto (en compacto, la grieta va en una línea corta). */
+  function variantesAviso(a, comp) {
+    if (comp && a.tipo === 'grieta' && a.corto) return [a.corto];
+    return a.variantes && a.variantes.length ? a.variantes : [a.texto];
+  }
+  /** Ancho del primer texto del aviso que cabe en `max` (si no cabe ninguno, el del más corto, que irá con «…»). */
+  function anchoAviso(a, comp, peso, tam, max, medir) {
+    let w = 0;
+    for (const v of variantesAviso(a, comp)) { w = medir(v, peso, tam); if (w <= max) return w; }
+    return w;
   }
 
   /** Variante compacta (px ×kc). */
@@ -229,6 +289,13 @@ G.HudDex = (() => {
     if (cx === null) { wp = Math.max(r(K.ficha.pantallaMin), Math.floor(rotomI() - 2 * g - wct - (L0 + f1 - solape))); cx = colocar(false); }
     if (cx === null) { wct = r(K.contador.mini); mini = true; cx = colocar(true); if (cx === null) cx = colocar(false); }
     if (cx === null) cx = Math.round(centro - wct / 2);   // degradación declarada (menos de ~340 px de ancho)
+    // Plegable abierto en vertical (pliegue vertical): el contador, a un lado del pliegue si cabe entre la ficha y Rotom.
+    const pg = d.pliegue, pa = pg ? pg.pos - pg.ancho / 2 : 0, pb = pg ? pg.pos + pg.ancho / 2 : 0;
+    if (pg && pg.eje === 'x' && pisaPliegue({ x: cx, y: T0, w: wct, h: f1 }, pg)) {
+      const a = fichaD() + g, z = rotomI() - g;
+      if (pa - wct >= a) cx = Math.floor(pa - wct);
+      else if (pb + wct <= z) cx = Math.ceil(pb);
+    }
     P.ficha = { x: L0, y: T0, w: f1 - solape + wp, h: f1, lado: f1, pantalla: wp };
     P.contador = { x: Math.round(cx), y: T0, w: wct, h: f1, mini };
     P.rotom = { x: rotomI(), y: T0, w: modoRotom === 'cara' ? f1 : wr, h: f1, modo: modoRotom };
@@ -238,12 +305,17 @@ G.HudDex = (() => {
     const U = R2 - L0;
     if (c.jefe) P.jefe = { x: L0, y: y2, w: Math.min(r(K.jefe.anchoMax), c.aviso ? Math.floor((U - g) / 2) : U), h: f2 };
     if (c.aviso) {
-      const tam = r(12), max = c.jefe ? Math.min(r(K.aviso.anchoMaxConJefe), Math.floor((U - g) / 2)) : Math.min(r(K.aviso.anchoMaxSolo), U);
-      const txt = c.aviso.tipo === 'grieta' && c.aviso.corto ? c.aviso.corto : c.aviso.texto;
-      const tw = medir(txt, 800, tam) + (c.aviso.tipo === 'pista' ? 0 : r(K.aviso.lengueta)) + r(K.aviso.padding);
-      const aw = Math.min(max, Math.ceil(tw));
+      const pista = c.aviso.tipo === 'pista', tam = r(12), peso = pista ? 500 : 800;
+      const max = c.jefe ? Math.min(r(K.aviso.anchoMaxConJefe), Math.floor((U - g) / 2)) : Math.min(r(K.aviso.anchoMaxSolo), U);
+      const extra = (pista ? 0 : r(K.aviso.lengueta)) + r(K.aviso.padding);
+      const aw = Math.min(max, Math.ceil(anchoAviso(c.aviso, true, peso, tam, max - extra, medir) + extra));
       const ax = c.jefe ? R2 - aw : Math.max(L0, Math.min(R2 - aw, Math.round(centro - aw / 2)));
       P.aviso = { x: ax, y: y2, w: aw, h: f2 };
+    }
+    if (pg && pg.eje === 'x') {
+      // El jefe acaba antes del pliegue (si no queda en menos de 200 px) y el aviso empieza después si cabe entero.
+      if (P.jefe && pisaPliegue(P.jefe, pg) && pa - L0 >= r(200)) P.jefe.w = Math.floor(pa - L0);
+      if (P.aviso && !c.jefe && pisaPliegue(P.aviso, pg) && R2 - pb >= P.aviso.w) P.aviso.x = Math.ceil(pb);
     }
     const sup = y2 + f2;
     // ---- columna derecha: objeto, vínculo y ranuras (si los mandos no van aparte) ----
@@ -269,6 +341,8 @@ G.HudDex = (() => {
       for (let i = 0; i < n; i++) { P.ranuras.push({ x: colX, y, w: Sl, h: Sl }); y += Sl + gs; }
       P.lado = Sl; P.desplazamiento = r(RK.desplazamientoActiva);
       der = J.x + J.w - colX + gs;
+      // Plegable abierto en horizontal (pliegue horizontal): ninguna ranura ni el objeto encima del pliegue.
+      apartarPila([P.objeto, P.vinculo, ...P.ranuras], pg, arriba, abajo);
     }
     // ---- columna izquierda: compañeros y chips (con las dos columnas, ≤ 22 % del ancho sin muesca) ----
     const CI = K.columnaIzq, nC = c.companeros || 0, chips = c.chips || [];
@@ -278,8 +352,9 @@ G.HudDex = (() => {
       const presupuesto = Math.floor(CI.lateralesMax * J.w - der - (L0 - J.x) - g);
       const wi = Math.max(r(CI.anchoMin), Math.min(r(CI.anchoMax), presupuesto));
       let y = sup + g;
-      for (let i = 0; i < nC && y + r(CI.carta) <= B0; i++) { P.companeros.push({ x: L0, y, w: wi, h: r(CI.carta) }); y += r(CI.pasoCarta); }
-      for (let i = 0; i < chips.length && y + r(CI.chip) <= B0; i++) { P.chips.push({ x: L0, y, w: wi, h: r(CI.chip) }); y += r(CI.pasoChip); }
+      const salta = alto => { if (pg && pg.eje === 'y' && y < pb && y + alto > pa) y = Math.ceil(pb); };   // por debajo del pliegue
+      for (let i = 0; i < nC; i++) { salta(r(CI.carta)); if (y + r(CI.carta) > B0) break; P.companeros.push({ x: L0, y, w: wi, h: r(CI.carta) }); y += r(CI.pasoCarta); }
+      for (let i = 0; i < chips.length; i++) { salta(r(CI.chip)); if (y + r(CI.chip) > B0) break; P.chips.push({ x: L0, y, w: wi, h: r(CI.chip) }); y += r(CI.pasoChip); }
       izq = L0 - J.x + wi + g;
     }
     return { piezas: P, izq, der, m: { L0, R0, T0, B0, g, colX } };
@@ -307,10 +382,12 @@ G.HudDex = (() => {
       P.jefe = { x: Math.round(centro - jw / 2), y: jy, w: jw, h: u(E.jefe.h) };
     }
     if (c.aviso) {
-      const A = E.aviso, grieta = c.aviso.tipo === 'grieta';
+      const A = E.aviso, grieta = c.aviso.tipo === 'grieta', pista = c.aviso.tipo === 'pista';
+      const tope = Math.min(u(A.anchoMax), Math.max(u(160), pasillo)), extra = (pista ? 0 : u(A.lengueta)) + 2 * u(A.padding);
+      // Si el texto no cabe (la pista de controles a 1024 de ancho), su versión más corta.
       const tw = grieta ? Math.max(medir(c.aviso.texto, 800, u(A.grieta.titulo)), medir(c.aviso.sub || '', 500, u(A.grieta.sub)))
-        : medir(c.aviso.texto, c.aviso.tipo === 'pista' ? 500 : 800, c.aviso.tipo === 'pista' ? u(13) : u(A.tam));
-      const aw = Math.min(u(A.anchoMax), Math.max(u(160), pasillo), Math.ceil(tw + (c.aviso.tipo === 'pista' ? 0 : u(A.lengueta)) + 2 * u(A.padding)));
+        : anchoAviso(c.aviso, false, pista ? 500 : 800, pista ? u(13) : u(A.tam), tope - extra, medir);
+      const aw = Math.min(tope, Math.ceil(tw + extra));
       const ay = (c.jefe ? jy + u(E.jefe.h) : P.contador.y + P.contador.h) + u(A.separacion);
       P.aviso = { x: Math.round(centro - aw / 2), y: ay, w: aw, h: grieta ? u(A.grieta.h) : u(A.h) };
     }
@@ -381,6 +458,12 @@ G.HudDex = (() => {
   const Avisos = (() => {
     const PRIO = { grieta: 5, jefe: 4, zona: 3, clima: 2, resto: 1, pista: 0 };
     const MIN = 1.6, ENTRADA = 0.18, SALIDA = 0.4, ESPERA = 2;
+    // La pista de controles, de la más larga a la más corta: sale la primera que cabe entera (a 1024 de ancho, la del
+    // medio; con el jefe al lado en un móvil pequeño, la última).
+    const PISTA_TECLADO = ['WASD moverse  ·  1-4 / Q / E o clic en un ataque para cambiarlo  ·  Esc pausa',
+      'WASD moverse  ·  1-4, Q, E o clic: cambiar ataque  ·  Esc pausa', 'WASD  ·  1-4 / Q / E  ·  Esc pausa'];
+    const PISTA_TACTIL = ['Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo',
+      'Arrastra para moverte  ·  toca un ataque para cambiarlo', 'Arrastra  ·  toca un ataque'];
     let vis = null, cola = [], visto = null, grietaVista = null, tPrevio = -1;
     function clasificar(texto, secs) {
       const a = { tipo: 'resto', texto, origen: texto, dur: secs, persistente: secs >= 30, icono: 'rayo' };
@@ -429,9 +512,8 @@ G.HudDex = (() => {
       if (vis && vis.saliendo && t - vis.ts >= (reducido() ? 0.15 : SALIDA)) vis = null;
       if (!vis && cola.length) { vis = cola.shift(); vis.t0 = t; vis.fin = t + Math.max(vis.dur, MIN); vis.saliendo = false; }
       if (!vis && st.time < 14) {
-        vis = { tipo: 'pista', t0: t, fin: Infinity, dur: Infinity, icono: null,
-          texto: tactil ? 'Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo'
-            : 'WASD moverse  ·  1-4 / Q / E o clic en un ataque para cambiarlo  ·  Esc pausa' };
+        const vs = tactil ? PISTA_TACTIL : PISTA_TECLADO;
+        vis = { tipo: 'pista', t0: t, fin: Infinity, dur: Infinity, icono: null, texto: vs[0], variantes: vs };
       }
       return vis;
     }
@@ -635,11 +717,22 @@ G.HudDex = (() => {
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     const b1 = comp ? Rc.y + Math.round(Rc.h * 0.42) : Rc.y + u(E.texto.l1.base);
     const b2 = comp ? Rc.y + Rc.h - Math.max(5, Math.round(Rc.h * 0.16)) : Rc.y + u(E.texto.l2.base);
-    const t1 = comp ? u(12) : u(E.texto.l1.tam), t2 = comp ? u(11) : u(E.texto.l2.tam);
-    const bioma = G.World.biomeName();
+    const t1 = comp ? u(12) : u(E.texto.l1.tam), t2 = comp ? u(11) : u(E.texto.l2.tam), t1b = comp ? u(11) : u(E.texto.l1.tam - 1);
+    // En la arena, sin «Grieta · » (la entrada del jefe, o su chip, ya dicen «Grieta 0:45»): el nombre entero.
+    const bioma = String(G.World.biomeName()).replace(/^Grieta · /, '');
     if (!wx) {
-      letra(ctx, 800, t1); ctx.fillStyle = C.tinta; ctx.fillText(recortar(ctx, bioma, tmax), tx, b1);
-      letra(ctx, 500, t2); ctx.fillStyle = C.tinta2; ctx.fillText(recortar(ctx, 'Despejado', tmax), tx, b2);
+      ctx.fillStyle = C.tinta;
+      const linea = encajar(ctx, 800, [t1, t1b], bioma, tmax);
+      if (linea === bioma || bioma.indexOf(' ') < 0) {
+        ctx.fillText(linea, tx, b1);
+        letra(ctx, 500, t2); ctx.fillStyle = C.tinta2; ctx.fillText(recortar(ctx, 'Despejado', tmax), tx, b2);
+        return;
+      }
+      // Sin sitio (Rotom estrecho en un móvil pequeño): el nombre en dos líneas, sin «Despejado» (en inglés, se parte
+      // el nombre ya traducido: cada mitad suelta no tendría traducción).
+      const [a, b] = partir(ctx, G.T ? G.T(bioma) : bioma);
+      ctx.fillText(recortar(ctx, a, tmax), tx, b1);
+      ctx.fillText(recortar(ctx, b, tmax), tx, b2);
       return;
     }
     const ic = comp ? u(12) : u(E.texto.l2.icono);
@@ -649,7 +742,7 @@ G.HudDex = (() => {
       letra(ctx, 800, t1); ctx.fillStyle = C.tinta;
       ctx.fillText(recortar(ctx, wx.name + ' · ' + Math.ceil(wx.left) + ' s', tmax - ic - 3), tx + ic + 3, b1);
     } else {
-      letra(ctx, 800, t1); ctx.fillStyle = C.tinta; ctx.fillText(recortar(ctx, bioma, tmax), tx, b1);
+      ctx.fillStyle = C.tinta; ctx.fillText(encajar(ctx, 800, [t1, t1b], bioma, tmax), tx, b1);
       G.Icons.draw(ctx, wx.icon, Math.round(tx), Math.round(b2 - ic + 2), ic);
       letra(ctx, 800, t2); ctx.fillStyle = C.tinta; ctx.fillText(recortar(ctx, wx.name + ' · ' + Math.ceil(wx.left) + ' s', tmax - ic - u(4)), tx + ic + u(4), b2);
       yEf = Rc.y + u(E.texto.l3.base);
@@ -777,7 +870,10 @@ G.HudDex = (() => {
     } else {
       const tam = comp ? u(12) : pista ? u(13) : u(E.tam);
       letra(ctx, pista ? 500 : 800, tam); ctx.fillStyle = pista ? C.tinta2 : grieta ? C.grietaTitulo : C.tinta;
-      ctx.fillText(recortar(ctx, comp && grieta ? a.corto : a.texto, maxT), cxT, Rc.y + Rc.h / 2 + Math.round(tam * 0.36));
+      // El primer texto que cabe entero (la pista tiene versiones más cortas); si ninguno, el más corto con «…».
+      const vs = variantesAviso(a, comp);
+      const txt = vs.find(v => ancho(ctx, v) <= maxT) || recortar(ctx, vs[vs.length - 1], maxT);
+      ctx.fillText(txt, cxT, Rc.y + Rc.h / 2 + Math.round(tam * 0.36));
     }
     R(ctx);
   }
@@ -825,20 +921,54 @@ G.HudDex = (() => {
       const bxr = Rc.x + Rc.w - (comp ? 7 : u(E.barra.der));
       if (o.dead) {
         letra(ctx, 800, u(11)); ctx.textAlign = 'left';
-        ctx.fillStyle = parpadea(t) ? C.tinta : C.peligroTexto;
-        ctx.fillText(recortar(ctx, 'Caído', bxr - bx), bx, iy + Math.round(u(11) * 0.36));
+        const col = parpadea(t) ? C.tinta : C.peligroTexto;
+        if (ancho(ctx, 'Caído') <= bxr - bx) { ctx.fillStyle = col; ctx.fillText('Caído', bx, iy + Math.round(u(11) * 0.36)); }
+        else {
+          // Columna estrecha (con muesca): una cruz y la barra vacía, en vez de «Ca…».
+          const s = Math.max(6, Math.min(u(9), Rc.h - 10));
+          S(ctx);
+          ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = col;
+          ctx.beginPath(); ctx.moveTo(bx, iy - s / 2); ctx.lineTo(bx + s, iy + s / 2); ctx.moveTo(bx + s, iy - s / 2); ctx.lineTo(bx, iy + s / 2); ctx.stroke();
+          R(ctx);
+          if (bxr - bx - s - 4 >= 6) barra(ctx, bx + s + 4, Math.round(iy - 2.5), bxr - bx - s - 4, 5, 0, C.psBajo);
+        }
       } else barra(ctx, bx, Math.round(iy - u(E.barra.h) / 2), Math.max(6, bxr - bx), comp ? 5 : u(E.barra.h), f, psColor(f));
     });
   }
 
+  /** La píldora con el nombre del ataque activo (con un vínculo, «Ascuas +2»): en compacto, a la izquierda de su
+   *  ranura y 1,5 s tras cambiar de ataque; en fila, encima. Dónde va y con qué opacidad, o null si no se ve. */
+  function pildora(ctx, L, pl, t) {
+    const C = COL(), P = L.piezas, i = pl.active, base = P.ranuras[i], g = pl.slots[i] || [], m = g[0];
+    if (!base || !m) return null;
+    const comp = L.variante === 'compacto' && L.columna, k = L.variante === 'compacto' ? L.kc : L.escala, u = v => Math.round(v * k);
+    const E = MA().hud.escritorio.ranuras, Kc = MA().hud.compacto.ranuras, Sl = P.lado;
+    let alfa = 1;
+    if (comp) {
+      const pasado = t - cambioRanura.t, vis = MA().tiempo.pildoraVisible / 1000;
+      alfa = pasado < vis ? 1 : Math.max(0, 1 - (pasado - vis) / 0.2);
+      if (G.Game && G.Game.st && G.Game.st.time < 1.5) alfa = 1;
+    }
+    if (alfa <= 0) return null;
+    const fused = g.length > 1, col = G.U.TYPE_COLOR[m.type];
+    const lab = fused ? m.name + ' +' + (g.length - 1) : m.name, lc = fused ? C.vinculo : col;
+    const pd = fused ? [C.vinculo, C.tintaOscura] : (MA().tipoPildora[m.type] || [lc, tintaSobre(lc)]);
+    const tam = comp ? u(Kc.pildora.tam) : u(E.pildora.tam), ph = comp ? u(Kc.pildora.h) : u(E.pildora.h);
+    letra(ctx, 800, tam);
+    const lw = ancho(ctx, lab) + 2 * (comp ? u(8) : u(E.pildora.padding));
+    const x = comp ? base.x - (P.desplazamiento || 0) : base.x, y = !comp ? base.y - (P.elevacion || 0) : base.y;
+    const px = comp ? x - u(Kc.pildora.separacion) - lw : Math.round(x + Sl / 2 - lw / 2);
+    const py = comp ? Math.round(y + Sl / 2 - ph / 2) : y - u(E.pildora.sobre) - ph;
+    return { x: px, y: py, w: lw, h: ph, alfa, lab, pd, tam };
+  }
+
   /** Ranuras de ataque, objeto, vínculo y la píldora del tipo del activo; registra los toques donde se pintan. */
-  function ranuras(ctx, L, pl, t) {
+  function ranuras(ctx, L, pl, t, pil) {
     const C = COL(), P = L.piezas, comp = L.variante === 'compacto' && L.columna;
     const k = L.variante === 'compacto' ? L.kc : L.escala, u = v => Math.round(v * k);
     const E = MA().hud.escritorio.ranuras, Kc = MA().hud.compacto.ranuras;
     const Sl = P.lado, enControles = L.ranurasModo === 'controles';
     const cdOf = m => m.kind === 'orbit' ? 0 : G.U.clamp(m.t / (m.cd * pl.cdMul), 0, 1);
-    if (pl.active !== cambioRanura.i) cambioRanura = { i: pl.active, t };
     const rad = Math.round(Sl * (comp ? 0.21 : 0.23));
     const n = P.ranuras.length, gs = n > 1 ? P.ranuras[1].y - P.ranuras[0].y - Sl : 0;
     P.ranuras.forEach((base, i) => {
@@ -878,30 +1008,16 @@ G.HudDex = (() => {
       }
       letra(ctx, 800, u(11)); ctx.textAlign = 'left'; ctx.fillStyle = C.tinta2;
       ctx.fillText(String(i + 1), x + Math.round(Sl * 0.1), y + Math.round(Sl * 0.23));
-      // Píldora con el nombre del ataque (con un vínculo, «Ascuas +2»).
-      if (on) {
-        let alfa = 1;
-        if (comp) {
-          const pasado = t - cambioRanura.t, vis = MA().tiempo.pildoraVisible / 1000;
-          alfa = pasado < vis ? 1 : Math.max(0, 1 - (pasado - vis) / 0.2);
-          if (G.Game && G.Game.st && G.Game.st.time < 1.5) alfa = 1;
-        }
-        if (alfa > 0) {
-          const lab = fused ? m.name + ' +' + (g.length - 1) : m.name, lc = fused ? C.vinculo : col;
-          const pd = fused ? [C.vinculo, C.tintaOscura] : (MA().tipoPildora[m.type] || [lc, tintaSobre(lc)]);
-          const tam = comp ? u(Kc.pildora.tam) : u(E.pildora.tam), ph = comp ? u(Kc.pildora.h) : u(E.pildora.h);
-          letra(ctx, 800, tam);
-          const lw = ancho(ctx, lab) + 2 * (comp ? u(8) : u(E.pildora.padding));
-          const px = comp ? x - u(Kc.pildora.separacion) - lw : Math.round(x + Sl / 2 - lw / 2);
-          const py = comp ? Math.round(y + Sl / 2 - ph / 2) : y - u(E.pildora.sobre) - ph;
-          S(ctx); ctx.globalAlpha *= alfa;
-          rr(ctx, px, py, lw, ph, ph / 2); ctx.fillStyle = pd[0]; ctx.fill();
-          ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(2,8,11,0.6)'; ctx.stroke();
-          ctx.textAlign = 'center'; ctx.fillStyle = pd[1]; ctx.fillText(lab, px + lw / 2, py + ph / 2 + Math.round(tam * 0.36));
-          R(ctx);
-        }
-      }
     });
+    // Píldora con el nombre del ataque activo (dónde va, de pildora(): las flechas la esquivan).
+    if (pil) {
+      S(ctx); ctx.globalAlpha *= pil.alfa;
+      rr(ctx, pil.x, pil.y, pil.w, pil.h, pil.h / 2); ctx.fillStyle = pil.pd[0]; ctx.fill();
+      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(2,8,11,0.6)'; ctx.stroke();
+      letra(ctx, 800, pil.tam); ctx.textAlign = 'center'; ctx.fillStyle = pil.pd[1];
+      ctx.fillText(pil.lab, pil.x + pil.w / 2, pil.y + pil.h / 2 + Math.round(pil.tam * 0.36));
+      R(ctx);
+    }
     // Objeto equipado
     if (P.objeto && (!P.objeto.vacio || !comp)) {
       const O = P.objeto, ro = Math.round(O.w * 0.23);
@@ -940,10 +1056,17 @@ G.HudDex = (() => {
   // 7. Flechas de borde
   // ===================================================================
   const PRIO_FLECHA = { jefe: 6, caido: 5, grieta: 4, companero: 3, evento: 2, shiny: 1 };
-  /** Las flechas de este fotograma: dónde apuntan y dónde se colocan (dentro de la zona libre). Pura salvo G. */
-  function flechas(L, pl, mates) {
-    const cam = G.Camera, P = L.piezas, comp = L.variante === 'compacto', k = comp ? L.kc : L.escala;
+  /**
+   * Las flechas de este fotograma: dónde apuntan y dónde se colocan (dentro de la zona libre). Pura salvo G.
+   * op: { evitar: [rectángulos que su cuerpo y su etiqueta no pueden pisar (la píldora del ataque, que en compacto
+   *       cae dentro de la zona libre)], medir(texto, peso, px) -> ancho de la etiqueta }
+   */
+  function flechas(L, pl, mates, op = {}) {
+    const cam = G.Camera, P = L.piezas, comp = L.variante === 'compacto', k = comp ? L.kc : L.escala, u = v => Math.round(v * k);
     const M = Math.round((comp ? MA().hud.compacto.flechas.margen : MA().hud.escritorio.flechas.margen) * k);
+    const tamE = comp ? u(MA().hud.compacto.flechas.etiqueta) : u(MA().hud.escritorio.flechas.etiqueta);
+    const medir = op.medir || ((t, peso, px) => String(t).length * px * 0.62);
+    const evitar = (op.evitar || []).filter(Boolean);
     const Z = L.libre, W = L.juego;
     const toS = (x, y) => [(x - cam.left()) * cam.scale, (y - cam.top()) * cam.scale];
     const paneles = [];
@@ -977,7 +1100,37 @@ G.HudDex = (() => {
     }
     for (const e of G.EnemyMgr.all()) if (e.behavior === 'thief' && !e.dead) add('evento', e.x, e.y - 10, { color: COL().oro, texto: e.name });
     for (const e of G.EnemyMgr.shinies()) add('shiny', e.x, e.y);
-    // Colocación: dentro de la zona libre menos el margen; si dos caen cerca, se separan a lo largo del borde.
+    // Cuerpo (radio con la punta) y etiqueta de cada una: lo que dibuja dibujarFlechas().
+    for (const f of out) {
+      if (f.tipo === 'jefe') {
+        f.r = comp ? u(MA().hud.compacto.flechas.lente) : u(MA().hud.escritorio.flechas.lente);
+        f.alcance = f.r + u(12); f.dist = f.r + u(8); f.lab = f.e.name + ' · ' + f.metros + ' m';
+      } else if (f.tipo === 'grieta') {
+        const q = k * (comp ? 0.8 : 1);
+        f.alcance = 40 * q * 1.12; f.dist = 34 * q; f.lab = 'Grieta · ' + f.metros + ' m · ' + Math.ceil(f.rf.ttl) + ' s';
+      } else if (f.tipo === 'companero' || f.tipo === 'caido') {
+        f.r = comp ? u(14) : u(17);
+        f.alcance = f.r + u(11); f.dist = f.r + u(8);
+        f.lab = (f.tipo === 'caido' ? '¡' + f.m.name + ' necesita ayuda! ' : f.m.name + ' ') + '· ' + f.metros + ' m';
+      } else if (f.tipo === 'evento') { f.alcance = 30 * k * 0.9; f.dist = u(24); f.lab = f.texto; }
+      else if (f.tipo === 'shiny') f.alcance = 24 * k;
+      f.tam = tamE;
+      f.anchoLab = f.lab ? medir(f.lab, 800, tamE) : 0;
+    }
+    /** Lo que ocupa una flecha puesta en (ex, ey): su cuerpo y su etiqueta (alineada como en dibujarFlechas()). */
+    const huella = (f, ex, ey) => {
+      const R = f.alcance || 0, cajas = [{ x: ex - R, y: ey - R, w: 2 * R, h: 2 * R }];
+      if (f.lab) {
+        const a = Math.atan2(f.sy - ey, f.sx - ex), ca = Math.cos(a), sa = Math.sin(a), w = f.anchoLab + 4;
+        const ax = ex - ca * f.dist, ay = ey - sa * f.dist + Math.round(f.tam * 0.36);
+        const lx = ca > 0.3 ? ax - w + 2 : ca < -0.3 ? ax - 2 : ax - w / 2;
+        cajas.push({ x: lx, y: ay - f.tam * 0.8 - 2, w, h: f.tam + 4 });
+      }
+      return cajas;
+    };
+    const choca = (f, ex, ey) => evitar.length > 0 && huella(f, ex, ey).some(c => evitar.some(o => c.x < o.x + o.w + 3 && o.x - 3 < c.x + c.w && c.y < o.y + o.h + 3 && o.y - 3 < c.y + c.h));
+    // Colocación: dentro de la zona libre menos el margen; si dos caen cerca, o una pisaría la píldora del ataque, se
+    // separa a lo largo del borde (±½, ±1, … ±4 separaciones desde donde tocaba).
     const x0 = Z.x + M, x1 = Z.x + Z.w - M, y0 = Z.y + M, y1 = Z.y + Z.h - M;
     const cxZ = x1 >= x0 ? null : Z.x + Z.w / 2, cyZ = y1 >= y0 ? null : Z.y + Z.h / 2;
     const sep = Math.round((comp ? 40 : MA().hud.escritorio.flechas.separacionMin) * k);
@@ -985,13 +1138,20 @@ G.HudDex = (() => {
     out.sort((a, b) => b.prio - a.prio);
     for (const f of out) {
       if (f.tipo === 'grietaVisible') continue;
-      let ex = cxZ !== null ? cxZ : Math.max(x0, Math.min(x1, f.sx)), ey = cyZ !== null ? cyZ : Math.max(y0, Math.min(y1, f.sy));
-      const vertical = (ex === x0 || ex === x1) && !(ey === y0 || ey === y1);
-      for (let intento = 1; intento < 8 && puestas.some(p => Math.hypot(p.ex - ex, p.ey - ey) < sep); intento++) {
-        const paso = Math.ceil(intento / 2) * sep * (intento % 2 ? 1 : -1);
-        if (vertical) ey = Math.max(y0, Math.min(y1, ey + paso)); else ex = Math.max(x0, Math.min(x1, ex + paso));
+      const bx = cxZ !== null ? cxZ : Math.max(x0, Math.min(x1, f.sx)), by = cyZ !== null ? cyZ : Math.max(y0, Math.min(y1, f.sy));
+      const vertical = (bx === x0 || bx === x1) && !(by === y0 || by === y1);
+      // Pisar la píldora es peor que quedar cerca de otra flecha; sin hueco, el sitio menos malo de los probados.
+      const coste = (ex, ey) => (choca(f, ex, ey) ? 2 : 0) + (puestas.some(p => Math.hypot(p.ex - ex, p.ey - ey) < sep) ? 1 : 0);
+      let mejor = { ex: bx, ey: by, c: coste(bx, by) };
+      for (let intento = 1; intento < 17 && mejor.c > 0; intento++) {
+        const paso = Math.ceil(intento / 2) * Math.round(sep / 2) * (intento % 2 ? 1 : -1);
+        const ex = vertical ? bx : Math.max(x0, Math.min(x1, bx + paso)), ey = vertical ? Math.max(y0, Math.min(y1, by + paso)) : by;
+        const c = coste(ex, ey);
+        if (c < mejor.c) mejor = { ex, ey, c };
       }
+      const { ex, ey } = mejor;
       f.ex = ex; f.ey = ey; f.a = Math.atan2(f.sy - ey, f.sx - ex);
+      f.cajas = huella(f, ex, ey);
       puestas.push(f);
     }
     return { lista: out, margen: M };
@@ -1049,36 +1209,35 @@ G.HudDex = (() => {
       S(ctx); ctx.translate(Math.round(f.ex), Math.round(f.ey));
       const a = f.a;
       if (f.tipo === 'jefe') {
-        const r = comp ? u(MA().hud.compacto.flechas.lente) : u(MA().hud.escritorio.flechas.lente);
+        const r = f.r;
         punta(a, r * 0.85, r + u(12), 0.62, C.rival, C.grietaOscuro);
         const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
         g.addColorStop(0, C.lenteClara); g.addColorStop(0.55, C.lente); g.addColorStop(1, C.lenteOscura);
         ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = g; ctx.fill();
         lenteJefe(ctx, f.e, r, dt);
         ctx.lineWidth = u(3); ctx.strokeStyle = C.rival; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
-        etiqueta(f.e.name + ' · ' + f.metros + ' m', a, r + u(8), C.tinta);
+        etiqueta(f.lab, a, f.dist, C.tinta);
       } else if (f.tipo === 'grieta') {
         const q = k * (comp ? 0.8 : 1);
         ctx.globalAlpha = red ? 0.3 : 0.18 + latido * 0.22; ctx.fillStyle = C.grieta;
         ctx.beginPath(); ctx.arc(0, 0, (30 + latido * 8) * q, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
         punta(a, 20 * q * 1.12, 40 * q * 1.12, 2.45, C.grietaOscuro);
         punta(a, 20 * q, 40 * q, 2.45, latido > 0.5 ? C.grietaClaro : C.grietaMedio);
-        etiqueta('Grieta · ' + f.metros + ' m · ' + Math.ceil(f.rf.ttl) + ' s', a, 34 * q, C.grietaClaro, 4);
+        etiqueta(f.lab, a, f.dist, C.grietaClaro, 4);
       } else if (f.tipo === 'companero' || f.tipo === 'caido') {
-        const caido = f.tipo === 'caido', r = comp ? u(14) : u(17);
+        const caido = f.tipo === 'caido', r = f.r;
         const col = caido ? (parpadea(t) ? C.tinta : C.peligroTexto) : f.m.color;
         punta(a, r * 0.8, r + u(11), 0.75, col, C.contorno);
         ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = C.cristalHUD; ctx.fill();
         ctx.lineWidth = 1; ctx.strokeStyle = C.trazoInterior; ctx.stroke();
         letra(ctx, 800, comp ? u(12) : u(13)); ctx.textAlign = 'center'; ctx.fillStyle = caido ? C.peligroTexto : f.m.color;
         ctx.fillText((f.m.name || '?').charAt(0).toUpperCase(), 0, Math.round((comp ? u(12) : u(13)) * 0.36));
-        const lab = (caido ? '¡' + f.m.name + ' necesita ayuda! ' : f.m.name + ' ') + '· ' + f.metros + ' m';
-        etiqueta(lab, a, r + u(8), caido ? C.peligroTexto : C.tinta);
+        etiqueta(f.lab, a, f.dist, caido ? C.peligroTexto : C.tinta);
       } else if (f.tipo === 'evento') {
         ctx.globalAlpha = red ? 1 : pulso;
         punta(a, 15 * k * 0.9, 30 * k * 0.9, 2.45, f.color, C.contorno);
         ctx.globalAlpha = 1;
-        etiqueta(f.texto, a, u(24), f.color);
+        etiqueta(f.lab, a, f.dist, f.color);
       } else if (f.tipo === 'shiny') {
         ctx.globalAlpha = red ? 1 : pulso;
         punta(a, 12 * k, 24 * k, 2.5, C.pantalla);
@@ -1128,11 +1287,15 @@ G.HudDex = (() => {
       const tactil = !!G.Touch.active;
       const av = Avisos.actualizar(t, st, tactil);
       const c = contenido(pl, st, av);
-      const L = maquetar(w, h, c, { medir: (txt, peso, px) => { letra(ctx, peso, px); return ancho(ctx, txt); } });
+      const medir = (txt, peso, px) => { letra(ctx, peso, px); return ancho(ctx, txt); };
+      const L = maquetar(w, h, c, { medir });
       ultimo = L;
       const P = L.piezas;
-      const fl = flechas(L, pl, c.mates);
-      ultimo.flechas = fl.lista.filter(f => f.ex !== undefined).map(f => ({ tipo: f.tipo, x: f.ex, y: f.ey }));
+      if (pl.active !== cambioRanura.i) cambioRanura = { i: pl.active, t };
+      const pil = pildora(ctx, L, pl, t);
+      const fl = flechas(L, pl, c.mates, { evitar: [pil], medir });
+      ultimo.flechas = fl.lista.filter(f => f.ex !== undefined).map(f => ({ tipo: f.tipo, x: f.ex, y: f.ey, cajas: f.cajas }));
+      ultimo.pildora = pil ? { x: pil.x, y: pil.y, w: pil.w, h: pil.h } : null;
       dibujarFlechas(ctx, L, fl, dt, t);
       ficha(ctx, P.ficha, pl, L, dt, t);
       P.chips.forEach((Rc, i) => chip(ctx, Rc, c.chips[i], L));
@@ -1141,7 +1304,7 @@ G.HudDex = (() => {
       rotom(ctx, P.rotom, L, dt, t);
       if (P.jefe && c.jefe) jefe(ctx, P.jefe, c.jefe, L, t);
       if (P.aviso && av) aviso(ctx, P.aviso, av, L, t);
-      ranuras(ctx, L, pl, t);
+      ranuras(ctx, L, pl, t, pil);
       if (P.pausa) pausa(ctx, P.pausa);
       if (G.Coop.active && pl.dead) caido(ctx, L, pl);
     } finally {
@@ -1161,8 +1324,12 @@ G.HudDex = (() => {
     }
     return { sup: L.bandas.sup, inf: L.bandas.inf, izq: L.bandas.izq, der: L.bandas.der, zona: Object.assign({}, L.libre),
       juego: Object.assign({}, L.juego), controles: L.controles ? Object.assign({}, L.controles) : null, variante: L.variante,
-      escala: L.variante === 'compacto' ? L.kc : L.escala, columna: L.columna, piezas: L.piezas, flechas: L.flechas || [] };
+      escala: L.variante === 'compacto' ? L.kc : L.escala, columna: L.columna, piezas: L.piezas, flechas: L.flechas || [],
+      pildora: L.pildora || null, pliegue: L.pliegue ? Object.assign({}, L.pliegue) : null };
   }
+  /** Hasta dónde llega por arriba el HUD (px desde el borde de la pantalla) en el último fotograma; sin pintar aún, el
+   *  de esta pantalla. Sin crear objetos: se mira en cada fotograma (G.Estilo.colocarLogro). */
+  function bandaSup() { return ultimo ? ultimo.juego.y + ultimo.bandas.sup : bandas().sup; }
   /** ¿Van las ranuras en columna a la derecha en esta pantalla? (Ajustes > Controles: «de la derecha»). */
   function columna() {
     const w = typeof innerWidth === 'number' ? innerWidth : 1440, h = typeof innerHeight === 'number' ? innerHeight : 900;
@@ -1170,6 +1337,6 @@ G.HudDex = (() => {
     return G.Estilo.disposicion(w, h, { juego: mc.juego, controles: mc.controles }).ranuras === 'columna';
   }
 
-  return { draw, maquetar, bandas, columna, marco, ponerMarco, flechas, contenido, Avisos, CUBRE,
+  return { draw, maquetar, bandas, bandaSup, columna, marco, ponerMarco, flechas, contenido, Avisos, CUBRE,
     util: { contraste, hexRgb, tintaSobre, psColor, miles, decimal } };
 })();

@@ -285,6 +285,13 @@ html.estilo-dex .toast, html.estilo-dex .ach-pop { background: rgba(15, 38, 48, 
 html.estilo-dex .ach-pop { border-color: var(--color-bisel) !important; box-shadow: var(--shadow-panel), inset 4px 0 0 var(--color-oro); }
 html.estilo-dex .ach-pop b { color: var(--color-oro); }
 html.estilo-dex .ach-pop small { color: var(--color-tinta-2); }
+/* En partida, el aviso de logro va bajo la banda de arriba del HUD Dex (a 64 px tapaba la ranura de avisos o la
+   entrada del jefe): G.Estilo.colocarLogro() pone la clase y --hud-dex-sup (al salir cada aviso y al pintarse el
+   HUD, sólo si cambian). En pantallas bajas
+   (móvil en horizontal) sigue abajo, como en upstream. */
+@media (min-height: 521px) {
+  html.estilo-dex.hud-dex-logro .ach-pop { top: calc(var(--hud-dex-sup, 56px) + 8px); }
+}
 /* Pantalla de carga, «Pulsa para empezar» e inicio de sesión: los del original (decisión de Nico). Sólo se
    conserva la letra pixel del título y se ponen a mano las sombras que el original saca de --shadow. */
 html.estilo-dex .boot-in h1 { font-family: var(--font-logo); text-shadow: 3px 3px 0 #a55f00, 6px 6px 0 #071318; }

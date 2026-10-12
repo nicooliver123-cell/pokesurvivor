@@ -286,10 +286,12 @@ G.MODS = {
    *  justo ANTES de abrir el resultado, así que en la pantalla del gacha la primera vez se vuelve a
    *  mirar en el turno siguiente. Fuera del gacha no cambia nada. Además pone en <html> la clase
    *  mod-avisos-tras-gacha con el ajuste: con ella, css/style.css esconde mientras está abierto el
-   *  resultado un aviso que ya estaba en pantalla al tirar (vuelve al cerrarlo si le queda tiempo). */
+   *  resultado un aviso que ya estaba en pantalla al tirar (vuelve al cerrarlo si le queda tiempo).
+   *  Antes de todo, G.Estilo.colocarLogro(): con el HUD Dex en partida, el aviso sale bajo su banda de arriba. */
   _avisoMirado: false,
   avisoEnEspera(seguir) {
     if (typeof document === 'undefined' || typeof seguir !== 'function') return false;
+    if (G.Estilo && G.Estilo.colocarLogro) G.Estilo.colocarLogro();   // con el HUD Dex en partida, bajo su banda de arriba
     const raiz = document.documentElement;
     if (raiz && raiz.classList) raiz.classList.toggle('mod-avisos-tras-gacha', !!this.avisosTrasGacha);
     if (!this.avisosTrasGacha) return false;

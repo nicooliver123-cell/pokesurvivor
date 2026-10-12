@@ -110,7 +110,8 @@ G.MARCA = (() => {
         ps: { tam: 11, base: 35, barra: { y: 27, h: 8 }, cifras: 13, hueco: 8 }, exp: { y: 41, h: 3 }
       },
       chips: { separacion: 6, h: 20, tam: 11, punto: 3.5, padding: 10, entre: 5, fila: 24 },
-      companeros: { separacion: 6, padding: 4, fila: 20, insignia: 7, nombre: { x: 20, tam: 13, anchoMax: 96 }, barra: { x: 122, h: 6, der: 8 } },
+      // nombre.x: la insignia acaba en 20 u; 5 u de aire hasta el nombre, que acaba 5 u antes de la barra.
+      companeros: { separacion: 6, padding: 4, fila: 20, insignia: 7, nombre: { x: 25, tam: 13, anchoMax: 92 }, barra: { x: 122, h: 6, der: 8 } },
       contador: { w: 156, h: 56, reloj: { tam: 26, base: 28 }, datos: { tam: 13, base: 47, icono: 14, hueco: 5, separador: 20 } },
       rotom: {
         w: 204, h: 56, hClima: 72, r: 13, separacionPausa: 8,
@@ -159,6 +160,10 @@ G.MARCA = (() => {
       },
       flechas: { margen: 30, lente: 14, etiqueta: 11 },
       caido: { h: 34, tam: 13, barra: { w: 160, h: 8 } },
+      // Plegable abierto (táctil, casi cuadrado y con el lado corto ≥ 600 px: el Magic V6, 724×784 o 784×724): el
+      // pliegue parte por la mitad el lado corto. Sin saber la postura, las piezas del HUD (sobre todo las que se tocan)
+      // evitan una franja de 24 px sobre él, por si el móvil está a medio plegar (libro o mesa). Plano no se nota.
+      pliegue: { aspectoMax: 1.2, ladoMin: 600, ancho: 24 },
       camara: { suavizadoMs: 400 }                                                 // encuadre al centro de la zona libre (lote 4)
     }
   };
