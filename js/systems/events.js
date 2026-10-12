@@ -350,6 +350,7 @@ G.Events = (() => {
     reset, update, bag, onNet, drawables, drawHud,
     get golden() { return !!cur && cur.id === 'gold'; },
     get current() { return cur ? cur.id : null; },
+    get estado() { return cur || lost ? { id: cur ? cur.id : null, tipo: cur ? cur.type || null : null, quedan: cur && cur.id !== 'lost' ? Math.max(0, cur.dur - cur.t) : null, perdido: lost ? { nombre: lost.name, x: lost.x, y: lost.y, tx: lost.tx, ty: lost.ty, espera: lost.state === 'wait' } : null } : null; },   // MOD nico: el chip del evento y la flecha al perdido del HUD Dex (js/ui/hud-dex.js)
     /** Para pruebas. */
     debugStart(id) { G.Guard.flag('debug'); start(id, G.Game.st.time, G.Game.everyone()); },
     debugThief() { G.Guard.flag('debug'); spawnThief(G.Game.everyone(), G.Game.st.time); },

@@ -62,6 +62,13 @@
  *      escala ≤ 1,25, criterio de Nico; pantalla dividida);
  *      css/nico.css (arreglos en los dos estilos, piel sólo bajo html.estilo-dex), inglés, finales de línea
  *      y que cada ajuste de mods.js está en la tabla de CLAUDE.md.
+ *  15. HUD Dex (js/ui/hud-dex.js, con hud.js y events.js reales y un lienzo de mentira que apunta cada operación):
+ *      ≤ 20 % del alto en compacto con todo a la vez (criterio de Nico) y columnas ≤ 22 % del ancho; sin solapes
+ *      en escritorio, móvil (con muesca) y el plegable; escala ≤ 1,25; bandas iguales a G.Estilo.disposicion(); barra
+ *      del jefe en #9B6BFF con 3 marcas y más gruesa que tus PS; flechas (fuera de pantalla o tapado, dentro de la
+ *      zona libre); ranura de avisos con cola; toques donde se pintan (≥ 44 px); cooperativo; contraste de cada texto;
+ *      red de seguridad (fallback a upstream, Clásico = upstream, huellas e inventario de hud.js y events.js);
+ *      pantalla dividida preparada (rectángulos de juego y de controles) e inglés.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -207,8 +214,8 @@ else bad('el paquete no incluye js/core/mods.js (o una versión vieja)');
 if (minS.includes('G.EVO={1:[2],')) ok('el paquete incluye js/data/evolutions.js'); else bad('el paquete no incluye js/data/evolutions.js');
 if (minS.includes('pokesurvivor-partida') && minS.includes('imp-box')) ok('el paquete incluye el importador (js/core/importar.js y js/ui/importar-ui.js)');
 else bad('el paquete no incluye js/core/importar.js o js/ui/importar-ui.js');
-if (minS.includes('G.MARCA=') && minS.includes('G.Estilo=') && minS.includes('estiloPorDefecto') && minS.includes('pedirGiro')) ok('el paquete incluye la identidad visual (js/ui/marca.js y js/ui/estilo.js) y lo de los plegables');
-else bad('el paquete no incluye js/ui/marca.js, js/ui/estilo.js o los ajustes de estilo y plegables de js/core/mods.js');
+if (minS.includes('G.MARCA=') && minS.includes('G.Estilo=') && minS.includes('G.HudDex=') && minS.includes('estiloPorDefecto') && minS.includes('pedirGiro')) ok('el paquete incluye la identidad visual (js/ui/marca.js, js/ui/estilo.js y el HUD Dex de js/ui/hud-dex.js) y lo de los plegables');
+else bad('el paquete no incluye js/ui/marca.js, js/ui/estilo.js, js/ui/hud-dex.js o los ajustes de estilo y plegables de js/core/mods.js');
 if (/<link rel="stylesheet" href="css\/tokens-dex\.css">/.test(idx) && /<link rel="stylesheet" href="css\/nico\.css">/.test(idx)) ok('index.html carga css/tokens-dex.css y css/nico.css');
 else bad('index.html no carga css/tokens-dex.css o css/nico.css: reconstruir con node tools/build.js --privado');
 if (minS.includes('G.Claridad=') && ['jugadorVisible', 'numerosAgrupados', 'contornoDisparos', 'barrasTrasGolpe', 'vinetaDanio', 'biomasEnCiclo', 'destelloSinCongelar'].every(k => minS.includes(k)))
@@ -313,7 +320,11 @@ const HOOKS = [
   ['js/ui/menu.js', /G\.UI\.sprite\(\$\('menu-partner'\), mon\.dex, \{ lively: true, scale: 4, hero: true, shiny \}\);\r?\n    if \(G\.Estilo\) G\.Estilo\.companero\(\$\('menu-partner'\), mon\.dex, \{ shiny \}\);\s*\/\/ MOD nico/, 'estilo: el compañero del menú, a su tamaño'],
   ['js/ui/gacha-ui.js', /c\.appendChild\(G\.UI\.spriteCanvas\(r\.dex, 132, 120, [^\n]*\r?\n      if \(G\.Estilo\) G\.Estilo\.premio\(c, r, n\);\s*\/\/ MOD nico/, 'estilo: el premio del gacha, a su tamaño'],
   ['js/ui/gacha-ui.js', /feat\.appendChild\(G\.UI\.spriteCanvas\(dex, 170, 190, \{ lively: true, scale: 2, dir: 1 \}\)\);\r?\n      if \(G\.Estilo\) G\.Estilo\.destacado\(feat\.lastChild, dex\);\s*\/\/ MOD nico/, 'estilo: los destacados del gacha, sin cortar'],
-  ['js/core/input.js', /'tab'\]\.includes\(c\) && !\(c === 'tab' && G\.Estilo && G\.Estilo\.tabLibre\(\)\)\) e\.preventDefault\(\);\s*\/\/ MOD nico/, 'estilo: Tab recorre los menús (input.js sólo lo anula jugando)']
+  ['js/core/input.js', /'tab'\]\.includes\(c\) && !\(c === 'tab' && G\.Estilo && G\.Estilo\.tabLibre\(\)\)\) e\.preventDefault\(\);\s*\/\/ MOD nico/, 'estilo: Tab recorre los menús (input.js sólo lo anula jugando)'],
+  // HUD Dex (js/ui/hud-dex.js)
+  ['dev.html', /src="js\/ui\/hud\.js"><\/script>\r?\n<script defer src="js\/ui\/hud-dex\.js"><\/script><!-- MOD nico/, 'HUD Dex: hud-dex.js justo después de hud.js'],
+  ['js/ui/hud.js', /function draw\(ctx, w, h, pl, st\) \{\r?\n    if \(G\.Estilo && G\.Estilo\.hud\(ctx, w, h, pl, st\)\) return;\s*\/\/ MOD nico[^\n]*\r?\n    ctx\.save\(\);/, 'HUD Dex: primera línea de G.HUD.draw (con Clásico, o si falla, sigue el de upstream)'],
+  ['js/systems/events.js', /get current\(\) \{ return cur \? cur\.id : null; \},\r?\n    get estado\(\) \{ return cur \|\| lost \? \{[^\n]*\} : null; \},\s*\/\/ MOD nico/, 'HUD Dex: getter aditivo del evento en curso (events.js)']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -2714,14 +2725,14 @@ function identidadChecks() {
     const pct = x => +((x.bandas.sup + x.bandas.inf) / x.juego.h * 100).toFixed(1);
     const dentro = x => x.libre.x >= x.juego.x && x.libre.y >= x.juego.y && x.libre.x + x.libre.w <= x.juego.x + x.juego.w + 1e-9 && x.libre.y + x.libre.h <= x.juego.y + x.juego.h + 1e-9;
     const todas = [m844, m780, m800, se];
-    t('disposición compacta (alto < 520), con el criterio de Nico (≤ 20 % del alto, objetivo 18-20 %): banda superior de 74 px a 844x390 (19,0 %), 69 a 780x360, 65 a 800x340 y 63 a 568x320, todas entre el 18 y el 20 %, y abajo nada; ranuras en columna a la derecha (60 px; 56 si es muy baja); con muesca, los márgenes la respetan',
-      m844.variante === 'compacto' && m844.bandas.sup === 74 && m844.bandas.inf === 0 && m844.bandas.der === 60 && m844.ranuras === 'columna' &&
-      m780.bandas.sup === 69 && m800.bandas.sup === 65 && se.bandas.sup === 63 && se.bandas.der === 6 + 44 + 6 && todas.every(x => pct(x) >= 18 && pct(x) <= 20) &&
-      ms.bandas.der === 47 + 48 + 6 && ms.bandas.izq === 47 + 104 && ms.libre.w === 844 - 101 - 151 && dentro(ms),
+    t('disposición compacta (alto < 520), con el criterio de Nico (≤ 20 % del alto, objetivo 18-20 %): banda superior de 74 px a 844x390 (19,0 %), 69 a 780x360, 65 a 800x340 y 63 a 568x320, todas entre el 18 y el 20 %, y abajo nada; ranuras en columna a la derecha (62 px a 844x390, con ranuras de 48 y el margen; 54 si es estrecha y muy baja); con muesca, los márgenes la respetan',
+      m844.variante === 'compacto' && m844.bandas.sup === 74 && m844.bandas.inf === 0 && m844.bandas.der === 62 && m844.ranuras === 'columna' &&
+      m780.bandas.sup === 69 && m800.bandas.sup === 65 && se.bandas.sup === 63 && se.bandas.der === 6 + 44 + 4 && todas.every(x => pct(x) >= 18 && pct(x) <= 20) &&
+      ms.bandas.der === 47 + 48 + 6 && ms.bandas.izq === 47 + 100 + 6 && ms.libre.w === 844 - 101 - 153 && dentro(ms),
       { m844: [m844.bandas, pct(m844)], m780: [m780.bandas, pct(m780)], m800: [m800.bandas, pct(m800)], se: [se.bandas, pct(se)], ms: ms.bandas });
-    t('disposición de escritorio: escala 1,25 a 1440x900 y también a 1920x1080 (tope de Nico; 1 a 1280x720); pila de arriba de 220 px y fila de ranuras abajo de 130 a 1440x900 y a 1920x1080; un plegable desplegado (800x870, 870x800) usa la de escritorio',
-      pc.variante === 'escritorio' && pc.escala === 1.25 && pc.bandas.sup === 220 && pc.bandas.inf === 130 && pc.ranuras === 'fila' && fhd.escala === 1.25 && fhd.bandas.sup === 220 && p1280.escala === 1 &&
-      pleg.variante === 'escritorio' && plegH.variante === 'escritorio' && dentro(pc) && dentro(pleg), { pc: pc.bandas, fhd: fhd.bandas, pleg: pleg.bandas });
+    t('disposición de escritorio: escala 1,25 a 1440x900 y también a 1920x1080 (tope de Nico; 1 a 1280x720); pila de arriba de 203 px y fila de ranuras abajo de 129 a 1440x900 y a 1920x1080 (piezas más finas que las de la guía); un plegable desplegado estrecho (800x870, 870x800: la entrada del jefe no cabe entre las columnas) va en compacto, con las piezas ×1,15',
+      pc.variante === 'escritorio' && pc.escala === 1.25 && pc.bandas.sup === 203 && pc.bandas.inf === 129 && pc.ranuras === 'fila' && fhd.escala === 1.25 && fhd.bandas.sup === 203 && p1280.escala === 1 &&
+      pleg.variante === 'compacto' && plegH.variante === 'compacto' && pleg.kc === 1.15 && pleg.ranuras === 'columna' && dentro(pc) && dentro(pleg), { pc: pc.bandas, fhd: fhd.bandas, pleg: [pleg.variante, pleg.kc, pleg.bandas] });
     t("pantalla dividida (opcional, estilo DS): 'auto' pone los controles abajo en un plegable (800x870: juego arriba de 435) y a la derecha en apaisado; el juego y los controles no se pisan y la zona libre queda dentro del juego",
       dv.dividida === 'abajo' && dv.juego.h === 435 && dv.controles.y === 435 && dv.controles.h === 435 && dv.ranuras === 'controles' && dv.bandas.inf === 0 && dentro(dv) &&
       dh.dividida === 'derecha' && dh.juego.w === 720 && dh.controles.x === 720 && dentro(dh) && dm.variante === 'compacto' && dm.bandas.der === 0 && dm.juego.w === 422 &&
@@ -2774,7 +2785,7 @@ function identidadChecks() {
     for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
     const EN = c.G.I18n.t;
     const leg = /<span>([^<]+)<\/span><!-- MOD nico -->/.exec(rd('dev.html'));
-    const textos = ['Estilo', 'Dex', 'Clásico', 'Dex: menús de Pokédex y letra redondeada. Clásico: el aspecto del juego original.', 'Letra del estilo Dex:',
+    const textos = ['Estilo', 'Dex', 'Clásico', 'Dex: menús y HUD de Pokédex y letra redondeada. Clásico: el aspecto del juego original.', 'Letra del estilo Dex:',
       'Probabilidades', 'Cerrar', leg ? leg[1] : '(falta el texto legal)',
       'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).',
       'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de la derecha para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).'];
@@ -2784,9 +2795,9 @@ function identidadChecks() {
   try {
     const ficheros = ['dev.html', 'css/style.css', 'css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/settings-ui.js', 'js/ui/run-ui.js',
       'js/ui/menu.js', 'js/ui/gacha-ui.js', 'js/game.js', 'js/core/mods.js', 'js/data/lang-en-mod.js', 'js/entities/claridad.js', 'CREDITS.md', 'assets/fonts/OFL-MPLUSRounded1c.txt',
-      'tools/nico/check.js'].concat(ex('tools/nico/estilo-e2e.js') ? ['tools/nico/estilo-e2e.js'] : []);
+      'tools/nico/check.js', 'js/ui/hud.js', 'js/ui/hud-dex.js', 'js/systems/events.js', 'tools/nico/coop-e2e.js'].concat(ex('tools/nico/estilo-e2e.js') ? ['tools/nico/estilo-e2e.js'] : []);
     const mezcla = ficheros.filter(f => { const s = rd(f), crlf = (s.match(/\r\n/g) || []).length, lf = (s.match(/\n/g) || []).length; return crlf && crlf !== lf; });
-    const nuevosCRLF = ['css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'assets/fonts/OFL-MPLUSRounded1c.txt'].filter(f => /\r/.test(rd(f)));
+    const nuevosCRLF = ['css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/hud-dex.js', 'assets/fonts/OFL-MPLUSRounded1c.txt'].filter(f => /\r/.test(rd(f)));
     t('finales de línea: ningún fichero tocado mezcla CRLF y LF, y los nuevos van en LF', !mezcla.length && !nuevosCRLF.length, { mezcla, nuevosCRLF });
   } catch (e) { t('finales de línea', false, String(e && e.stack || e)); }
   try {
@@ -2801,6 +2812,470 @@ function identidadChecks() {
   for (const [name, , detail] of failed) bad(`identidad: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 15. HUD Dex (js/ui/hud-dex.js) y su red de seguridad ----------------
+// Huellas de lo que upstream pinta en el HUD (sha1 sin CR y sin las líneas «MOD nico»). Si upstream cambia hud.js o
+// la parte de dibujo de events.js, FALLO: hay que mirar el cambio, portarlo a js/ui/hud-dex.js y poner aquí la huella nueva.
+const HUELLA_HUD = 'bf063dc4dcef03350fe2cd237b0bd752d23d4db2';
+const HUELLA_EVENTOS_HUD = '4348077c74d1e2721c8baab78453d0d132f05768';
+const sinModNico = s => s.replace(/\r/g, '').split('\n').filter(l => !/MOD nico/.test(l)).join('\n');
+const sha1 = s => crypto.createHash('sha1').update(s).digest('hex');
+/** La parte de dibujo de events.js: drawHud y edgeArrow (de su comentario al return). */
+const eventosHud = s => { const a = s.indexOf('  /** Flecha en el borde hacia el Pokémon perdido'), b = s.indexOf('  return {', a); return a < 0 || b < 0 ? '' : s.slice(a, b); };
+/** Lo que lee el HUD de upstream: pl.x, st.x y G.Modulo.x (con lo que se llama encadenado). */
+function inventarioHud(src) {
+  const s = src.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, ''), out = new Set();
+  for (const m of s.matchAll(/\bpl\.(\w+)/g)) out.add('pl.' + m[1]);
+  for (const m of s.matchAll(/\bst\.(\w+)/g)) out.add('st.' + m[1]);
+  for (const m of s.matchAll(/\bG\.(\w+)\.(\w+)/g)) if (!['HUD', 'MODS', 'Estilo'].includes(m[1])) out.add('G.' + m[1] + '.' + m[2]);
+  return out;
+}
+
+/** Un CanvasRenderingContext2D de mentira que apunta cada operación con su caja en coordenadas de pantalla. */
+class LienzoFalso {
+  constructor() {
+    this.ops = []; this.pila = []; this.m = [1, 0, 0, 1, 0, 0]; this.camino = null;
+    Object.assign(this, { fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, font: '10px sans-serif', textAlign: 'start', textBaseline: 'alphabetic', globalAlpha: 1, lineJoin: 'miter' });
+  }
+  get profundidad() { return this.pila.length; }
+  save() { this.pila.push({ m: this.m.slice(), fillStyle: this.fillStyle, strokeStyle: this.strokeStyle, lineWidth: this.lineWidth, font: this.font, textAlign: this.textAlign, textBaseline: this.textBaseline, globalAlpha: this.globalAlpha, lineJoin: this.lineJoin }); }
+  restore() { const e = this.pila.pop(); if (e) { const { m, ...r } = e; this.m = m; Object.assign(this, r); } }
+  setTransform(a, b, c, d, e, f) { this.m = [a, b, c, d, e, f]; }
+  translate(x, y) { const m = this.m; m[4] += m[0] * x + m[2] * y; m[5] += m[1] * x + m[3] * y; }
+  scale(x, y) { const m = this.m; m[0] *= x; m[1] *= x; m[2] *= y; m[3] *= y; }
+  rotate() {}
+  pt(x, y) { const m = this.m; return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }
+  caja(x0, y0, x1, y1) { const a = this.pt(x0, y0), b = this.pt(x1, y1); return { x: Math.min(a[0], b[0]), y: Math.min(a[1], b[1]), x2: Math.max(a[0], b[0]), y2: Math.max(a[1], b[1]) }; }
+  beginPath() { this.camino = null; }
+  anadir(c) { const p = this.camino; this.camino = p ? { x: Math.min(p.x, c.x), y: Math.min(p.y, c.y), x2: Math.max(p.x2, c.x2), y2: Math.max(p.y2, c.y2) } : c; }
+  moveTo(x, y) { this.anadir(this.caja(x, y, x, y)); }
+  lineTo(x, y) { this.anadir(this.caja(x, y, x, y)); }
+  arcTo(x1, y1, x2, y2) { this.anadir(this.caja(x1, y1, x1, y1)); this.anadir(this.caja(x2, y2, x2, y2)); }
+  arc(x, y, r) { this.anadir(this.caja(x - r, y - r, x + r, y + r)); }
+  ellipse(x, y, rx, ry) { this.anadir(this.caja(x - rx, y - ry, x + rx, y + ry)); }
+  rect(x, y, w, h) { this.anadir(this.caja(x, y, x + w, y + h)); }
+  roundRect(x, y, w, h) { this.rect(x, y, w, h); }
+  closePath() {}
+  clip() {}
+  apuntar(op, caja, estilo) { if (caja) this.ops.push({ op, ...caja, estilo, alfa: this.globalAlpha }); }
+  fill() { this.apuntar('fill', this.camino, this.fillStyle); }
+  stroke() { this.apuntar('stroke', this.camino, this.strokeStyle); }
+  fillRect(x, y, w, h) { this.apuntar('fill', this.caja(x, y, x + w, y + h), this.fillStyle); }
+  strokeRect(x, y, w, h) { this.apuntar('stroke', this.caja(x, y, x + w, y + h), this.strokeStyle); }
+  clearRect() {}
+  tam() { const m = /(\d+(?:\.\d+)?)px/.exec(this.font); return m ? +m[1] : 10; }
+  measureText(t) { return { width: String(t).length * this.tam() * (/^8\d\d/.test(this.font) ? 0.62 : 0.56) }; }
+  texto(op, t, x, y) {
+    const w = this.measureText(t).width, s = this.tam(), al = this.textAlign;
+    const x0 = al === 'center' ? x - w / 2 : al === 'right' || al === 'end' ? x - w : x;
+    const p = this.pt(x0, y), q = this.pt(x0 + w, y);
+    this.ops.push({ op, texto: String(t), x: p[0], y: p[1] - s * 0.72, x2: q[0], y2: p[1] + s * 0.2, base: p[1], estilo: op === 'texto' ? this.fillStyle : this.strokeStyle, fuente: this.font, tam: s, alfa: this.globalAlpha, ancla: this.pt(x, y) });
+  }
+  fillText(t, x, y) { this.texto('texto', t, x, y); }
+  strokeText(t, x, y) { this.texto('contorno', t, x, y); }
+  drawImage(img, ...a) { const [x, y, w, h] = a.length >= 8 ? a.slice(4) : a.length >= 4 ? a : [a[0], a[1], 0, 0]; this.apuntar('imagen', this.caja(x, y, x + w, y + h), null); }
+  createRadialGradient() { const g = { paradas: [], addColorStop(o, c) { this.paradas.push(c); } }; return g; }
+  createLinearGradient() { return this.createRadialGradient(); }
+}
+
+/** El juego mínimo para js/ui/hud-dex.js (y js/ui/hud.js de upstream), con los ficheros reales del HUD. */
+function cargarHud({ w = 1440, h = 900, tactil = false, estilo = 'dex', seguras = { sup: 0, der: 0, inf: 0, izq: 0 }, hudSrc = null, fallar = false } = {}) {
+  const reloj = { t: 1000 };
+  const almacenH = {};
+  const c = {
+    console: { log() {}, warn() { c.__avisos.push([...arguments].map(String).join(' ')); }, error() {} }, __avisos: [],
+    innerHeight: h, innerWidth: w, performance: { now: () => reloj.t },
+    localStorage: { getItem: k => (k in almacenH ? almacenH[k] : null), setItem: (k, v) => { almacenH[k] = String(v); } },
+    matchMedia: () => ({ matches: false }), navigator: {}, location: { protocol: 'file:' },
+    document: { documentElement: { classList: { toggle() {}, contains: () => false } }, getElementById: () => null, querySelector: () => null, fonts: { load: () => Promise.resolve([]) }, body: null }
+  };
+  function Ctx() {}
+  Object.defineProperty(Ctx.prototype, 'font', { configurable: true, enumerable: true, get() { return this._f; }, set(v) { this._f = v; } });
+  c.CanvasRenderingContext2D = Ctx;
+  c.window = c; c.G = {};
+  vm.createContext(c);
+  for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js', 'js/core/settings.js']) vm.runInContext(rd(f), c, { filename: f });
+  const G = c.G;
+  // Lo que el HUD lee del juego, a mano: cada prueba lo cambia.
+  const botones = [];
+  const juego = { banner: null, jefes: [], shinies: [], otros: [], rift: null, inArena: false, timeLeft: 0, mates: [], clima: null, bioma: 'Bosque Umbrío' };
+  G.Touch = { active: tactil, clearButtons() { botones.length = 0; }, addButton(x, y, bw, bh, fn, pad = 6) { botones.push({ x, y, w: bw, h: bh, fn, pad }); } };
+  G.Camera = { scale: 1, left: () => 0, top: () => 0 };
+  G.EnemyMgr = { all: () => [...juego.jefes, ...juego.otros], shinies: () => juego.shinies.filter(e => !e.dead), bossAlive: () => juego.jefes.some(e => !e.dead) };
+  G.World = { biomeName: () => juego.bioma };
+  G.Weather = { get current() { return juego.clima; }, KINDS: { rain: { name: 'Lluvia', icon: 'wrain' }, sun: { name: 'Sol abrasador', icon: 'wsun' } } };
+  G.Rift = { get rift() { return juego.rift; }, get inArena() { return juego.inArena; }, get timeLeft() { return juego.timeLeft; } };
+  G.Spawner = { banner: () => juego.banner };
+  G.Coop = { get active() { return juego.mates.length > 0; }, get mates() { return juego.mates; }, players: () => [juego.pl, ...juego.mates.map(m => m.pl)], isHost: false };
+  G.Icons = { draw(ctx, n, x, y, s) { ctx.fillStyle = '#ICONO'; ctx.fillRect(x, y, s, s); } };
+  class Animator { constructor(dex, scale) { this.dex = dex; this.scale = scale; this.dir = 0; } loop() {} update() {} draw(ctx, x, y) { ctx.drawImage({}, x - 10, y - 20, 20, 20); } }
+  G.Sprites = { PX: 2, animMeta: () => { if (fallar) throw new Error('fallo forzado'); return { ay: 24 }; }, Animator, bodyRadius: () => 10, bodyHeight: () => 30 };
+  G.Items = { BY: { leftovers: { name: 'Restos' } } };
+  G.Player = { REVIVE_TIME: 3 };
+  G.Audio = { sfx() {} };
+  G.DEX_BY = { 25: { name: 'Pikachu' }, 52: { name: 'Meowth' } };
+  G.Game = { state: 'playing', togglePause() { G.Game.pausado = !G.Game.pausado; }, st: { time: 100 } };
+  vm.runInContext(rd('js/ui/estilo.js'), c, { filename: 'js/ui/estilo.js' });
+  G.Estilo.set(estilo);
+  vm.runInContext(rd('js/systems/events.js'), c, { filename: 'js/systems/events.js' });
+  vm.runInContext(hudSrc || rd('js/ui/hud.js'), c, { filename: 'js/ui/hud.js' });
+  vm.runInContext(rd('js/ui/hud-dex.js'), c, { filename: 'js/ui/hud-dex.js' });
+  // Tu Pokémon: 4 ataques, objeto, vínculo y mejoras.
+  const mov = (id, type, lvl, extra) => Object.assign({ id, type, name: id, lvl, t: 0, cd: 1, kind: 'shot', def: { maxLvl: 5 } }, extra);
+  const pl = juego.pl = {
+    x: 0, y: 0, dex: 25, mon: { name: 'Crabominable', dex: 25 }, anim: { shiny: false }, level: 12, hp: 41, maxHp: 90, xp: 30, xpNext: 100, kills: 1204, coins: 87,
+    buffs: { atk: { n: 2 }, spd: { n: 1 }, def: { n: 1 }, regen: { n: 1 } }, power: { def: { name: 'Furia', color: '#FF7A5C' }, t: 12 },
+    slots: [[mov('ember', 'fire', 3)], [mov('surf', 'water', 2)], [mov('tackle', 'normal', 5, { evolved: true })], [mov('a', 'grass', 1), mov('b', 'ice', 1)]],
+    active: 1, cdMul: 1, setActive(i) { this.active = i; }, bonds: 2, item: 'leftovers', dead: false, reviveT: 0, bodyH: 30
+  };
+  const st = { time: 100 };
+  const lienzo = () => new LienzoFalso();
+  const pintar = (ctx = lienzo(), ww = w, hh = h) => { reloj.t += 16; G.HUD.draw(ctx, ww, hh, pl, st); return ctx; };
+  G.Estilo.zonasSeguras = () => seguras;
+  return { c, G, pl, st, juego, botones, reloj, pintar, lienzo, seguras };
+}
+/** Un jefe (o legendario) en coordenadas de mundo (con la cámara en 0,0 y escala 1, son las de pantalla). */
+const jefeFalso = (x, y, f = 0.64, extra = {}) => Object.assign({ id: 7, boss: true, dead: false, dex: 983, name: 'Kingambit', types: ['dark', 'steel'], hp: 1000 * f, maxHp: 1000, x, y, bodyH: 60, shiny: false }, extra);
+const mateFalso = (name, color, x, y, extra = {}) => ({ name, color, connected: true, pl: Object.assign({ x, y, hp: 50, maxHp: 80, dead: false, bodyH: 30 }, extra) });
+/** Todo a la vez: jefe, aviso, 4 ranuras, objeto, vínculo, chips (4 mejoras, poder, horda), clima y 3 compañeros. */
+function escenaCompleta(H, { lejos = false } = {}) {
+  const { juego, G } = H;
+  juego.jefes = [jefeFalso(H.c.innerWidth * 0.6, H.c.innerHeight * 0.55)];
+  juego.banner = { text: '¡Kingambit salvaje apareció!', t: 3.2 };
+  juego.clima = { name: 'Lluvia', icon: 'wrain', left: 67, mult: { water: 1.5, electric: 1.2, fire: 0.5 } };
+  // Cerca: en la zona libre, a la vista (sin flechas); lejos: fuera de la pantalla (con flechas).
+  const W = H.c.innerWidth, Hh = H.c.innerHeight, d = lejos ? 5000 : 0;
+  juego.mates = [mateFalso('Ana', '#5FC8FF', W / 2 - 60 + d, Hh / 2), mateFalso('Leo', '#7EE07A', W / 2 + 60, Hh / 2 + 40 + d), mateFalso('Sol', '#FF8AD8', W / 2 - d, Hh / 2 - 40)];
+  G.Events.onNet(['ev', 's', 'horde', 'fire']);
+}
+
+function hudDexChecks() {
+  console.log('15. HUD Dex (js/ui/hud-dex.js): presupuesto, solapes, escala, jefe, flechas, avisos, toques, red de seguridad');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const solapan = (a, b) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+  /** Las piezas del último fotograma, como lista de rectángulos con nombre (la ranura activa, donde se pinta). */
+  const piezas = (G, pl) => {
+    const P = G.HudDex.bandas().piezas, L = [];
+    for (const k of ['ficha', 'contador', 'rotom', 'pausa', 'jefe', 'aviso', 'objeto', 'grupo']) if (P[k]) L.push({ n: k, ...P[k] });
+    (P.chips || []).forEach((x, i) => L.push({ n: 'chip' + i, ...x }));
+    if (!P.grupo) (P.companeros || []).forEach((x, i) => L.push({ n: 'comp' + i, ...x }));
+    const B = G.HudDex.bandas();
+    (P.ranuras || []).forEach((x, i) => {
+      const on = i === pl.active;
+      L.push({ n: 'ranura' + i, x: x.x - (on && B.variante === 'compacto' && B.columna ? P.desplazamiento : 0), y: x.y - (on && !B.columna ? P.elevacion || 0 : 0), w: x.w, h: x.h });
+    });
+    if (P.vinculo && !P.vinculo.insignia) L.push({ n: 'vinculo', ...P.vinculo });
+    return L;
+  };
+
+  // ---- A. Presupuesto en compacto (criterio de Nico: ≤ 20 % del alto arriba + abajo; columnas ≤ 22 % del ancho) ----
+  try {
+    const filas = [];
+    for (const [w, h] of [[844, 390], [780, 360], [800, 340], [568, 320]]) {
+      const H = cargarHud({ w, h, tactil: true });
+      escenaCompleta(H);
+      H.pintar(); H.reloj.t += 2000;
+      const ctx = H.pintar();
+      const B = H.G.HudDex.bandas();
+      // Medido en lo pintado: lo más bajo de lo anclado arriba (todo lo que empieza en la mitad de arriba, menos
+      // las columnas laterales y las flechas) y lo más alto de lo anclado abajo.
+      const cols = B.izq + 0.5, colD = w - B.der - 0.5;
+      const arriba = ctx.ops.filter(o => o.y < h / 2 && o.x2 > cols && o.x < colD && o.y2 < h / 2 + 40).map(o => o.y2);
+      const sup = Math.max(...arriba), inf = 0;
+      const pct = (sup + inf) / h * 100, lat = (B.izq + B.der) / w * 100;
+      filas.push({ vp: `${w}x${h}`, sup: Math.round(sup), bandas: B.sup, pct: +pct.toFixed(1), laterales: +lat.toFixed(1), variante: B.variante });
+    }
+    t('compacto, con jefe, aviso, 4 ranuras, objeto, vínculo, chips, clima y 3 compañeros a la vez: arriba + abajo ≤ 20 % del alto (criterio de Nico; medido en lo pintado) a 844x390, 780x360, 800x340 y 568x320, y las columnas laterales ≤ 22 % del ancho',
+      filas.every(f => f.variante === 'compacto' && f.pct <= 20 && f.sup <= f.bandas + 0.5 && f.laterales <= 22), filas);
+  } catch (e) { t('presupuesto del HUD compacto', false, String(e && e.stack || e)); }
+
+  // ---- B. Sin solapes, dentro de la pantalla y de las zonas seguras ----
+  try {
+    const malos = [], visto = [];
+    const VPS = [[1024, 768], [1280, 720], [1366, 657], [1440, 900], [1920, 1080], [844, 390, true, { sup: 0, der: 47, inf: 21, izq: 47 }], [780, 360, true],
+      [724, 784, true], [784, 724, true], [869, 941, true], [941, 869, true], [360, 807, true], [807, 360, true], [784, 362, true], [800, 870, true]];
+    for (const [w, h, tactil = false, seguras] of VPS) {
+      const H = cargarHud({ w, h, tactil, seguras: seguras || { sup: 0, der: 0, inf: 0, izq: 0 } });
+      escenaCompleta(H);
+      H.pintar();
+      const L = piezas(H.G, H.pl), B = H.G.HudDex.bandas(), sg = H.seguras;
+      visto.push(`${w}x${h}:${B.variante}`);
+      for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) if (solapan(L[i], L[j])) malos.push(`${w}x${h} ${L[i].n}/${L[j].n}`);
+      for (const p of L) if (p.x < sg.izq - 0.5 || p.y < sg.sup - 0.5 || p.x + p.w > w - sg.der + 0.5 || p.y + p.h > h - sg.inf + 0.5) malos.push(`${w}x${h} ${p.n} fuera`);
+    }
+    t('sin solapes entre las piezas del HUD (con todo a la vez), todas dentro de la pantalla y de las zonas seguras, a 1024x768, 1280x720, 1366x657, 1440x900, 1920x1080, 844x390 con muesca de 47/47/21, 780x360 y en el plegable (724x784, 784x724, 869x941, 941x869, 360x807, 807x360, la mitad de 784x362 y 800x870)',
+      !malos.length, malos.length ? malos.slice(0, 8) : visto);
+  } catch (e) { t('solapes del HUD', false, String(e && e.stack || e)); }
+
+  // ---- C. Escala, variante y bandas iguales a las de G.Estilo.disposicion() ----
+  try {
+    const esc = {}, dif = [];
+    for (const [w, h, tactil] of [[1440, 900], [1920, 1080], [1280, 720], [1024, 768], [844, 390, true], [780, 360, true], [724, 784, true], [784, 724, true], [941, 869, true]]) {
+      const H = cargarHud({ w, h, tactil });
+      escenaCompleta(H);
+      H.pintar();
+      const B = H.G.HudDex.bandas(), d = H.G.Estilo.disposicion(w, h, { seguras: H.seguras });
+      esc[`${w}x${h}`] = `${B.variante} ${B.escala}`;
+      if (B.sup !== d.bandas.sup || B.inf !== d.bandas.inf || B.der !== d.bandas.der || B.variante !== d.variante) dif.push({ vp: `${w}x${h}`, hud: [B.sup, B.inf, B.der, B.variante], disp: [d.bandas.sup, d.bandas.inf, d.bandas.der, d.variante] });
+    }
+    t('escala del HUD: 1,25 a 1440x900 y también a 1920x1080 (tope de Nico, no 1,5), 1 a 1280x720; el plegable abierto (724x784, 784x724) va en compacto (la entrada del jefe no cabe entre columnas) con las piezas un poco mayores (×1,13), y 941x869, en escritorio; las bandas del HUD son las de G.Estilo.disposicion()',
+      esc['1440x900'] === 'escritorio 1.25' && esc['1920x1080'] === 'escritorio 1.25' && esc['1280x720'] === 'escritorio 1' && /^compacto 1\.1/.test(esc['724x784']) &&
+      /^compacto 1\.1/.test(esc['784x724']) && esc['844x390'] === 'compacto 1' && /^escritorio/.test(esc['941x869']) && !dif.length, { esc, dif });
+  } catch (e) { t('escala del HUD', false, String(e && e.stack || e)); }
+
+  // ---- D. Barra del jefe: violeta #9B6BFF (nunca los colores de PS), con 3 marcas, y más gruesa que la tuya ----
+  try {
+    const res = [];
+    for (const [w, h, tactil] of [[1440, 900, false], [844, 390, true]]) {
+      for (const f of [1, 0.4, 0.1]) {
+        const H = cargarHud({ w, h, tactil });
+        H.juego.jefes = [jefeFalso(w / 2, h / 2, f)];
+        const ctx = H.pintar();
+        const M = H.G.MARCA.color;
+        // El carril de la barra rival es el fill de 'rgba(2,8,11,0.6)' justo antes del primer fill violeta.
+        const iv = ctx.ops.findIndex(o => o.op === 'fill' && o.estilo === M.rival);
+        const carril = iv > 0 ? ctx.ops.slice(0, iv).reverse().find(o => o.op === 'fill' && o.estilo === M.carril) : null;
+        if (!carril) { res.push({ w, f, mal: 'sin barra rival' }); continue; }
+        const bw = carril.x2 - carril.x, bh = carril.y2 - carril.y;
+        const px = carril.x + bw * f * 0.375, py = carril.y + bh * 0.65;
+        const encima = ctx.ops.filter(o => o.op === 'fill' && px >= o.x && px <= o.x2 && py >= o.y && py <= o.y2).pop();
+        const marcas = ctx.ops.filter(o => o.op === 'fill' && o.estilo === 'rgba(15,38,48,0.7)' && o.y === carril.y && o.x2 - o.x <= 3).length;
+        // Tus PS: la barra de la ficha (el carril antes del primer fill de un color de PS).
+        const ips = ctx.ops.findIndex(o => o.op === 'fill' && [M.psAlto, M.psMedio, M.psBajo, M.psBajoDestello].includes(o.estilo));
+        const carrilPS = ctx.ops.slice(0, ips).reverse().find(o => o.op === 'fill' && o.estilo === M.carril);
+        res.push({ w, f, color: encima && encima.estilo, marcas, alto: bh, altoPS: carrilPS ? carrilPS.y2 - carrilPS.y : null });
+      }
+    }
+    t('barra del jefe: el píxel al 37,5 % del tramo lleno y al 65 % del alto es #9B6BFF con el jefe al 100, 40 y 10 %, en escritorio y en compacto; 3 marcas (25, 50 y 75 %); y más gruesa que tus PS en las dos variantes',
+      res.length === 6 && res.every(x => x.color === '#9B6BFF' && x.marcas === 3 && x.altoPS && x.alto > x.altoPS), res);
+  } catch (e) { t('barra del jefe', false, String(e && e.stack || e)); }
+
+  // ---- E. Flechas: fuera de pantalla o detrás de un panel, y siempre dentro de la zona libre ----
+  try {
+    const res = [];
+    for (const [w, h, tactil] of [[1440, 900, false], [844, 390, true], [724, 784, true]]) {
+      const H = cargarHud({ w, h, tactil });
+      const { juego, G } = H;
+      // Fuera: el jefe a la derecha, la grieta arriba, un shiny abajo a la izquierda, Ana lejos (caída) y Leo lejos,
+      // un ladrón a la izquierda y el Pokémon perdido abajo.
+      juego.jefes = [jefeFalso(w + 900, h / 2)];
+      juego.rift = { x: w / 2, y: -800, ttl: 30, t: 9 };
+      juego.shinies = [{ x: -300, y: h + 300, dead: false }];
+      juego.mates = [mateFalso('Ana', '#5FC8FF', w * 3, h * 2, { dead: true }), mateFalso('Leo', '#7EE07A', -2000, h / 3)];
+      juego.otros = [{ behavior: 'thief', dead: false, x: -900, y: h * 0.7, name: 'Meowth' }];
+      G.Events.onNet(['ev', 'lp', 52, w / 2, h + 2000, 100, 0, w / 2, h + 3000, 0, 0]);
+      H.pintar();
+      const B = G.HudDex.bandas(), Z = B.zona, tipos = B.flechas.map(f => f.tipo);
+      const fuera = B.flechas.filter(f => f.x < Z.x + 20 || f.x > Z.x + Z.w - 20 || f.y < Z.y + 20 || f.y > Z.y + Z.h - 20);
+      // Detrás de un panel: el jefe en mitad de la ficha (dentro de la pantalla) también lleva flecha; en la zona libre, no.
+      const P = B.piezas.ficha;
+      juego.jefes = [jefeFalso(P.x + P.w / 2, P.y + P.h / 2 + 30)];
+      H.pintar();
+      const tapado = G.HudDex.bandas().flechas.some(f => f.tipo === 'jefe');
+      juego.jefes = [jefeFalso(Z.x + Z.w / 2, Z.y + Z.h / 2 + 30)];
+      H.pintar();
+      const libre = !G.HudDex.bandas().flechas.some(f => f.tipo === 'jefe');
+      res.push({ vp: `${w}x${h}`, tipos, fuera: fuera.map(f => f.tipo), tapado, libre });
+    }
+    const todas = ['jefe', 'grieta', 'shiny', 'caido', 'companero', 'evento'];
+    t('flechas comunes (jefe, grieta, shiny, compañero caído y lejos, ladrón y Pokémon perdido): salen si el objetivo está fuera de la pantalla o detrás de un panel (no si está en la zona libre) y quedan dentro de la zona libre con su margen',
+      res.every(x => todas.every(k => x.tipos.includes(k)) && x.tipos.filter(k => k === 'evento').length === 2 && !x.fuera.length && x.tapado && x.libre), res);
+  } catch (e) { t('flechas del HUD', false, String(e && e.stack || e)); }
+
+  // ---- F. Avisos: una ranura con cola (prioridad, ≤ 2 en espera, persistentes, sin repetir) ----
+  try {
+    const H = cargarHud({ w: 1440, h: 900 });
+    const { G, juego } = H, A = G.HudDex.Avisos, st = { time: 60 };
+    let tt = 10;
+    const paso = (s, n = 1) => { for (let i = 0; i < n; i++) { tt += s; A.actualizar(tt, st, false); } };
+    const di = (text, t2) => { juego.banner = { text, t: t2 }; paso(0.016); };
+    const vistos = [];
+    const anota = () => { const v = A.visible; if (v && !v.saliendo && vistos[vistos.length - 1] !== v.texto) vistos.push(v.texto); };
+    di('¡Un Pidgey shiny anda cerca!', 3.4); anota();
+    di('Lluvia: el Agua se potencia y el Fuego se debilita', 3.4);
+    di('¡Kingambit salvaje apareció!', 3.2);
+    di('— Cueva Cristal —', 3);
+    const cola = A.cola.map(x => x.tipo);
+    for (let i = 0; i < 700; i++) { juego.banner = null; paso(0.016); anota(); }
+    // Persistente: «Pausa: … elige fusión…» se queda mientras el origen lo mantenga, aunque pasen 20 s.
+    di('Pausa: Ana elige fusión…', 999);
+    for (let i = 0; i < 1250; i++) { juego.banner = { text: 'Pausa: Ana elige fusión…', t: 999 - i * 0.016 }; paso(0.016); }
+    const sigue = A.visible && A.visible.texto === 'Pausa: Ana elige fusión…' && !A.visible.saliendo;
+    juego.banner = null; paso(0.016, 40);
+    const acaba = !A.visible || A.visible.tipo === 'pista' || A.visible.saliendo;
+    // «— Bioma —» una sola vez (aunque se repita mientras se ve) y «Has entrado en la grieta…» como rótulo de zona.
+    const zonas = [];
+    di('— Bosque Umbrío —', 3); di('— Bosque Umbrío —', 3);
+    for (let i = 0; i < 300; i++) { paso(0.016); const v = A.visible; if (v && v.tipo === 'zona' && zonas[zonas.length - 1] !== v.texto) zonas.push(v.texto); }
+    juego.banner = null; paso(0.016, 300);
+    juego.bioma = 'Grieta · Pradera Eterna';
+    di('Has entrado en la grieta…', 2.4);
+    const arena = A.visible && A.visible.tipo === 'zona' && A.visible.texto === 'Grieta · Pradera Eterna';
+    // La pista de controles: sólo con la ranura libre y hasta los 14 s.
+    juego.banner = null; paso(0.016, 400);
+    const st2 = { time: 3 }; tt += 0.016; A.actualizar(tt, st2, true);
+    const pista = A.visible && A.visible.tipo === 'pista' && /Arrastra el dedo/.test(A.visible.texto);
+    t('avisos: una ranura con cola por prioridad (jefe > zona > clima > resto), como mucho 2 en espera (se pierde el clima), cada uno visible su tiempo; «Pausa: … elige fusión…» se queda 20 s mientras dure y se va al quitarse; «— Bioma —» sale una vez, sin guiones; «Has entrado en la grieta…» es el rótulo de la arena; y la pista de controles sólo con la ranura libre',
+      JSON.stringify(cola) === '["jefe","zona"]' && JSON.stringify(vistos) === JSON.stringify(['¡Un Pidgey shiny anda cerca!', '¡Kingambit salvaje apareció!', 'Cueva Cristal']) &&
+      sigue && acaba && JSON.stringify(zonas) === '["Bosque Umbrío"]' && arena && pista, { cola, vistos, sigue, acaba, zonas, arena, pista });
+  } catch (e) { t('avisos del HUD', false, String(e && e.stack || e)); }
+
+  // ---- G. Toques: las ranuras y la pausa se registran donde se pintan y miden ≥ 44 px ----
+  try {
+    const res = [];
+    for (const [w, h] of [[844, 390], [568, 320], [724, 784], [1440, 900]]) {
+      const H = cargarHud({ w, h, tactil: true });
+      H.pintar();
+      const B = H.G.HudDex.bandas(), P = B.piezas, pl = H.pl;
+      const ran = piezas(H.G, pl).filter(p => /^ranura/.test(p.n));
+      const casa = ran.every(p => H.botones.some(b => Math.abs(b.x - p.x) < 0.5 && Math.abs(b.y - p.y) < 0.5 && b.w === p.w && b.h === p.h && b.w >= 44 && b.h >= 44));
+      const pz = H.botones.find(b => P.pausa && b.x === P.pausa.x && b.y === P.pausa.y);
+      // Tocar la ranura 3 la activa; tocar la pausa pausa.
+      const b3 = H.botones.find(b => Math.abs(b.y - ran[2].y) < 0.5 && Math.abs(b.x - ran[2].x) < 0.5);
+      if (b3) b3.fn();
+      if (pz) pz.fn();
+      res.push({ vp: `${w}x${h}`, variante: B.variante, columna: B.columna, casa, pausa: pz ? [pz.w, pz.h] : null, activa: pl.active, pausado: !!H.G.Game.pausado });
+    }
+    t('toques: cada ranura y la pausa se registran justo donde se pintan, con ≥ 44 px (también a 568x320 y en el plegable); tocar la ranura 3 la activa y la pausa responde; en compacto, las ranuras van en columna (Ajustes dirá «de la derecha»)',
+      res.every(x => x.casa && x.pausa && x.pausa[0] >= 44 && x.pausa[1] >= 44 && x.activa === 2 && x.pausado) && res.filter(x => x.columna).length === 3, res);
+  } catch (e) { t('toques del HUD', false, String(e && e.stack || e)); }
+
+  // ---- H. Cooperativo: barras, «Caído», flechas a los lejanos y «Has caído» con la barra de levantar ----
+  try {
+    const res = [];
+    for (const [w, h, tactil] of [[1280, 720, false], [844, 390, true]]) {
+      const H = cargarHud({ w, h, tactil });
+      const { juego, G } = H;
+      juego.mates = [mateFalso('Ana', '#5FC8FF', w / 2 + 100, h / 2), mateFalso('Leo', '#7EE07A', w / 2 - 100, h / 2 + 50, { dead: true }), mateFalso('Sol', '#FF8AD8', w + 1500, h / 2)];
+      let ctx = H.pintar();
+      const textos = ctx.ops.filter(o => o.op === 'texto').map(o => o.texto);
+      const M = G.MARCA.color;
+      const barras = ctx.ops.filter(o => o.op === 'fill' && [M.psAlto, M.psMedio, M.psBajo].includes(o.estilo)).length;
+      const flechas = G.HudDex.bandas().flechas.map(f => f.tipo);
+      const lab = textos.find(x => /^Sol · \d+ m$/.test(x));
+      H.pl.dead = true; H.pl.reviveT = 1.5;
+      ctx = H.pintar();
+      const t2 = ctx.ops.filter(o => o.op === 'texto').map(o => o.texto);
+      const levantar = ctx.ops.some(o => o.op === 'fill' && o.estilo === M.psAlto && o.x2 - o.x > 30);
+      res.push({ vp: `${w}x${h}`, caido: textos.includes('Caído'), barras, flechas, lab, hasCaido: t2.includes('Has caído: un compañero puede levantarte'), levantar });
+    }
+    t('cooperativo: la barra de cada compañero, «Caído» en el caído, flecha «Nombre · N m» sólo al que está lejos (no a los que se ven) y, si caes tú, «Has caído: un compañero puede levantarte» con la barra de levantar',
+      res.every(x => x.caido && x.barras >= 3 && JSON.stringify(x.flechas) === '["companero"]' && x.lab && x.hasCaido && x.levantar), res);
+  } catch (e) { t('cooperativo del HUD', false, String(e && e.stack || e)); }
+
+  // ---- I. Contraste de cada texto (calculado con los tokens, contra lo que tiene debajo sobre el peor fondo) ----
+  try {
+    const rgba = s => { if (/^#/.test(s)) return [...hexRgb(s), 1]; const m = /rgba?\(([^)]+)\)/.exec(s); if (!m) return null; const v = m[1].split(',').map(Number); return [v[0], v[1], v[2], v[3] === undefined ? 1 : v[3]]; };
+    const hexRgb = h => { const n = parseInt(h.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+    const sobre = (c, f) => [0, 1, 2].map(i => c[i] * c[3] + f[i] * (1 - c[3]));
+    const lum = c => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const malos = [];
+    let n = 0;
+    for (const [w, h, tactil] of [[1440, 900, false], [844, 390, true]]) {
+      const H = cargarHud({ w, h, tactil });
+      escenaCompleta(H, { lejos: true });
+      H.juego.rift = { x: w / 2, y: -800, ttl: 30, t: 1 };
+      H.juego.mates[0].pl.dead = true;
+      H.pintar(); H.reloj.t += 600;
+      const ctx = H.pintar();
+      ctx.ops.forEach((o, i) => {
+        if (o.op !== 'texto' || !/\p{L}|\d/u.test(o.texto)) return;
+        const col = rgba(o.estilo);
+        if (!col) return;
+        const c0 = sobre(col, [255, 255, 255]);
+        const trazo = ctx.ops.slice(Math.max(0, i - 3), i).reverse().find(p => p.op === 'contorno' && p.texto === o.texto);
+        let fondo, donde;
+        if (trazo) { fondo = sobre(rgba(trazo.estilo), [255, 255, 255]); donde = 'contorno'; }
+        else {
+          const cx = (o.x + o.x2) / 2, cy = (o.y + o.base) / 2;
+          const bajo = ctx.ops.slice(0, i).filter(p => p.op === 'fill' && typeof p.estilo === 'string' && p.estilo !== '#ICONO' && cx >= p.x && cx <= p.x2 && cy >= p.y && cy <= p.y2).pop();
+          if (!bajo) { malos.push({ texto: o.texto, por: 'sin panel ni contorno' }); return; }
+          fondo = sobre(rgba(bajo.estilo), [255, 255, 255]); donde = bajo.estilo;
+        }
+        n++;
+        const q = ratio(c0, fondo);
+        if (q < 4.5) malos.push({ texto: o.texto, color: o.estilo, fondo: donde, ratio: +q.toFixed(2) });
+      });
+    }
+    t(`contraste: cada texto del HUD Dex (${n}, en escritorio y en compacto, con todo a la vez y la grieta) da ≥ 4,5:1 contra su panel al 92 % sobre blanco (el peor fondo) o, si va suelto, contra su contorno`, n > 60 && !malos.length, malos.slice(0, 8));
+  } catch (e) { t('contraste del HUD', false, String(e && e.stack || e)); }
+
+  // ---- J. Red de seguridad (U6): fallback, Clásico = upstream, huellas e inventario ----
+  try {
+    const H = cargarHud({ w: 1440, h: 900, fallar: true });
+    const ctx = H.pintar();
+    const textos = ctx.ops.filter(o => o.op === 'texto').map(o => o.texto);
+    const upstream = textos.some(x => /DERROTADOS/.test(x));
+    t('fallback: una excepción dentro del HUD Dex hace que ese fotograma lo pinte upstream (se avisa una vez en la consola) y el contexto del lienzo queda como estaba',
+      upstream && ctx.profundidad === 0 && H.c.__avisos.length === 1 && /HUD Dex ha fallado/.test(H.c.__avisos[0]), { upstream, profundidad: ctx.profundidad, avisos: H.c.__avisos });
+  } catch (e) { t('fallback del HUD', false, String(e && e.stack || e)); }
+  try {
+    // Clásico: G.HUD.draw con el gancho pinta exactamente lo mismo que el hud.js de upstream sin él.
+    const sinGancho = rd('js/ui/hud.js').split('\n').filter(l => !/MOD nico/.test(l)).join('\n');
+    const graba = src => { const H = cargarHud({ w: 1280, h: 720, estilo: 'clasico', hudSrc: src }); escenaCompleta(H); H.juego.rift = { x: 300, y: -500, ttl: 30, t: 2 }; return H.pintar().ops; };
+    const a = JSON.stringify(graba(null)), b = JSON.stringify(graba(sinGancho));
+    t('Clásico = upstream: con el estilo Clásico, G.HUD.draw con el gancho graba los mismos textos, rectángulos y caminos que el hud.js de upstream sin él', a === b && a.length > 1000, { iguales: a === b, ops: a.length });
+  } catch (e) { t('Clásico = upstream', false, String(e && e.stack || e)); }
+  try {
+    const hud = rd('js/ui/hud.js'), ev = rd('js/systems/events.js');
+    const hHud = sha1(sinModNico(hud)), hEv = sha1(eventosHud(sinModNico(ev)));
+    const mutadoHud = sha1(sinModNico(hud.replace('const touch = G.Touch.active;', 'const touch = G.Touch.active; const combo = pl.combo;')));
+    const mutadoEv = sha1(eventosHud(sinModNico(ev.replace("'#ffd23f', e.name, F);", "'#ffd23f', e.name + ' ' + e.loot, F);"))));
+    t(`huellas de lo que pinta upstream: js/ui/hud.js y drawHud/edgeArrow de js/systems/events.js siguen como cuando se portaron al HUD Dex (si no: «hud.js de upstream ha cambiado: revisa git diff -- js/ui/hud.js js/systems/events.js, porta lo nuevo a js/ui/hud-dex.js y actualiza HUELLA_HUD y HUELLA_EVENTOS_HUD»); una copia cambiada da otra huella`,
+      hHud === HUELLA_HUD && hEv === HUELLA_EVENTOS_HUD && mutadoHud !== HUELLA_HUD && mutadoEv !== HUELLA_EVENTOS_HUD, { hud: hHud, eventos: hEv });
+    // Inventario: cada dato que lee hud.js (y drawHud de events.js) lo cubre el HUD Dex (G.HudDex.CUBRE).
+    const H = cargarHud({ w: 1440, h: 900 }), CU = H.G.HudDex.CUBRE;
+    const cubre = new Set([...CU.pl.map(x => 'pl.' + x), ...CU.st.map(x => 'st.' + x), ...CU.G.map(x => 'G.' + x)]);
+    const faltan = src => [...inventarioHud(src)].filter(x => !cubre.has(x));
+    const real = faltan(sinModNico(hud)).concat(faltan(eventosHud(sinModNico(ev))).filter(x => /^pl\.|^st\./.test(x)));
+    const mut = faltan(sinModNico(hud.replace('const touch = G.Touch.active;', 'const touch = G.Touch.active; const combo = pl.combo + G.Weather.racha;')));
+    t('inventario: todo lo que lee el HUD de upstream (pl.*, st.*, G.*.*) está en G.HudDex.CUBRE; una copia de hud.js que lea pl.combo y G.Weather.racha da FALLO con sus nombres',
+      !real.length && JSON.stringify(mut) === '["pl.combo","G.Weather.racha"]', { real, mutado: mut });
+  } catch (e) { t('huellas e inventario', false, String(e && e.stack || e)); }
+
+  // ---- K. Pantalla dividida (interfaz preparada): el HUD se maqueta contra los rectángulos de juego y de controles ----
+  try {
+    const H = cargarHud({ w: 784, h: 724, tactil: true });
+    escenaCompleta(H);
+    H.G.HudDex.ponerMarco((w, h) => { const d = H.G.Estilo.disposicion(w, h, { dividida: 'abajo', proporcion: 0.4, seguras: H.seguras }); return { juego: d.juego, controles: d.controles }; });
+    H.pintar();
+    const B = H.G.HudDex.bandas(), P = B.piezas, J = B.juego, K = B.controles;
+    const dentro = (r, R) => r.x >= R.x - 0.5 && r.y >= R.y - 0.5 && r.x + r.w <= R.x + R.w + 0.5 && r.y + r.h <= R.y + R.h + 0.5;
+    const datos = ['ficha', 'contador', 'rotom', 'jefe', 'aviso'].every(k => !P[k] || dentro(P[k], J)) && P.chips.every(x => dentro(x, J));
+    const mandos = P.ranuras.length === 4 && P.ranuras.every(x => dentro(x, K) && x.w >= 48) && P.pausa && dentro(P.pausa, K);
+    const zona = B.zona.y + B.zona.h <= J.y + J.h + 0.5 && B.der === 0;
+    const colm = H.G.HudDex.columna();
+    H.G.HudDex.ponerMarco(null);
+    H.pintar();
+    const vuelta = H.G.HudDex.bandas().controles === null && H.G.HudDex.bandas().columna;
+    t('pantalla dividida (preparada, sin activar): con G.HudDex.ponerMarco() los datos van en el rectángulo de juego, las ranuras (≥ 48 px) y la pausa en el de controles, la zona libre no pasa del juego; ponerMarco(null) vuelve a la pantalla entera',
+      datos && mandos && zona && !colm && vuelta, { juego: J, controles: K, ranuras: P.ranuras, pausa: P.pausa, zona: B.zona });
+  } catch (e) { t('pantalla dividida del HUD', false, String(e && e.stack || e)); }
+
+  // ---- L. Inglés de los textos nuevos del HUD (i18n.js real) ----
+  try {
+    const c = { console, navigator: { language: 'en-US', languages: ['en-US'] }, location: { pathname: '/' },
+      localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} }, confirm: () => true, alert() {} };
+    c.CanvasRenderingContext2D = function () {};
+    c.CanvasRenderingContext2D.prototype = { fillText() {}, strokeText() {}, measureText() {} };
+    c.window = c; c.G = {};
+    vm.createContext(c);
+    for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
+    const EN = c.G.I18n.t;
+    const textos = ['PS', 'N.º', 'Nv.', 'Despejado', 'Caído', 'Ataque ×2', 'Atq ×2', 'Velocidad ×1', 'Vel ×1', 'Defensa ×1', 'Regenera ×3', 'Horda Fuego · 18 s', 'Hora dorada · 30 s',
+      'Grieta 0:45', 'Grieta · 30 s', 'Grieta · 24 m · 30 s', '¡Se ha abierto una grieta!', 'Sigue la flecha morada: dentro te espera un legendario',
+      '¡Grieta abierta! Sigue la flecha morada', '¡Ana necesita ayuda! · 12 m', 'Marca · 12 m', 'Has caído: un compañero puede levantarte', 'Habéis caído todos…',
+      'Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo', 'WASD moverse  ·  1-4 / Q / E o clic en un ataque para cambiarlo  ·  Esc pausa', 'Lluvia · 67 s'];
+    const sin = textos.filter(s => EN(s) === s);
+    t('inglés de los textos del HUD Dex (i18n.js real): PS, N.º, Despejado, Caído, los chips, la horda y la hora dorada, la grieta, los compañeros, «Has caído», la pista de controles y el clima', !sin.length, sin);
+  } catch (e) { t('inglés del HUD', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`HUD Dex: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`HUD Dex: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -2808,6 +3283,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { arreglosChecks(); } catch (e) { bad('no se pudo probar los arreglos de upstream: ' + (e && e.stack || e)); }
   try { pantallasChecks(); } catch (e) { bad('no se pudo probar las pantallas: ' + (e && e.stack || e)); }
   try { identidadChecks(); } catch (e) { bad('no se pudo probar la identidad visual: ' + (e && e.stack || e)); }
+  try { hudDexChecks(); } catch (e) { bad('no se pudo probar el HUD Dex: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

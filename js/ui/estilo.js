@@ -132,17 +132,29 @@ G.Estilo = (() => {
     return true;
   }
 
+  /** Primera línea de G.HUD.draw (js/ui/hud.js): con Dex pinta el HUD de js/ui/hud-dex.js y devuelve true (upstream
+   *  no pinta); con Clásico, false. Si el HUD Dex falla, lo dice una vez en la consola y devuelve false: ese
+   *  fotograma lo pinta upstream (nunca una partida sin HUD). */
+  let falloHud = false;
+  function hud(ctx, w, h, pl, st) {
+    if (actual !== 'dex' || !G.HudDex || !pl) return false;
+    try { G.HudDex.draw(ctx, w, h, pl, st); return true; } catch (e) {
+      if (!falloHud) { falloHud = true; console.warn('[Estilo] el HUD Dex ha fallado; se pinta el de upstream', e); }
+      return false;
+    }
+  }
+
   // ===================================================================
   // 3. Ajustes: la sección «Estilo» (la primera de Gráficos), créditos y controles
   // ===================================================================
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const TEXTO_ESTILO = 'Dex: menús de Pokédex y letra redondeada. Clásico: el aspecto del juego original.';
+  const TEXTO_ESTILO = 'Dex: menús y HUD de Pokédex y letra redondeada. Clásico: el aspecto del juego original.';
   const ABAJO = 'Toca un ataque de abajo para cambiarlo', DERECHA = 'Toca un ataque de la derecha para cambiarlo';
   /** «Se juega en horizontal» ya no es del todo cierto: un plegable abierto o una tableta juegan en vertical
    *  (G.MODS.pedirGiro). En los dos estilos. */
   const HORIZONTAL = 'Se juega en horizontal.', HORIZONTAL_PLEGABLE = 'Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).';
 
-  /** ¿Van las ranuras de ataque en columna a la derecha? (lo decidirá el HUD Dex del lote 2). */
+  /** ¿Van las ranuras de ataque en columna a la derecha? (HUD Dex en su variante compacta, G.HudDex.columna). */
   const ranurasEnColumna = () => !!(actual === 'dex' && G.HudDex && G.HudDex.columna && G.HudDex.columna());
 
   /** settings-ui.js, render(), antes de wire(box): lo nuestro en la pestaña `tab`. */
@@ -505,31 +517,41 @@ G.Estilo = (() => {
   }
 
   /**
-   * Bandas del HUD y zona libre de una pantalla de w×h px CSS (pura: no mira la página salvo para
-   * las zonas seguras si no se pasan). La usará el HUD Dex del lote 2 para colocar cada pieza, las
-   * flechas de borde (dentro de la zona libre) y el encuadre (tu Pokémon en el centro de la zona
-   * libre); con op.dividida, la pantalla dividida opcional estilo Nintendo DS.
+   * Marco, variante y bandas reservadas del HUD Dex en una pantalla de w×h px CSS (pura: no mira la
+   * página salvo para las zonas seguras si no se pasan). La usa js/ui/hud-dex.js para colocar cada pieza
+   * (G.HudDex.maquetar), las flechas de borde (dentro de la zona libre) y, en el lote 4, el encuadre (tu
+   * Pokémon en el centro de la zona libre). Es también la interfaz de la pantalla dividida opcional estilo
+   * Nintendo DS (lote posterior): basta con cambiar los rectángulos `juego` y `controles`.
    *
-   * op: { seguras: {sup, der, inf, izq}, columnaIzq: px de la columna de compañeros y chips en
-   *       compacto (0 si no hay nada), dividida: false | 'auto' | 'abajo' | 'arriba' | 'derecha' |
-   *       'izquierda' (dónde van los CONTROLES; 'auto': abajo si la pantalla es casi cuadrada o alta,
-   *       a la derecha si es apaisada), proporcion: parte de la pantalla para los controles (0,5) }
-   * Devuelve { variante: 'escritorio' | 'compacto', escala, dividida, seguras,
-   *            juego: {x, y, w, h}   el rectángulo donde se dibuja el mundo (toda la pantalla, o su mitad),
-   *            controles: null | {x, y, w, h, lado}   la otra mitad (joystick, ranuras, HUD de datos),
-   *            bandas: {sup, inf, izq, der}   lo que el HUD reserva DENTRO de `juego`,
+   * op: { seguras: {sup, der, inf, izq}   (si faltan, las de la página: env(safe-area-inset-*)),
+   *       juego, controles: rectángulos explícitos {x, y, w, h} (controles con `lado`), o bien
+   *       dividida: false | 'auto' | 'abajo' | 'arriba' | 'derecha' | 'izquierda' (dónde van los CONTROLES;
+   *       'auto': abajo si la pantalla es casi cuadrada o alta, a la derecha si es apaisada) y
+   *       proporcion: parte de la pantalla para los controles (0,5),
+   *       columnaIzq: px de la columna de compañeros y chips en compacto (0 si no hay nada) }
+   * Devuelve { variante: 'escritorio' | 'compacto', escala (u -> px en escritorio), kc (px ×kc en compacto),
+   *            dividida, seguras, bordes: las zonas seguras que tocan a `juego` (sólo las de sus lados que dan
+   *            al borde de la pantalla),
+   *            juego: {x, y, w, h}   el rectángulo donde se ve el mundo y va el HUD de datos,
+   *            controles: null | {x, y, w, h, lado}   el de los mandos (ranuras y pausa), si lo hay,
+   *            filas: {f1, f2, hueco, margen, margenLados} (compacto),
+   *            bandas: {sup, inf, izq, der}   lo que el HUD reserva DENTRO de `juego` en el peor caso (jefe y
+   *            aviso a la vez; G.HudDex.bandas() da las del último fotograma, iguales arriba y abajo),
    *            libre: {x, y, w, h}   `juego` menos las bandas,
    *            ranuras: 'fila' | 'columna' | 'controles' }
-   * Cifras (G.MARCA.hud): escritorio, la pila central (contador, jefe y aviso) arriba y la fila de
-   * ranuras con su píldora abajo, por la escala; compacto (alto < 520), filas adaptables al alto
-   * arriba, nada abajo, ranuras en columna a la derecha (decisión de Nico) y la columna izquierda.
+   * Variante: compacta si `juego` mide menos de 520 de alto (móvil en horizontal) o si es más estrecho que
+   * la fila de arriba de escritorio con la entrada del jefe (884 u: plegable abierto, ventana estrecha); si
+   * no, escritorio. Cifras en G.MARCA.hud.
    */
   function disposicion(w, h, op = {}) {
-    const M = MARCA(), H = M && M.hud;
+    const M = MARCA(), H = M && M.hud, E = H && H.escritorio, C = H && H.compacto;
     const s0 = op.seguras || zonasSeguras();
     const sg = { sup: s0.sup || 0, der: s0.der || 0, inf: s0.inf || 0, izq: s0.izq || 0 };
     let juego = { x: 0, y: 0, w, h }, controles = null, dividida = false;
-    if (op.dividida) {
+    if (op.juego) {
+      juego = { x: +op.juego.x || 0, y: +op.juego.y || 0, w: +op.juego.w || w, h: +op.juego.h || h };
+      if (op.controles) { controles = Object.assign({}, op.controles); dividida = controles.lado || 'abajo'; }
+    } else if (op.dividida) {
       const k = Math.min(0.7, Math.max(0.3, +op.proporcion || 0.5));
       let lado = op.dividida;
       if (lado === 'auto' || !['abajo', 'arriba', 'derecha', 'izquierda'].includes(lado)) lado = w < h * 1.25 ? 'abajo' : 'derecha';
@@ -544,40 +566,49 @@ G.Estilo = (() => {
         juego = { x: lado === 'derecha' ? 0 : wc, y: 0, w: w - wc, h };
       }
     }
+    // Las zonas seguras sólo cuentan en los lados de `juego` que dan al borde de la pantalla.
+    const bordes = { sup: juego.y <= 0 ? sg.sup : 0, izq: juego.x <= 0 ? sg.izq : 0,
+      der: juego.x + juego.w >= w ? sg.der : 0, inf: juego.y + juego.h >= h ? sg.inf : 0 };
     const ALTO = (M && M.ALTO_COMPACTO) || 520;
-    const esCompacto = juego.h < ALTO;
+    const escalaE = M ? M.escalaHUD(juego.w, juego.h) : 1;
+    const esCompacto = juego.h < ALTO || juego.w / escalaE < ((E && E.anchoMin) || 884);
     const bandas = { sup: 0, inf: 0, izq: 0, der: 0 };
-    let escala = 1, ranuras;
+    let escala = 1, kc = 1, ranuras, filas = null;
     if (esCompacto) {
-      const A = (H && H.compacto.adaptable) || { fila1: [0.1, 32, 40], fila2: [0.064, 22, 26], margen: [6, 6], hueco: [3, 4], altoApretado: 360, ranuraApretada: 44 };
-      const fila = ([k, mn, mx]) => Math.max(mn, Math.min(mx, Math.round(k * juego.h)));
+      const A = (C && C.adaptable) || { fila1: [0.1, 32, 40], fila2: [0.064, 22, 26], margen: [6, 6], hueco: [3, 4], altoApretado: 360, ranuraApretada: 44 };
+      const K = (C && C.escala) || { base: 640, max: 1.15 };
+      kc = Math.max(1, Math.min(K.max, Math.min(juego.w, juego.h) / K.base));
+      const fila = ([k, mn, mx]) => Math.round(Math.max(mn, Math.min(mx, Math.round(k * juego.h))) * kc);
       const apretado = juego.h < A.altoApretado;
       const margen = apretado ? A.margen[0] : A.margen[1], hueco = apretado ? A.hueco[0] : A.hueco[1];
-      bandas.sup = Math.max(margen, sg.sup) + fila(A.fila1) + hueco + fila(A.fila2);
-      if (dividida) ranuras = 'controles';
+      const margenLados = juego.w < 700 ? 6 : ((C && C.margenLados) || 8);   // pantallas estrechas: 2 px más para las columnas
+      filas = { f1: fila(A.fila1), f2: fila(A.fila2), hueco, margen, margenLados, apretado };
+      bandas.sup = Math.max(margen, bordes.sup) + filas.f1 + hueco + filas.f2;
+      if (controles) ranuras = 'controles';
       else {
-        const lado = apretado ? A.ranuraApretada : ((H && H.compacto.ranuras.lado) || 48);
-        bandas.der = Math.max(margen, sg.der) + lado + ((H && H.compacto.ranuras.separacion) || 6);
+        const R = C && C.ranuras;
+        const lado = apretado ? A.ranuraApretada : Math.round(((R && R.lado) || 48) * kc);
+        const sep = juego.h < 376 ? ((R && R.apretado.separacion) || 4) : Math.round(((R && R.separacion) || 6) * kc);
+        bandas.der = Math.max(margenLados, bordes.der) + lado + sep;
         ranuras = 'columna';
       }
       const izq = Math.max(0, +op.columnaIzq || 0);
-      if (izq) bandas.izq = Math.max(margen, sg.izq) + Math.min(izq, (H && H.compacto.columnaIzq.anchoMax) || 112);
-      bandas.inf = 0;
+      if (izq) bandas.izq = Math.max(margenLados, bordes.izq) + Math.min(izq, Math.round(((C && C.columnaIzq.anchoMax) || 100) * kc)) + Math.round(((C && C.separacion) || 6) * kc);
     } else {
-      escala = M ? M.escalaHUD(juego.w, juego.h) : 1;
-      const E = H && H.escritorio;
+      escala = escalaE;
       const u = v => Math.round(v * escala);
-      const pila = E ? E.margen + E.contador.h + E.separacion + E.jefe.h + E.aviso.separacion + E.aviso.h : 176;
-      bandas.sup = Math.max(u(E ? E.margen : 12), sg.sup) + u(pila - (E ? E.margen : 12));
-      if (dividida) ranuras = 'controles';
+      const e = E || { margen: 12, margenAbajo: 16, separacion: 8, contador: { h: 56 }, jefe: { h: 40 }, aviso: { separacion: 10, h: 36 },
+        ranuras: { lado: 56, elevacion: 6, pildora: { h: 18, sobre: 6 } } };
+      bandas.sup = Math.max(u(e.margen), bordes.sup) + u(e.contador.h) + u(e.separacion) + u(e.jefe.h) + u(e.aviso.separacion) + u(e.aviso.h);
+      if (controles) ranuras = 'controles';
       else {
-        const R = E && E.ranuras;
-        bandas.inf = Math.max(u(R ? R.margenAbajo : 16), sg.inf) + u(R ? R.lado + R.elevacionActiva + R.pildora.sobre : 88);
+        const R = e.ranuras;
+        bandas.inf = Math.max(u(e.margenAbajo), bordes.inf) + u(R.lado) + u(R.elevacion) + u(R.pildora.sobre) + u(R.pildora.h);
         ranuras = 'fila';
       }
     }
     const libre = { x: juego.x + bandas.izq, y: juego.y + bandas.sup, w: Math.max(0, juego.w - bandas.izq - bandas.der), h: Math.max(0, juego.h - bandas.sup - bandas.inf) };
-    return { variante: esCompacto ? 'compacto' : 'escritorio', escala, dividida, seguras: sg, juego, controles, bandas, libre, ranuras };
+    return { variante: esCompacto ? 'compacto' : 'escritorio', escala, kc, dividida, seguras: sg, bordes, juego, controles, filas, bandas, libre, ranuras };
   }
 
   // ===================================================================
@@ -597,7 +628,7 @@ G.Estilo = (() => {
 
   return {
     get actual() { return actual; }, get dex() { return actual === 'dex'; },
-    set, porDefecto, fuenteCanvas, cargarFuentes, descargaEnReposo, ajustes, carta, tipoDeCarta, companero, premio,
+    set, porDefecto, hud, fuenteCanvas, cargarFuentes, descargaEnReposo, ajustes, carta, tipoDeCarta, companero, premio,
     destacado, encaje, colocacion, disposicion, zonasSeguras, ranurasEnColumna, capaProbabilidades, tabLibre,
     on(fn) { oyentes.add(fn); },
     TEXTO_ESTILO, TAM_COMPANERO, TAM_PREMIO, HORIZONTAL_PLEGABLE, tiraPestanas

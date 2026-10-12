@@ -26,6 +26,7 @@ G.HUD = (() => {
   }
 
   function draw(ctx, w, h, pl, st) {
+    if (G.Estilo && G.Estilo.hud(ctx, w, h, pl, st)) return;   // MOD nico: con el estilo Dex, el HUD de js/ui/hud-dex.js (si falla, sigue éste)
     ctx.save();
     ctx.textBaseline = 'alphabetic';
     G.Touch.clearButtons();

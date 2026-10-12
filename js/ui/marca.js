@@ -93,75 +93,73 @@ G.MARCA = (() => {
   const escalaHUD = (w, h) => Math.max(1, Math.min(ESCALA_HUD_MAX, w / 1152, h / 720));
   const ALTO_COMPACTO = 520;                        // alto CSS por debajo del cual va el HUD compacto
 
+  // Geometría del HUD Dex (js/ui/hud-dex.js). Piezas más finas que las de la guía, con menos relleno: Nico pidió
+  // un HUD más compacto («a veces creo que ocupa demasiado»), revisión cruzada del 12-10-2026.
   const hud = {
     textoContorno: { sm: 3, lg: 4 },                // px ×escala: <18 px usa 3, ≥18 px usa 4
     // ---------- escritorio (u; ×escalaHUD) ----------
     escritorio: {
-      margen: 12, separacion: 8,
+      // Por debajo de este ancho (en u) la entrada del jefe no cabe entre la columna de la ficha y la de Rotom:
+      // el HUD pasa a la variante compacta (un plegable abierto, una ventana estrecha).
+      anchoMin: 884,
+      margen: 12, margenAbajo: 16, separacion: 8,
       ficha: {
-        carcasa: { x: 0, y: 0, w: 60, h: 60, r: [14, 6, 6, 14], base: { x: 4, y: 54, w: 50, h: 3 } },
-        lente: { cx: 29, cy: 29, r: 21, aro: 0.13 },             // aro = r×0,13 (mín. 2 px)
-        pantalla: { x: 52, y: 3, w: 236, h: 54, r: 10 },          // relativo a la carcasa
-        texto: { izq: 20, der: 230 },                              // relativo a la pantalla
-        nombre: { tam: 16, base: 19 }, nivelEtiqueta: { tam: 11 }, nivel: { tam: 16, base: 19 },
-        ps: { etiqueta: { tam: 11, base: 34 }, barra: { x: 40, y: 27, h: 8 }, cifras: { tam: 13, base: 35 }, hueco: 10 },
-        exp: { x: 20, y: 45, w: 210, h: 3 }
+        lado: 56, radios: [13, 5, 5, 13], lente: { r: 19, aro: 0.13 }, base: 3,     // carcasa roja con la lente
+        pantalla: { solape: 8, y: 3, w: 224, r: 10 },                                // alto = lado − 2·y
+        texto: { izq: 14, der: 10 }, nombre: { tam: 16, base: 18 }, nivelEtiqueta: 11,
+        ps: { tam: 11, base: 35, barra: { y: 27, h: 8 }, cifras: 13, hueco: 8 }, exp: { y: 41, h: 3 }
       },
-      chips: { y: 68, h: 20, tam: 11, punto: 3.5, padding: 11, separacion: 5, fila: 26, anchoMax: 288 },
-      contador: { w: 168, h: 60, reloj: { tam: 28, base: 31 }, datos: { tam: 13, base: 49, icono: 14, hueco: 5, separador: 22 } },
+      chips: { separacion: 6, h: 20, tam: 11, punto: 3.5, padding: 10, entre: 5, fila: 24 },
+      companeros: { separacion: 6, padding: 4, fila: 20, insignia: 7, nombre: { x: 20, tam: 13, anchoMax: 96 }, barra: { x: 122, h: 6, der: 8 } },
+      contador: { w: 156, h: 56, reloj: { tam: 26, base: 28 }, datos: { tam: 13, base: 47, icono: 14, hueco: 5, separador: 20 } },
       rotom: {
-        w: 214, h: 58, hClima: 76, r: 14, separacionPausa: 52,
-        cara: { x: 7, y: 7, lado: 44, r: 12, pantalla: { x: 5, y: 6, w: 34, h: 30, r: 7 } },
-        ojos: { separacion: 7, w: 6.8, h: 14, brilloW: 2.2, brilloH: 3.6, mirarX: 5, mirarY: 3.2, parpadeoMs: 120, cadaS: [3, 5.5] },
-        texto: { x: 61, bioma: { tam: 13, base: 24 }, clima: { tam: 11, base: 43, icono: 15 }, efectos: { tam: 11, base: 62, icono: 15 } }
+        w: 204, h: 56, hClima: 72, r: 13, separacionPausa: 8,
+        cara: { x: 7, y: 7, lado: 42, r: 11 },
+        texto: { x: 58, der: 10, l1: { tam: 13, base: 22 }, l2: { tam: 11, base: 41, icono: 14 }, l3: { tam: 11, base: 60, icono: 14 } }
       },
       jefe: {
-        anchoMax: 470, margenLados: 20, h: 44, r: 10, y: 'contador+8',
-        lengueta: { w: 66, etiqueta: { tam: 11, base: 17 }, numero: { tam: 16, base: 34 } },
-        nombre: { x: 76, tam: 16, base: 18 }, chipTipo: { h: 14, r: 4, tam: 11, padding: 6, separacion: 4, y: 6 },
-        porcentaje: { tam: 11, base: 18, der: 10 },
-        barra: { x: 76, y: 26, h: 10, der: 10, marcasCada: 0.25 }
+        anchoMax: 470, anchoMin: 300, reservaLados: 292, separacion: 8, h: 40, r: 10, lengueta: 60,
+        etiqueta: { tam: 11, base: 16 }, numero: { tam: 16, base: 33 }, nombre: { x: 70, tam: 16, base: 18 },
+        chip: { h: 14, r: 4, tam: 11, padding: 6, entre: 4, y: 6 }, porcentaje: { tam: 11, base: 18, der: 10 },
+        barra: { y: 25, h: 10, der: 10 }                                             // 10 u: más gruesa que tus PS (8 u)
       },
-      aviso: { h: 40, r: 14, lengueta: 30, tam: 18, separacion: 12, anchoMax: 640, margenLados: 20, grieta: { h: 58, titulo: 18, sub: 13 } },
+      aviso: { separacion: 10, h: 36, r: 12, lengueta: 28, icono: 16, tam: 16, padding: 22, anchoMax: 600, grieta: { h: 52, titulo: 16, sub: 13 } },
       ranuras: {
-        lado: 58, r: 14, separacion: 9, margenAbajo: 16, elevacionActiva: 6, bordeActiva: 2.5,
-        icono: 34, iconoFusion: 22, numero: { tam: 11, x: 6, base: 13 },
-        nivel: { h: 4, r: 1.5, lados: 8, abajo: 9, separacion: 2 },
-        pildora: { tam: 13, h: 18, padding: 8, sobre: 24, base: 11 },
-        objeto: { separacion: 18, icono: 36, borde: 2 }, vinculo: { separacion: 12, icono: 24 }
+        lado: 56, r: 13, separacion: 8, elevacion: 6, borde: 2.5, icono: 32, iconoFusion: 21,
+        numero: { tam: 11, x: 6, base: 13 }, nivel: { h: 4, lados: 8, abajo: 8, entre: 2 },
+        pildora: { h: 18, tam: 13, padding: 8, sobre: 6 }, objeto: { separacion: 16, icono: 34 }, vinculo: { separacion: 10, icono: 22 }
       },
-      companeros: { fila: 22, padding: 6, insignia: 8, nombre: { x: 24, tam: 13, anchoMax: 100 }, barra: { x: 130, w: 152, h: 6 } },
-      pausaTactil: { lado: 44 },
-      flechas: { margen: 40, lente: 18, punta: 30, base: 16, mediaBase: 10, etiqueta: 13, separacionMin: 44 }
+      pausa: 44,                                    // px, nunca menos de 44 (toque)
+      flechas: { margen: 40, lente: 18, etiqueta: 13, separacionMin: 44 },
+      caido: { y: 0.62, h: 50, tam: 16, barra: { w: 220, h: 10 } }
     },
-    // ---------- compacto (px CSS, sin escala; móvil en horizontal) ----------
+    // ---------- compacto (px CSS ×kc; móvil en horizontal, plegable abierto, ventana estrecha) ----------
     compacto: {
-      margen: 6, fila1: { y: 6, h: 40 }, fila2: { y: 50, h: 26 }, bandaSuperiorMax: 76,
+      margen: 6, margenLados: 8, fila1: { y: 6, h: 40 }, fila2: { y: 50, h: 26 }, bandaSuperiorMax: 76,
       // Filas adaptables al alto (revisión cruzada, con el criterio de Nico: como mucho un 20 % del alto, objetivo
       // 18-20 %): fila = clamp(round(k·alto), min, max); hueco menor por debajo de altoApretado. Dan 74 px a 390
       // de alto (19,0 %), 69 a 360 (19,2 %), 65 a 340 (19,1 %) y 63 a 320 (19,7 %).
-      // Las piezas de la guía que van en esas filas (ficha, contador y Rotom de 44 px, jefe y aviso de 30) son
-      // más altas que las filas: el HUD Dex del lote 2 tiene que afinarlas para que quepan (PLAN.md).
       adaptable: { fila1: [0.1, 32, 40], fila2: [0.064, 22, 26], margen: [6, 6], hueco: [3, 4], altoApretado: 360, ranuraApretada: 44 },
-      ficha: {
-        carcasa: { w: 44, h: 44, r: [12, 5, 5, 12] }, lente: { r: 15, aro: 2 },
-        pantalla: { x: 38, y: 2, w: 168, h: 40, r: 10 }, texto: { izq: 14, der: 162 },
-        nombre: { tam: 13, base: 16 }, nivel: { tam: 13 }, nivelEtiqueta: { tam: 11 },
-        ps: { etiqueta: { tam: 11, base: 31 }, barra: { x: 34, y: 25, h: 6 }, cifras: { tam: 11, base: 31 }, hueco: 6 },
-        exp: { x: 14, y: 36, w: 148, h: 2 }
+      // kc: en una pantalla grande que va en compacto por estrecha (plegable abierto, 724×784; tableta en vertical) las
+      // piezas crecen un poco: kc = clamp(min(ancho, alto) / base, 1, max). En un móvil en horizontal, 1.
+      escala: { base: 640, max: 1.15 },
+      separacion: 6,
+      ficha: { pantalla: 168, pantallaMin: 124, solape: 4, lente: 0.34 },
+      contador: { w: 92, mini: 58 },
+      rotom: { w: 196, min: 150 },
+      pausa: 44,
+      jefe: { anchoMax: 340, lengueta: 34 },
+      aviso: { lengueta: 22, icono: 12, padding: 18, anchoMaxConJefe: 340, anchoMaxSolo: 520 },
+      // Columna izquierda (compañeros y chips): las dos columnas laterales juntas, ≤ 22 % del ancho (sin muesca).
+      columnaIzq: { anchoMax: 100, anchoMin: 56, carta: 22, pasoCarta: 26, chip: 20, pasoChip: 24, lateralesMax: 0.22 },
+      ranuras: {
+        lado: 48, r: 10, separacion: 6, icono: 30, iconoFusion: 18, desplazamientoActiva: 6, objeto: 40, vinculo: 20,
+        pildora: { h: 20, tam: 12, separacion: 6 },
+        apretado: { lado: 44, separacion: 4, objeto: 36 }                          // alto < 360 (separación 4 desde 376)
       },
-      contador: { w: 96, h: 44, reloj: { tam: 22, base: 25 }, datos: { tam: 11, base: 39, icono: 12 } },
-      rotom: { w: 204, h: 44, cara: { x: 6, y: 6, lado: 32, r: 10 }, texto: { x: 46, der: 8, linea1: { tam: 13, base: 19 }, linea2: { tam: 11, base: 36, icono: 12, hueco: 2, separacion: 6 } } },
-      pausa: { lado: 44 },
-      jefe: { anchoMax: 340, h: 30, r: 10, lengueta: { w: 40, etiqueta: { tam: 11, base: 12 }, numero: { tam: 13, base: 26 } },
-              nombre: { x: 48, tam: 13, base: 14 }, chipTipo: { h: 14, tam: 11, y: 3 }, porcentaje: { tam: 11 }, barra: { x: 48, y: 19, h: 6, der: 8 } },
-      aviso: { h: 30, r: 10, lengueta: 24, icono: 14, tam: 13, anchoMaxConJefe: 340, anchoMaxSolo: 520 },
-      columnaIzq: { y: 96, w: 104, anchoMax: 112, fila: 30, chip: { h: 22, fila: 26 } },          // compañeros y chips de estado
-      ranuras: { lado: 48, r: 10, separacion: 6, icono: 30, iconoFusion: 18, desplazamientoActiva: 6,
-                 nivel: { h: 3, abajo: 7 }, pildora: { tam: 13, h: 22, separacion: 6 }, objeto: { lado: 40, separacion: 12 },
-                 apretado: { separacion: 4, objeto: 6 } },          // si la columna no cabe (alto < 376)
       flechas: { margen: 30, lente: 14, etiqueta: 11 },
-      camara: { suavizadoMs: 400 }                                     // encuadre al centro de la zona libre
+      caido: { h: 34, tam: 13, barra: { w: 160, h: 8 } },
+      camara: { suavizadoMs: 400 }                                                 // encuadre al centro de la zona libre (lote 4)
     }
   };
 

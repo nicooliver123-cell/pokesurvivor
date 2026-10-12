@@ -104,12 +104,19 @@ G.I18n.add({
   // Identidad visual «Dex de Expedición» (js/ui/estilo.js): Ajustes > Gráficos > Estilo, créditos y controles.
   'Estilo': 'Style',
   'Clásico': 'Classic',
-  'Dex: menús de Pokédex y letra redondeada. Clásico: el aspecto del juego original.': 'Dex: Pokédex menus and a rounded font. Classic: the look of the original game.',
+  'Dex: menús y HUD de Pokédex y letra redondeada. Clásico: el aspecto del juego original.': 'Dex: Pokédex menus and HUD and a rounded font. Classic: the look of the original game.',
   'Letra del estilo Dex:': 'Dex style font:',
   'Letra del estilo Dex: M PLUS Rounded 1c (OFL).': 'Dex style font: M PLUS Rounded 1c (OFL).',
   // Controles: un plegable abierto o una tableta también juegan en vertical (y, con las ranuras en columna, «de la derecha»).
   'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).':
     'Put your finger anywhere and drag to move: the joystick appears where you touch. Tap a move at the bottom to switch to it and the top-right button to pause. Play in landscape (on an unfolded foldable or a tablet, portrait works too).',
   'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de la derecha para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).':
-    'Put your finger anywhere and drag to move: the joystick appears where you touch. Tap a move on the right to switch to it and the top-right button to pause. Play in landscape (on an unfolded foldable or a tablet, portrait works too).'
+    'Put your finger anywhere and drag to move: the joystick appears where you touch. Tap a move on the right to switch to it and the top-right button to pause. Play in landscape (on an unfolded foldable or a tablet, portrait works too).',
+  // HUD del estilo Dex (js/ui/hud-dex.js): ficha, jefe, sensor de Rotom, chips, avisos y cooperativo.
+  'PS': 'HP', 'N.º': 'No.', 'Despejado': 'Clear', 'Caído': 'Down',
+  'Ataque ×{x}': 'Attack ×{x}', 'Velocidad ×{x}': 'Speed ×{x}', 'Defensa ×{x}': 'Defense ×{x}', 'Regenera ×{x}': 'Regen ×{x}',
+  'Atq ×{x}': 'Atk ×{x}', 'Vel ×{x}': 'Spd ×{x}',
+  'Horda {x} · {x} s': '{x} horde · {x} s', 'Hora dorada · {x} s': 'Golden hour · {x} s',
+  'Grieta {x}': 'Rift {x}', 'Grieta · {x} s': 'Rift · {x} s',
+  '¡Se ha abierto una grieta!': 'A rift has opened!', '¡Grieta abierta! Sigue la flecha morada': 'Rift open! Follow the purple arrow'
 });
