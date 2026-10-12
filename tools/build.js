@@ -5,14 +5,12 @@
  *   programar y depurar cómodamente). SE EDITA dev.html, no index.html.
  * - index.html se genera a partir de dev.html, cambiando el bloque de scripts
  *   por js/app.min.js (con la huella en la URL para que no se quede en caché).
- * - node tools/build.js --sin-seo  ->  sin lo de SEO (hasta tener pokesurvivor.com).
- * - Después hay que regenerar en/index.html: python tools/make_seo_pages.py
+ * - node tools/build.js --sin-seo  ->  sin lo de SEO.
  *
- * MOD nico (versión modificada): se construye con `node tools/build.js --privado`
- * (es también lo que hace sin flags): index.html sale con noindex y sin el SEO del
- * original. NO ejecutar make_seo_pages.py: sus páginas apuntan a pokesurvivor.com.
- * dev.html ya no tiene los bloques seo del original, así que --con-seo sólo quitaría
- * el noindex: se rechaza.
+ * MOD nico (PokéSwarm): se construye con `node tools/build.js --privado` (es también lo
+ * que hace sin flags): index.html sale con noindex y sin el SEO del proyecto base, que
+ * aquí no hay (ni páginas SEO ni su generador). dev.html ya no tiene los bloques seo, así
+ * que --con-seo sólo quitaría el noindex: se rechaza.
  */
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const { execFileSync } = require('child_process');
@@ -43,13 +41,11 @@ const min = fs.readFileSync(outJs);
 const hash = crypto.createHash('sha1').update(min).digest('hex').slice(0, 10);
 
 let html = dev.slice(0, i) + `<script defer src="js/app.min.js?v=${hash}"></script>` + dev.slice(j + END.length);
-// MOD nico: versión modificada no oficial. Por defecto (o con --privado) se construye
-// "privada": sin SEO del original y CONSERVANDO el noindex de dev.html, para no
-// competir en buscadores con el juego original. --con-seo da el comportamiento de upstream.
+// MOD nico: por defecto (o con --privado) se construye "privada": sin SEO y CONSERVANDO
+// el noindex de dev.html. --con-seo (el comportamiento de upstream) se rechaza arriba.
 const PRIV = process.argv.includes('--privado') || !process.argv.includes('--con-seo');
 if (!PRIV) html = html.replace(/<meta name="robots" content="noindex">\s*/, '');
-// --sin-seo: sin canonical/redes/datos estructurados ni enlaces a las páginas
-// (para publicar antes de tener el dominio pokesurvivor.com).
+// --sin-seo: sin canonical/redes/datos estructurados ni enlaces a las páginas.
 const SIN_SEO = PRIV || process.argv.includes('--sin-seo');
 html = SIN_SEO ? html.replace(/<!-- seo:begin -->[\s\S]*?<!-- seo:end -->\n?/g, '') : html.replace(/<!-- seo:(begin|end) -->\n?/g, '');
 html = html.replace(/<!-- dev.html: página fuente[^>]*-->/, '<!-- GENERADO desde dev.html por tools/build.js: no editar a mano (se edita dev.html). -->');

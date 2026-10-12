@@ -133,10 +133,13 @@ for (const f of SERVED) {
 }
 if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestructura ni al correo del original`);
 const GONE = ['CNAME', 'robots.txt', 'sitemap.xml', 'en', 'guia', 'pokedex', 'legendarios', 'shinies', 'tipos', 'movimientos',
-  'objetos', 'logros', 'novedades', 'apoyar', 'functions', 'tools/activar_dominio.sh', '.github/FUNDING.yml'];
+  'objetos', 'logros', 'novedades', 'apoyar', 'functions', 'tools/activar_dominio.sh', '.github/FUNDING.yml',
+  // PokéSwarm (12-10-2026): documentación, Worker y generadores del proyecto base, y donaciones.
+  'docs', 'GDD.md', 'cloudflare', 'tools/make_seo_pages.py', 'tools/export_data.js', 'assets/og-image.jpg',
+  'js/data/funding.js', 'js/ui/support-ui.js'];
 const back = GONE.filter(ex);
 if (back.length) bad(`han vuelto (seguramente por un merge de upstream): ${back.join(', ')}. Quitar con: git rm -r ${back.join(' ')}`);
-else ok('sin CNAME, robots.txt, sitemap.xml, en/, páginas SEO, functions/ ni activar_dominio.sh');
+else ok('sin CNAME, robots.txt, sitemap.xml, en/, páginas SEO, functions/, docs/, GDD.md, cloudflare/ ni donaciones');
 if (/(href|src)="\//.test(rd('404.html'))) bad('404.html vuelve a tener rutas absolutas (no sirve en una subruta de GitHub Pages): ¿se ejecutó make_seo_pages.py?');
 else ok('404.html sin rutas absolutas (vale en subruta)');
 if (/"default"\s*:\s*"demo-ps"/.test(rd('.firebaserc'))) ok('.firebaserc apunta a demo-ps'); else bad('.firebaserc no apunta a demo-ps');

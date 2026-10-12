@@ -5,7 +5,7 @@
  * invitado, sin emulador: abre index.html (con --dev, dev.html) en Chromium con Playwright y, en
  * los dos estilos (Dex y Clásico, cambiados con G.Estilo.set en la misma página):
  *
- *   1. Pantallas: recorre las 22 pantallas (.scr) en cada tamaño (escritorio 1440x900, 1920x1080 y
+ *   1. Pantallas: recorre las 21 pantallas (.scr) en cada tamaño (escritorio 1440x900, 1920x1080 y
  *      1024x768; móvil táctil 844x390@3 y 780x360@3; el Magic V6 de Nico, con los tamaños que usó la
  *      verificación del 12-10-2026 (sin confirmar en el teléfono): interior 724x784 y 784x724 y exterior
  *      807x360 @3 táctil; y otros plegables o tabletas casi cuadrados, 1000x900 y 900x1000 @2,5 táctil) y
@@ -157,7 +157,7 @@ async function entrar(P) {
 }
 const estilo = (page, e) => page.evaluate(x => { G.Estilo.set(x); }, e);
 
-// ---------------- las 22 pantallas ----------------
+// ---------------- las 21 pantallas ----------------
 const MOVS = `Object.keys(G.Moves.BY_ID)`;
 const PANTALLAS = [
   ['scr-login', 'G.UI.hideAll(); G.LoginUI.open();'],
@@ -165,7 +165,6 @@ const PANTALLAS = [
   ['scr-result', 'G.UI.hideAll(); G.UI.show("scr-result");'],
   ['scr-starters', 'G.UI.hideAll(); G.UI.show("scr-result"); document.getElementById("res-other").click();'],
   ['scr-menu', 'G.MenuUI.open();'],
-  ['scr-support', 'G.MenuUI.open(); G.SupportUI.open();', 'G.SupportUI.close();'],
   ['scr-settings', 'G.MenuUI.open(); G.SettingsUI.open("sound");', 'G.SettingsUI.close();'],
   ['scr-settings', 'G.MenuUI.open(); G.SettingsUI.open("gfx");', 'G.SettingsUI.close();', 'gfx'],
   ['scr-settings', 'G.MenuUI.open(); G.SettingsUI.open("ctl");', 'G.SettingsUI.close();', 'ctl'],
@@ -1136,10 +1135,10 @@ function hojaDeContactos() {
       if (v.tactil && v.w / v.h > 0.75) check(`${nv}: juega sin «Gira el móvil»`, dentro);
       if (!dentro) { await P.ctx.close(); continue; }
 
-      // 1. Las 22 pantallas en los dos estilos (y la piel Dex puesta en cada una).
+      // 1. Las 21 pantallas en los dos estilos (y la piel Dex puesta en cada una).
       const { malas, piel } = await recorrerPantallas(P);
-      check(`${nv}: las 22 pantallas en Dex y Clásico sin desplazamiento horizontal, con la caja dentro y sin el menú detrás`, !malas.length, malas.slice(0, 6));
-      check(`${nv}: la piel Dex está puesta en las 22 pantallas (borde de la caja, letra y fondo de los botones) y en Clásico no`, !piel.length, piel.slice(0, 4));
+      check(`${nv}: las 21 pantallas en Dex y Clásico sin desplazamiento horizontal, con la caja dentro y sin el menú detrás`, !malas.length, malas.slice(0, 6));
+      check(`${nv}: la piel Dex está puesta en las 21 pantallas (borde de la caja, letra y fondo de los botones) y en Clásico no`, !piel.length, piel.slice(0, 4));
 
       // El menú principal.
       for (const e of ESTILOS) {

@@ -7,7 +7,7 @@
  *      tiradas ×1 y ×10 sin desplazar, «Volver al menú» siempre a la vista y los lienzos del
  *      compañero y del premio al tamaño en que se ven (los crea js/ui/estilo.js).
  *   2. html.estilo-dex: la piel «Dex de Expedición» (cristal petróleo, carcasa roja, M PLUS Rounded 1c)
- *      en las 22 pantallas. Sólo consume las variables de css/tokens-dex.css. Criterio de Nico tras ver las
+ *      en las 21 pantallas. Sólo consume las variables de css/tokens-dex.css. Criterio de Nico tras ver las
  *      maquetas (12-10-2026): COMPACTA (paneles con poco relleno, nada de cajas grandes que tapen el mundo),
  *      el banner del gacha con su fondo y su escena del original, y el logo, el menú principal, el inicio
  *      de sesión y «Pulsa para empezar» con la composición del original (sólo letra, bordes y colores).
@@ -472,9 +472,8 @@ html.estilo-dex .stats > div { background: var(--color-cristal-2); border: 1px s
 html.estilo-dex .stats > div > span:first-child { text-transform: none; color: var(--color-tinta-2); font-size: var(--fs-1); font-weight: 800; }
 html.estilo-dex .stats b { font-weight: 800; font-size: 20px; }
 html.estilo-dex .caught > span { text-transform: none; color: var(--color-tinta-2); }
-html.estilo-dex .support-ask { background: rgba(255, 203, 61, .08); border: 1px solid rgba(255, 203, 61, .45); border-radius: var(--radius-2); }
 
-/* ---------- ajustes, aviso legal, apoyo ---------- */
+/* ---------- ajustes y aviso legal ---------- */
 html.estilo-dex .set-h { color: var(--color-tinta); font-weight: 800; font-size: 16px; }
 html.estilo-dex .set-row { border-bottom: 1px solid rgba(169, 195, 201, .14); min-height: 40px; }
 html.estilo-dex .set-row small { color: var(--color-tinta-2); font-size: var(--fs-1); }
@@ -485,8 +484,6 @@ html.estilo-dex .credits { color: var(--color-tinta-2); }
 html.estilo-dex .credits b { color: var(--color-tinta); }
 html.estilo-dex .legal h3 { color: var(--color-tinta); }
 html.estilo-dex .legal a, html.estilo-dex .boot-in a { color: var(--color-lente-brillo); }
-html.estilo-dex .sup-tab td { border-bottom: 1px solid rgba(169, 195, 201, .14); }
-html.estilo-dex .sup-tab tr.tot td { color: var(--color-oro); }
 html.estilo-dex .sync { box-shadow: 0 0 0 2px #071318; }
 
 /* ---------- amigos, sala, invitación, ranking ---------- */
