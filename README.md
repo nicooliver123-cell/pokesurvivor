@@ -4,8 +4,10 @@
 > [PokéSurvivor de JPTER78](https://github.com/JPTER78/pokesurvivor) (web oficial:
 > pokesurvivor.com) y no la mantiene su autor. Cambios: los enemigos no se curan,
 > los Pokémon más grandes son más pequeños en partida (sus sprites se muestran a
-> escala reducida) y en cada partida se abre una grieta antes de los 2 minutos, con
-> un legendario más débil. No usa la infraestructura del juego original. Detalles en
+> escala reducida), en cada partida se abre una grieta antes de los 2 minutos, con
+> un legendario más débil, los tickets que ganas cuentan doble, los shiny salen un
+> 50 % más y en el gacha un Pokémon repetido desbloquea su evolución. No usa la
+> infraestructura del juego original. Detalles en
 > [CLAUDE.md](CLAUDE.md); licencias y créditos en [LICENSE](LICENSE) y [CREDITS.md](CREDITS.md).
 >
 > **Jugar:** https://nicooliver123-cell.github.io/pokesurvivor/ · Fallos, sugerencias
