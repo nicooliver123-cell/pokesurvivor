@@ -49,6 +49,9 @@
  *  12. Arreglos de upstream: el bioma a los 0-120 min con world.js y tiles.js reales (nombre, líquido y daño de
  *      los charcos; control: upstream da «Grieta · …» a los 12 min y se rompe a los 84) y el fogonazo de la
  *      grieta, que se apaga también al elegir fusión (frame() de game.js tal cual).
+ *  13. Pantallas: «Gira el móvil» sólo en un móvil en vertical (pedirGiro de mods.js y checkOrientation() de
+ *      game.js tal cual): un plegable desplegado o una tableta juegan; la pantalla completa sólo fija la
+ *      horizontal en un móvil.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -280,7 +283,11 @@ const HOOKS = [
   ['js/game.js', /if \(state !== 'playing' && flashT > 0 && G\.MODS && G\.MODS\.destelloSinCongelar\) flashT -= dt;\s*\/\/ MOD nico/, 'fogonazo de la grieta: se apaga también al elegir fusión'],
   ['js/systems/progress.js', /function showNext\(\) \{\r?\n\s*const n = toastQ\[0\];\r?\n\s*if \(!n\) return;\r?\n\s*if \(G\.MODS && G\.MODS\.avisoEnEspera && G\.MODS\.avisoEnEspera\(showNext\)\) return;\s*\/\/ MOD nico/,
     'gacha: los avisos de logro de una tirada esperan a «Continuar» (showNext)'],
-  ['css/style.css', /\.mod-avisos-tras-gacha body:has\(#pull-fx:not\(\.hidden\)\) \.ach-pop \{ visibility: hidden; \}/, 'gacha: un aviso que ya estaba en pantalla al tirar no se ve encima del resultado']
+  ['css/style.css', /\.mod-avisos-tras-gacha body:has\(#pull-fx:not\(\.hidden\)\) \.ach-pop \{ visibility: hidden; \}/, 'gacha: un aviso que ya estaba en pantalla al tirar no se ve encima del resultado'],
+  // Pantallas: móviles en vertical y plegables
+  ['js/game.js', /const portrait = G\.Touch\.active && innerHeight > innerWidth && \(!G\.MODS \|\| !G\.MODS\.pedirGiro \|\| G\.MODS\.pedirGiro\(innerWidth, innerHeight\)\);\s*\/\/ MOD nico/,
+    'plegables: «Gira el móvil» sólo en un móvil en vertical (checkOrientation)'],
+  ['js/ui/settings-ui.js', /if \(!G\.MODS \|\| !G\.MODS\.fijarHorizontal \|\| G\.MODS\.fijarHorizontal\(\)\) screen\.orientation\.lock\('landscape'\)/, 'plegables: la pantalla completa sólo fija la horizontal en un móvil']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -2260,11 +2267,66 @@ ${fFlash}${fFrame}        return { flash, frame, get flashT() { return flashT; }
   for (const [name, , detail] of failed) bad(`arreglos: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 13. pantallas: móviles en vertical y plegables ----------------
+function pantallasChecks() {
+  console.log('13. Pantallas: «Gira el móvil» sólo en un móvil en vertical (plegables y tabletas juegan)');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const nuevo = (mods = {}) => {
+    const c = { console };
+    vm.createContext(c);
+    c.window = c; c.G = {};
+    for (const f of ['js/core/util.js', 'js/core/mods.js']) vm.runInContext(rd(f), c, { filename: f });
+    Object.assign(c.G.MODS, mods);
+    return c;
+  };
+  try {
+    const M = nuevo().G.MODS;
+    const tabla = { '390x844': true, '412x915': true, '360x640': true, '430x932': true, '844x390': false, '800x870': false, '870x800': false,
+      '900x1000': false, '1000x900': false, '768x1024': false, '600x960': false, '560x700': false };
+    const mal = Object.entries(tabla).filter(([k, v]) => { const [w, h] = k.split('x').map(Number); return M.pedirGiro(w, h) !== v; });
+    t('pedirGiro: un móvil en vertical (390x844, 412x915, 360x640, 430x932) sí; en horizontal, un plegable desplegado (800x870, 900x1000 y girados) o una tableta en vertical (768x1024, 600x960), no',
+      !mal.length, mal);
+    const U = nuevo({ giroAspectoMax: 1, giroLadoMax: 0 }).G.MODS;
+    t('con giroAspectoMax = 1 y giroLadoMax = 0, como upstream: cualquier pantalla con más alto que ancho (800x870, 768x1024) lo pide; en horizontal, no',
+      U.pedirGiro(800, 870) && U.pedirGiro(768, 1024) && U.pedirGiro(390, 844) && !U.pedirGiro(870, 800));
+    const fijar = (w, h) => { const c = nuevo(); c.screen = { width: w, height: h }; return c.G.MODS.fijarHorizontal(); };
+    t('pantalla completa: fija la horizontal en un móvil (390x844 o 844x390), no en un plegable desplegado (870x800) ni en una tableta (1024x768)',
+      fijar(390, 844) && fijar(844, 390) && !fijar(870, 800) && !fijar(1024, 768));
+  } catch (e) { t('pedirGiro', false, String(e && e.stack || e)); }
+  try {
+    // checkOrientation() de game.js, tal cual, con un document y una ventana de mentira.
+    const m = rd('js/game.js').match(/  function checkOrientation\(\) \{[\s\S]*?\r?\n  \}\r?\n/);
+    if (!m) throw new Error('no encuentro checkOrientation() en js/game.js');
+    const prueba = (w, h, tactil = true, mods = {}) => {
+      const c = nuevo(mods), clase = new Set(['hidden']);
+      const el = { classList: { toggle(k, on) { if (on) clase.add(k); else clase.delete(k); } } }, ico = { innerHTML: '' };
+      c.innerWidth = w; c.innerHeight = h;
+      c.document = { getElementById: id => (id === 'rotate' ? el : id === 'rotate-ico' ? ico : null) };
+      Object.assign(c.G, { Touch: { active: tactil }, Icons: { html: () => '<i></i>' } });
+      vm.runInContext('var __pausas = 0; function autoPause() { __pausas++; }\n' + m[0] + 'checkOrientation();', c, { filename: 'js/game.js (checkOrientation)' });
+      return { gira: !clase.has('hidden'), pausa: c.__pausas > 0 };
+    };
+    const casos = {
+      movilVertical: prueba(390, 844), movilHorizontal: prueba(844, 390), plegable800x870: prueba(800, 870), plegable870x800: prueba(870, 800),
+      plegable900x1000: prueba(900, 1000), plegable1000x900: prueba(1000, 900), tableta: prueba(768, 1024), pcAlto: prueba(390, 844, false),
+      upstream800x870: prueba(800, 870, true, { giroAspectoMax: 1, giroLadoMax: 0 })
+    };
+    t('checkOrientation() real: «Gira el móvil» y pausa en un móvil en vertical; un plegable desplegado (800x870, 870x800, 900x1000, 1000x900) o una tableta juegan; sin táctil, nunca; control como upstream: el plegable lo pedía',
+      casos.movilVertical.gira && casos.movilVertical.pausa && !casos.movilHorizontal.gira && !casos.plegable800x870.gira && !casos.plegable800x870.pausa &&
+      !casos.plegable870x800.gira && !casos.plegable900x1000.gira && !casos.plegable1000x900.gira && !casos.tableta.gira && !casos.pcAlto.gira && casos.upstream800x870.gira, casos);
+  } catch (e) { t('checkOrientation', false, String(e && e.stack || e)); }
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`pantallas: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`pantallas: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
   try { claridadChecks(); } catch (e) { bad('no se pudo probar la claridad en partida: ' + (e && e.stack || e)); }
   try { arreglosChecks(); } catch (e) { bad('no se pudo probar los arreglos de upstream: ' + (e && e.stack || e)); }
+  try { pantallasChecks(); } catch (e) { bad('no se pudo probar las pantallas: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

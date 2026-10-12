@@ -41,7 +41,7 @@ G.SettingsUI = (() => {
       const el = document.documentElement;
       const p = (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
       // En móvil, además se intenta fijar la pantalla en horizontal.
-      if (p && p.then) p.then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* nada */ } }).catch(() => {});
+      if (p && p.then) p.then(() => { try { if (!G.MODS || !G.MODS.fijarHorizontal || G.MODS.fijarHorizontal()) screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* nada */ } }).catch(() => {});   // MOD nico: un plegable desplegado no se fija en horizontal (js/core/mods.js)
     }
     setTimeout(() => { if (isOpen()) render(); }, 300);
   }

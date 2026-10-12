@@ -53,7 +53,7 @@ G.Game = (() => {
 
   /** Móvil en vertical: aviso de girarlo (y pausa). */
   function checkOrientation() {
-    const portrait = G.Touch.active && innerHeight > innerWidth;
+    const portrait = G.Touch.active && innerHeight > innerWidth && (!G.MODS || !G.MODS.pedirGiro || G.MODS.pedirGiro(innerWidth, innerHeight));   // MOD nico: sólo un móvil en vertical, no un plegable casi cuadrado (js/core/mods.js)
     const el = document.getElementById('rotate');
     if (!el) return;
     if (portrait && !document.getElementById('rotate-ico').innerHTML) document.getElementById('rotate-ico').innerHTML = G.Icons.html('phone', 48);

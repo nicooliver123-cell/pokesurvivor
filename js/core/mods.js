@@ -171,6 +171,34 @@ G.MODS = {
    * ×10 también en un portátil de 1280x720) o «Continuar». false = como el original. */
   avisosTrasGacha: true,
 
+  /* ---- Pantallas: móviles en vertical y plegables ----
+   * «Gira el móvil» (tapa la partida y la pausa) sólo en una pantalla PEQUEÑA y claramente EN VERTICAL:
+   * ancho/alto por debajo de giroAspectoMax Y el lado corto por debajo de giroLadoMax px CSS. Upstream
+   * lo pedía en cualquier pantalla táctil con más alto que ancho, y un plegable desplegado (casi
+   * cuadrado: el Honor Magic V6 de Nico, ~0,9:1 sujeto en vertical) no podía jugar.
+   *   0,8 y 600 (por defecto): un móvil en vertical (390x844, 0,46) lo pide; un plegable desplegado
+   *     (800x870, 900x1000) o una tableta en vertical (768x1024) juegan.
+   * El botón de pantalla completa sólo fija la horizontal donde la vertical pediría girar.
+   * giroAspectoMax = 1 y giroLadoMax = 0 = como upstream. */
+  giroAspectoMax: 0.8,
+  giroLadoMax: 600,
+
+  /** game.js, checkOrientation(): ¿pide girar una pantalla de w×h px CSS (táctil)? */
+  pedirGiro(w, h) {
+    if (!(w > 0) || !(h > 0) || !(h > w)) return false;
+    const asp = +this.giroAspectoMax, lado = +this.giroLadoMax;
+    if (!(lado > 0) && asp >= 1) return true;   // como upstream
+    return w / h < (asp > 0 ? asp : 0.8) && (!(lado > 0) || Math.min(w, h) < lado);
+  },
+
+  /** settings-ui.js, pantalla completa: ¿se fija la horizontal? Sólo si esta pantalla, en vertical,
+   *  pediría girar (un móvil); un plegable desplegado o una tableta se quedan como los tengas. */
+  fijarHorizontal() {
+    const s = typeof screen !== 'undefined' ? screen : null;
+    if (!s || !(s.width > 0) || !(s.height > 0)) return true;
+    return this.pedirGiro(Math.min(s.width, s.height), Math.max(s.width, s.height));
+  },
+
   /** game.js, update(): el bioma del mapa para el tramo `b` (= minutos / 4). Con biomasEnCiclo,
    *  siempre uno normal (0..G.Tiles.NORMAL-1); las arenas sólo las pone rift.js. */
   biomaNormal(b) {
