@@ -79,6 +79,16 @@ G.HudDex = (() => {
     if (v === undefined) { v = ctx.measureText(t).width; if (anchos.size > 1500) anchos.clear(); anchos.set(k, v); }
     return v;
   }
+  // La caché de anchos se vacía cuando termina de cargar una fuente: M PLUS Rounded 1c llega con font-display: swap
+  // y, si el HUD se pinta antes, los anchos apuntados son los de la letra de reserva (textos que se recortaban o
+  // piezas que no encajaban hasta la siguiente vez que cambiara el texto).
+  (function vaciarAlCargarFuentes() {
+    const f = typeof document !== 'undefined' && document && document.fonts;
+    if (!f) return;
+    const vaciar = () => anchos.clear();
+    try { if (typeof f.addEventListener === 'function') f.addEventListener('loadingdone', vaciar); } catch (e) { /* sin eventos */ }
+    try { if (f.ready && typeof f.ready.then === 'function') f.ready.then(vaciar, () => {}); } catch (e) { /* sin ready */ }
+  })();
   /** Rectángulo redondeado (radio o [sup-izq, sup-der, inf-der, inf-izq]); sólo el camino. */
   function rr(ctx, x, y, w, h, r) {
     const q = Array.isArray(r) ? r : [r, r, r, r];

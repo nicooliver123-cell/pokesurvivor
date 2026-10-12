@@ -2889,7 +2889,10 @@ function cargarHud({ w = 1440, h = 900, tactil = false, estilo = 'dex', seguras 
     innerHeight: h, innerWidth: w, performance: { now: () => reloj.t },
     localStorage: { getItem: k => (k in almacenH ? almacenH[k] : null), setItem: (k, v) => { almacenH[k] = String(v); } },
     matchMedia: () => ({ matches: false }), navigator: {}, location: { protocol: 'file:' },
-    document: { documentElement: { classList: { toggle() {}, contains: () => false } }, getElementById: () => null, querySelector: () => null, fonts: { load: () => Promise.resolve([]) }, body: null }
+    document: { documentElement: { classList: { toggle() {}, contains: () => false } }, getElementById: () => null, querySelector: () => null, body: null,
+      // document.fonts con su evento «loadingdone» (la prueba lo dispara: ver M9).
+      fonts: { load: () => Promise.resolve([]), addEventListener(tipo, fn) { (c.__fuentes[tipo] = c.__fuentes[tipo] || []).push(fn); } } },
+    __fuentes: {}
   };
   function Ctx() {}
   Object.defineProperty(Ctx.prototype, 'font', { configurable: true, enumerable: true, get() { return this._f; }, set(v) { this._f = v; } });
@@ -3506,6 +3509,23 @@ function hudDexChecks() {
     t('flechas: ocho a la vez en el mismo cuadrante (jefe, caído, dos compañeros, grieta, shiny, ladrón y Pokémon perdido) sin pisarse, en escritorio y en el plegable; y el compañero caído en las esquinas de la derecha y a media altura: su etiqueta, entera dentro de la zona libre (antes se salía de la pantalla a 1440x900 y 1024x768)',
       res.every(x => !x.mal.length) && res.slice(0, 4).every(x => x.flechas === 8) && res.slice(4).every(x => x.flechas === 1), res);
   } catch (e) { t('flechas: muchas a la vez y el caído en la esquina', false, String(e && e.stack || e)); }
+  // N4. La caché de anchos del HUD se vacía cuando termina de cargar una fuente (document.fonts «loadingdone»).
+  try {
+    const H = cargarHud({ w: 844, h: 390, tactil: true });
+    H.juego.banner = { text: '¡Kingambit salvaje apareció!', t: 30 };
+    let f = 1.1;   // la letra de reserva, más ancha
+    const lienzo = () => { const c = new LienzoFalso(); c.measureText = s => ({ width: String(s).length * c.tam() * f }); return c; };
+    H.pintar(lienzo()); H.reloj.t += 400;
+    const w0 = (H.pintar(lienzo()), H.G.HudDex.bandas().piezas.aviso.w);
+    f = 0.6;   // llega M PLUS (más estrecha): sin el evento, el aviso conserva el ancho viejo
+    const w1 = (H.pintar(lienzo()), H.G.HudDex.bandas().piezas.aviso.w);
+    const oyentes = (H.c.__fuentes.loadingdone || []).length;
+    (H.c.__fuentes.loadingdone || []).forEach(fn => fn({}));
+    const w2 = (H.pintar(lienzo()), H.G.HudDex.bandas().piezas.aviso.w);
+    t('caché de anchos del HUD Dex: se vacía al terminar de cargar una fuente (document.fonts, evento «loadingdone»; y con fonts.ready): el aviso pasa a medir con la letra nueva',
+      oyentes >= 1 && w1 === w0 && w2 < w1, { oyentes, w0, w1, w2 });
+  } catch (e) { t('caché de anchos y fuentes', false, String(e && e.stack || e)); }
+
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`HUD Dex: ${r.length} casos bien`);
   for (const [name, , detail] of failed) bad(`HUD Dex: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
