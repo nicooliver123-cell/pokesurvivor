@@ -119,7 +119,37 @@ G.Claridad = (() => {
   /** game.js, drawScene(): la escena ya ordenada (lo que se pinta después de alguien, lo tapa). */
   function escenaOrdenada(items) { escena = items; }
 
-  /** ¿Lo tapa algo de lo que se pinta después que él? (cajas de los sprites de encima) */
+  /* Lo más que puede asomar desde los pies el sprite de una entidad, en cualquier animación,
+   * dirección y fotograma, contando también la caja del cuerpo (la de respaldo de rectSprite):
+   * [izquierda, arriba, derecha, abajo] en px de mundo. Con la tabla de su especie (G.Sprites.meta)
+   * se calcula una vez por Animator (en él no cambian especie, escala ni shiny); sin ella, con las
+   * dos animaciones que puede pintar ahora (la suya y Idle, como celda()). */
+  function alcance(ent) {
+    const a = ent.anim;
+    let x = a.__alcance;
+    if (!x) {
+      const S = G.Sprites, k = PX * (a.scale || 1), tabla = S.meta && S.meta(a.dex);
+      const metas = tabla && tabla.a ? Object.values(tabla.a).concat(Object.values(tabla.sa || {}))
+        : [S.animMeta(a.dex, a.cur, a.shiny), S.animMeta(a.dex, 'Idle', a.shiny)];
+      x = [0, 0, 0, 0];
+      for (const m of metas) {
+        if (!m) continue;
+        x[0] = Math.max(x[0], m.ax * k); x[1] = Math.max(x[1], m.ay * k);
+        x[2] = Math.max(x[2], (m.w - m.ax) * k); x[3] = Math.max(x[3], (m.h - m.ay) * k);
+      }
+      if (tabla && tabla.a) a.__alcance = x;
+    }
+    if (ent.r > 0 && ent.bodyH > 0) {
+      const ex = ent.r * 1.2;
+      if (ex > x[0] || ex > x[2] || ent.bodyH > x[1] || x[3] < 2) x = [Math.max(x[0], ex), Math.max(x[1], ent.bodyH), Math.max(x[2], ex), Math.max(x[3], 2)];
+    }
+    return x;
+  }
+
+  /** ¿Lo tapa algo de lo que se pinta después que él? (cajas de los sprites de encima)
+   *  Se mira TODO lo que va detrás en la escena, sin corte por Y: lo alto (un jefe, un Pokémon
+   *  grande, un árbol) tapa con los pies muy por debajo. Lo que no puede llegar ni con su
+   *  fotograma más grande se descarta sin mirar su fotograma (alcance). */
   function tapado(p, items = escena) {
     if (!items || !p || !p.anim) return false;
     let i = -1;
@@ -132,12 +162,13 @@ G.Claridad = (() => {
     let cubierto = 0;
     for (let j = i + 1; j < items.length; j++) {
       const it = items[j];
-      if (it.y > r[3] + 48) break;   // ordenados por Y: los de más abajo ya no llegan
       let q = null;
       if (it.prop) q = rectProp(it.prop);
       else {
         const e = it.ent;
         if (!e || e === p || e.dead || !e.anim || typeof e.x !== 'number') continue;
+        const x = alcance(e);   // +1: el redondeo de Animator.draw
+        if (e.x - x[0] - 1 >= r[2] || e.x + x[2] + 1 <= r[0] || e.y - x[1] - 1 >= r[3] || e.y + x[3] + 1 <= r[1]) continue;
         q = rectSprite(e, e.x, e.y);
       }
       if (!q) continue;

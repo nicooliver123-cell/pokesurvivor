@@ -1851,6 +1851,19 @@ function claridadChecks() {
     };
     t('tapado: un enemigo delante encima de él o un árbol, sí; detrás, al lado, caído, rozando o un objeto plano, no',
       casos.delante && !casos.detras && !casos.lado && !casos.muerto && !casos.rozando && casos.arbol && !casos.plano, casos);
+    // Lo alto tapa con los pies muy por debajo (antes se dejaba de mirar a 48 px de los pies del jugador:
+    // un jefe de ~110-160 de alto o un árbol de 80 no contaban justo cuando más tapan).
+    const alto = (x, y, boss = true) => Object.assign(W.enemigo({ x, y, boss, hp: 1e6 }), { r: 24, bodyH: 110 });
+    const altos = {
+      jefe80: C.tapado(pl, escena(pl, alto(0, 80))), arbol60: C.tapado(pl, escena(pl, { prop: { x: 0, y: 60, type: 'tree' } })),
+      // Con la imagen sin leer (file://) cuenta la caja del cuerpo, aunque sea más alta que su fotograma.
+      cuerpoMasAltoQueSuFotograma: C.tapado(pl, escena(pl, alto(0, 80, false))),
+      jefe80TrasMuchos: C.tapado(pl, escena(pl, ...Array.from({ length: 30 }, (_, k) => ene(200 + k * 30, 5 + k)), alto(0, 80))),
+      jefe160: C.tapado(pl, escena(pl, alto(0, 160))), jefeAlLado: C.tapado(pl, escena(pl, alto(90, 80))),
+      arbol100: C.tapado(pl, escena(pl, { prop: { x: 0, y: 100, type: 'tree' } }))
+    };
+    t('tapado por lo alto: un jefe de 110 de alto con los pies a 80 px (también detrás de 30 enemigos lejos, y con la caja del cuerpo si la imagen no se lee) y un árbol de 80 a 60 px, sí; el jefe a 160 px o a un lado y el árbol a 100 px, no',
+      altos.jefe80 && altos.arbol60 && altos.jefe80TrasMuchos && altos.cuerpoMasAltoQueSuFotograma && !altos.jefe160 && !altos.jefeAlLado && !altos.arbol100, altos);
     // encima(): aro + contorno de 1 píxel de arte (4 copias desplazadas) + el sprite; y el chevrón después.
     const L = lienzo();
     C.escenaOrdenada(escena(pl, delante));
