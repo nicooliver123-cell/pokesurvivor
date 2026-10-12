@@ -1703,12 +1703,14 @@ function claridadChecks() {
   }
   /** Un lienzo de mentira que apunta lo que se pinta. */
   function lienzo() {
-    const L = { textos: [], rects: [], imgs: [], elipses: [], lineas: 0, fillStyle: '', strokeStyle: '', font: '', lineWidth: 1, globalAlpha: 1 };
+    const L = { textos: [], rects: [], imgs: [], elipses: [], lineas: 0, fillStyle: '', strokeStyle: '', font: '', lineWidth: 1, globalAlpha: 1, textAlign: 'start' };
     const nop = () => {};
     return new Proxy(L, {
       get(o, k) {
         if (k in o) return o[k];
-        if (k === 'fillText') return (s, x, y) => o.textos.push({ s: String(s), color: o.fillStyle, font: o.font, borde: o.lineWidth, x, y });
+        if (k === 'fillText') return (s, x, y) => o.textos.push({ s: String(s), color: o.fillStyle, font: o.font, borde: o.lineWidth, alinea: o.textAlign, x, y });
+        // Ancho de una letra de tamaño N: 0,6·N (como Pixelify en negrita, más o menos).
+        if (k === 'measureText') return s => { const m = /(\d+(?:\.\d+)?)px/.exec(o.font || ''); return { width: String(s).length * 0.6 * (m ? +m[1] : 10) }; };
         if (k === 'fillRect') return (x, y, w, h) => o.rects.push({ x, y, w, h, color: o.fillStyle });
         if (k === 'drawImage') return (...a) => o.imgs.push(a);
         if (k === 'ellipse') return (...a) => o.elipses.push({ a, color: o.strokeStyle });
@@ -1771,6 +1773,38 @@ function claridadChecks() {
     const g3 = C.numeros.find(x => x.id === e3.id);
     t('invitado: sus golpes a una copia (los manda al anfitrión) y los que anuncia el anfitrión, en un único número', W.S.red.length === 2 && g3 && g3.suma === 15 && g3.golpes === 3, g3);
   } catch (e) { t('números agrupados', false, String(e && e.stack || e)); }
+  // El número del escudo, a la derecha del de su enemigo sin tocarlo (con 4 cifras grandes y su saltito, también al soltarse).
+  try {
+    const W = mundo(), { G, C } = W, e = W.enemigo({ boss: true, hp: 1e6 });
+    const AZUL = '#9fd8ff';
+    const medir = () => {
+      const L = lienzo(); G.FX.draw(L);
+      const d = digitos(L), s = d.find(x => x.color === AZUL), p = d.find(x => x.color !== AZUL);
+      if (!p || !s) return { p, s };
+      const tam = +/(\d+)px/.exec(p.font)[1], borde = p.x + p.s.length * 0.6 * tam / 2;   // borde derecho del número de los golpes
+      return { hueco: +(s.x - borde).toFixed(2), golpes: p.s, escudo: s.s, alineaGolpes: p.alinea, alineaEscudo: s.alinea, tam };
+    };
+    e.hurt(1060, '#fff', 0, 0, 0, 'super');
+    e.shield = 1000; e.shieldT = 8; e.hurt(172);
+    const conSalto = medir();
+    G.FX.update(0.3);
+    const quieto = medir();
+    // Sin más golpes al escudo, el suyo se suelta (1 s) mientras el jefe sigue recibiendo: sube desde donde estaba.
+    e.shield = 0;
+    for (let i = 0; i < 6; i++) { e.hurt(1); G.FX.update(0.15); medir(); }
+    const esc = C.numeros.find(x => x.escudo), suelto = medir();
+    // Un escudo que lo absorbe todo (sin número de golpes), su número se suelta y el jefe estrena número debajo.
+    const W2 = mundo(), e2 = W2.enemigo({ boss: true, hp: 1e6 });
+    e2.shield = 1000; e2.shieldT = 8; e2.hurt(172);
+    W2.G.FX.draw(lienzo()); W2.G.FX.update(1.05);
+    e2.shield = 0; e2.hurt(1060, '#fff', 0, 0, 0, 'super');
+    const L2 = lienzo(); W2.G.FX.draw(L2);
+    const d2 = digitos(L2), s2 = d2.find(x => x.color === AZUL), p2 = d2.find(x => x.color !== AZUL);
+    const estrena = s2 && p2 ? +(s2.x - (p2.x + p2.s.length * 0.6 * +/(\d+)px/.exec(p2.font)[1] / 2)).toFixed(2) : null;
+    t('escudo: su número a la derecha del de los golpes, sin tocarlo (1060 grande y 172; con el saltito, quieto, al soltarse y si el jefe estrena número con el del escudo ya suelto)',
+      conSalto.hueco >= 3 && quieto.hueco >= 3 && suelto.hueco >= 3 && esc && esc.suelto && estrena >= 3 && W2.C.numeros.find(x => x.escudo).suelto &&
+      conSalto.tam > quieto.tam && quieto.alineaGolpes === 'center' && quieto.alineaEscudo === 'left', { conSalto, quieto, suelto, escSuelto: esc && esc.suelto, estrena });
+  } catch (e) { t('escudo al lado del número', false, String(e && e.stack || e)); }
   // La subida al soltarse no depende de los FPS (fx.js frena ×0,94 por fotograma: a 144 FPS sube la mitad que a 30).
   try {
     const subida = dt => {

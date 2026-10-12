@@ -262,7 +262,7 @@ G.Claridad = (() => {
   // =====================================================================
 
   const CAP = [25, 45, 70];       // los mismos topes que fx.js (Ajustes > Gráficos)
-  const grupos = [];              // { clave, e, escudo, suma, color, big, quieto, suelto, t, vida, vy, pop, golpes, x, y }
+  const grupos = [];              // { clave, e, escudo, suma, color, big, quieto, suelto, t, vida, vy, pop, golpes, x, y, dx }
   let plNumeros = null;
 
   /** Partida nueva (otro jugador local): fuera los números de la anterior. */
@@ -271,10 +271,12 @@ G.Claridad = (() => {
     if (pl !== plNumeros) { plNumeros = pl; grupos.length = 0; }
   }
 
-  /** Encima de la cabeza del enemigo (por encima de su barra y, en los apoyos, de su icono). */
+  /** Encima de la cabeza del enemigo (por encima de su barra y, en los apoyos, de su icono).
+   *  El del escudo, a la derecha del otro: dibujarNumeros mide el ancho y guarda la distancia
+   *  (dx), que se conserva al soltarse. */
   function ancla(g) {
     const e = g.e;
-    g.x = e.x + (g.escudo ? Math.max(14, (e.r || 0) + 4) : 0);
+    g.x = e.x + (g.escudo ? g.dx : 0);
     g.y = e.y - (e.bodyH || 0) - 12 - (APOYOS[e.behavior] ? 16 : 0);
   }
 
@@ -300,7 +302,7 @@ G.Claridad = (() => {
         grupos.splice(Math.max(0, i), 1);
       }
       g = { clave, e, escudo: !!escudo, suma: value, color: escudo ? AZUL : color || BLANCO, big: !!big,
-            quieto: 0, suelto: false, t: 0, vida: 0, vy: 0, pop: 1, golpes: 1, x: 0, y: 0 };
+            quieto: 0, suelto: false, t: 0, vida: 0, vy: 0, pop: 1, golpes: 1, x: 0, y: 0, dx: HUECO };
       ancla(g);
       grupos.push(g);
     }
@@ -328,22 +330,35 @@ G.Claridad = (() => {
     }
   }
 
-  /** fx.js, draw(): los números (tamaño 11, los grandes 16; contorno de 2). */
+  /** fx.js, draw(): los números (tamaño 11, los grandes 16; contorno de 2). Primero los de los
+   *  golpes, centrados; después los del escudo, a la derecha del número de su enemigo con el
+   *  hueco para su saltito (si no lo hay, junto al centro). Sueltos, suben desde donde estaban;
+   *  uno del escudo ya suelto se aparta si su enemigo estrena número debajo. */
+  const SALTO = 0.35, HUECO = 4;
   function dibujarNumeros(ctx) {
     if (!grupos.length || !(G.Settings && G.Settings.get('dmgNumbers'))) return;
     ctx.save();
-    ctx.textAlign = 'center';
     ctx.lineJoin = 'round';
     ctx.lineWidth = 2;
     ctx.strokeStyle = 'rgba(0,0,0,.8)';
-    for (const g of grupos) {
-      const k = g.suelto ? 1 - g.t / g.vida : 1;
-      ctx.globalAlpha = Math.min(1, k * 2.2);
-      ctx.font = '700 ' + Math.round((g.big ? 16 : 11) * (1 + 0.35 * g.pop)) + 'px Pixelify,"Segoe UI",sans-serif';
-      const s = String(Math.round(g.suma));
-      ctx.strokeText(s, g.x, g.y);
-      ctx.fillStyle = g.color;
-      ctx.fillText(s, g.x, g.y);
+    const bordes = new Map();   // enemigo -> borde derecho de su número, con el saltito más grande
+    for (const escudo of [false, true]) {
+      ctx.textAlign = escudo ? 'left' : 'center';
+      for (const g of grupos) {
+        if (g.escudo !== escudo) continue;
+        const k = g.suelto ? 1 - g.t / g.vida : 1, crece = 1 + SALTO * g.pop;
+        ctx.globalAlpha = Math.min(1, k * 2.2);
+        ctx.font = '700 ' + Math.round((g.big ? 16 : 11) * crece) + 'px Pixelify,"Segoe UI",sans-serif';
+        const s = String(Math.round(g.suma));
+        if (escudo) {
+          const b = bordes.get(g.e);
+          if (!g.suelto) { g.dx = b !== undefined ? b - g.e.x : HUECO; g.x = g.e.x + g.dx; }
+          else if (b !== undefined && g.x < b) g.x = b;   // ya suelto: que no lo pise un número nuevo de su enemigo
+        } else if (!g.suelto) bordes.set(g.e, g.x + ctx.measureText(s).width / crece * (1 + SALTO) / 2 + HUECO);
+        ctx.strokeText(s, g.x, g.y);
+        ctx.fillStyle = g.color;
+        ctx.fillText(s, g.x, g.y);
+      }
     }
     ctx.restore();
   }
