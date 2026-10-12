@@ -42,10 +42,10 @@
  *  11. Claridad en partida (js/entities/claridad.js con fx.js, enemy.js y mods.js reales): números de daño
  *      sumados por enemigo (también el invitado; el escudo aparte, a la derecha sin tocarlo), su vida y su
  *      subida sin depender de los FPS; barras de vida sólo 1,5 s tras un cambio (y quién las conserva); qué
- *      tapa a tu Pokémon (también lo alto con los pies lejos), el contorno a escala, el aro, el chevrón y los
+ *      tapa a tu Pokémon (también lo alto con los pies lejos y lo que salta), el contorno a escala, el aro, el chevrón y los
  *      compañeros; el borde rojo (golpe, vida baja, «menos sacudidas»). Y que lo que copia de upstream sigue
  *      igual: disparoHostil() frente a G.VFX.draw (vfx.js real) y a la llamada de projectile.js, y repintar()
- *      frente a Animator.draw (sprites.js real).
+ *      frente a Animator.draw (sprites.js real), y el salto de cada enemigo, frente al lift de enemy.js draw().
  *  12. Arreglos de upstream: el bioma a los 0-120 min con world.js y tiles.js reales (nombre, líquido y daño de
  *      los charcos; control: upstream da «Grieta · …» a los 12 min y se rompe a los 84) y el fogonazo de la
  *      grieta, que se apaga también al elegir fusión (frame() de game.js tal cual).
@@ -1865,6 +1865,26 @@ function claridadChecks() {
     t('escudo: su número a la derecha del de los golpes, sin tocarlo (1060 grande y 172; con el saltito, quieto, al soltarse y si el jefe estrena número con el del escudo ya suelto)',
       conSalto.hueco >= 3 && quieto.hueco >= 3 && suelto.hueco >= 3 && esc && esc.suelto && estrena >= 3 && W2.C.numeros.find(x => x.escudo).suelto &&
       conSalto.tam > quieto.tam && quieto.alineaGolpes === 'center' && quieto.alineaEscudo === 'left', { conSalto, quieto, suelto, escSuelto: esc && esc.suelto, estrena });
+    // El de los golpes se suelta (sin más golpes) mientras el escudo sigue absorbiendo: el azul no lo pisa mientras
+    // sube (casi a su altura) ni salta hacia el centro cuando se desvanece.
+    const W3 = mundo(), e3 = W3.enemigo({ boss: true, hp: 1e6 });
+    e3.hurt(1060, '#fff', 0, 0, 0, 'super');
+    e3.shield = 1e6; e3.shieldT = 99; e3.hurt(172);
+    const huecos = [], dxs = [];
+    let vioSuelto = false, sueltoT = -1;
+    for (let i = 0; i < 18; i++) {
+      e3.hurt(40); W3.G.FX.update(0.15);
+      const L3 = lienzo(); W3.G.FX.draw(L3);
+      const d3 = digitos(L3), s3 = d3.find(x => x.color === AZUL), p3 = d3.find(x => x.color !== AZUL);
+      const n3 = W3.C.numeros.find(x => !x.escudo);
+      if (n3 && n3.suelto && !vioSuelto) { vioSuelto = true; sueltoT = i; }
+      if (s3 && p3) huecos.push(+(s3.x - (p3.x + p3.s.length * 0.6 * +/(\d+)px/.exec(p3.font)[1] / 2)).toFixed(2));
+      if (s3 && vioSuelto) dxs.push(+(s3.x - e3.x).toFixed(2));
+    }
+    const desaparece = !W3.C.numeros.some(x => !x.escudo), escVivo = W3.C.numeros.find(x => x.escudo);
+    t('escudo: si el de los golpes se suelta mientras el escudo sigue absorbiendo, el azul se queda a su derecha sin tocarlo mientras sube y, al desvanecerse, no salta',
+      vioSuelto && desaparece && escVivo && !escVivo.suelto && huecos.length > 8 && Math.min(...huecos) >= 3 && dxs.length > 4 && dxs.every(d => Math.abs(d - dxs[0]) < 0.01),
+      { sueltoT, huecos, dxs });
   } catch (e) { t('escudo al lado del número', false, String(e && e.stack || e)); }
   // La subida al soltarse no depende de los FPS (fx.js frena ×0,94 por fotograma: a 144 FPS sube la mitad que a 30).
   try {
@@ -1959,6 +1979,13 @@ function claridadChecks() {
     };
     t('tapado por lo alto: un jefe de 110 de alto con los pies a 80 px (también detrás de 30 enemigos lejos, y con la caja del cuerpo si la imagen no se lee) y un árbol de 80 a 60 px, sí; el jefe a 160 px o a un lado y el árbol a 100 px, no',
       altos.jefe80 && altos.arbol60 && altos.jefe80TrasMuchos && altos.cuerpoMasAltoQueSuFotograma && !altos.jefe160 && !altos.jefeAlLado && !altos.arbol100, altos);
+    // Lo que salta se pinta en y − lift (enemy.js draw): cuenta donde se ve, no donde tiene los pies.
+    const saltos = {
+      saltando: C.tapado(pl, escena(pl, ene(0, 50, { jumpLift: 46 }))), enSuelo: C.tapado(pl, escena(pl, ene(0, 50))),
+      bajandoLejos: C.tapado(pl, escena(pl, ene(0, 90, { jumpLift: 10 })))
+    };
+    t('tapado por lo que salta: con los pies a 50 px, en lo alto de su salto (46 px), sí; el mismo en el suelo o uno a 90 px que apenas se levanta, no',
+      saltos.saltando && !saltos.enSuelo && !saltos.bajandoLejos, saltos);
     // encima(): aro + contorno de 1 píxel de arte (4 copias desplazadas) + el sprite; y el chevrón después.
     const L = lienzo();
     C.escenaOrdenada(escena(pl, delante));
@@ -2136,6 +2163,18 @@ function claridadChecks() {
     t(`repintar() elige la misma hoja, celda y posición que Animator.draw (sprites.js real, ${casos.length} casos: carga, respaldo de Idle, fuera de la hoja, reducido y shiny); el contorno, a ±1 píxel de arte`,
       !mal.length, mal);
   } catch (e) { t('repintar frente a Animator.draw', false, String(e && e.stack || e)); }
+
+  try {
+    // F4. El salto que tapado() suma a cada enemigo es el lift con el que lo pinta enemy.js draw().
+    const m = /const lift = ([^;\n]+);\r?\n\s*this\.anim\.draw\(ctx, this\.x, this\.y - lift,/.exec(rd('js/entities/enemy.js'));
+    const C = mundo().C, f = m && new Function('return ' + m[1]);
+    const mal = [];
+    for (const flying of [false, true]) for (const boss of [false, true]) for (const bob of [0, 1, 2.5, 4.4]) for (const jumpLift of [undefined, 0, 20, 46]) {
+      const e = { flying, boss, bob, jumpLift }, a = f ? f.call(e) : NaN, b = C.alzado(e);
+      if (!(Math.abs(a - b) < 1e-9)) mal.push({ e, enemy: a, claridad: b });
+    }
+    t('tapado(): el salto de cada enemigo es el lift con el que lo pinta enemy.js draw() (flota, salta, jefe)', !!m && !mal.length, m ? mal.slice(0, 3) : 'no encuentro el lift de draw() en enemy.js');
+  } catch (e) { t('el salto de enemy.js', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`claridad en partida: ${r.length} casos bien`);

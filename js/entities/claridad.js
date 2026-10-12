@@ -146,10 +146,17 @@ G.Claridad = (() => {
     return x;
   }
 
+  /** Cuánto se levanta del suelo el sprite de un enemigo al pintarlo: enemy.js draw() lo pinta en
+   *  y − lift (los que flotan se mecen; los que saltan suben hasta 46 px en arco). Los jugadores, 0. */
+  function alzado(e) {
+    return (e.flying && !e.boss ? 1 + Math.sin(e.bob) * 1.5 : 0) + (e.jumpLift || 0);
+  }
+
   /** ¿Lo tapa algo de lo que se pinta después que él? (cajas de los sprites de encima)
    *  Se mira TODO lo que va detrás en la escena, sin corte por Y: lo alto (un jefe, un Pokémon
    *  grande, un árbol) tapa con los pies muy por debajo. Lo que no puede llegar ni con su
-   *  fotograma más grande se descarta sin mirar su fotograma (alcance). */
+   *  fotograma más grande se descarta sin mirar su fotograma (alcance). Cada sprite se mira
+   *  donde se pinta (con su salto), no donde tiene los pies. */
   function tapado(p, items = escena) {
     if (!items || !p || !p.anim) return false;
     let i = -1;
@@ -167,9 +174,9 @@ G.Claridad = (() => {
       else {
         const e = it.ent;
         if (!e || e === p || e.dead || !e.anim || typeof e.x !== 'number') continue;
-        const x = alcance(e);   // +1: el redondeo de Animator.draw
-        if (e.x - x[0] - 1 >= r[2] || e.x + x[2] + 1 <= r[0] || e.y - x[1] - 1 >= r[3] || e.y + x[3] + 1 <= r[1]) continue;
-        q = rectSprite(e, e.x, e.y);
+        const x = alcance(e), ey = e.y - alzado(e);   // +1: el redondeo de Animator.draw
+        if (e.x - x[0] - 1 >= r[2] || e.x + x[2] + 1 <= r[0] || ey - x[1] - 1 >= r[3] || ey + x[3] + 1 <= r[1]) continue;
+        q = rectSprite(e, e.x, ey);
       }
       if (!q) continue;
       const ox = Math.min(r[2], q[2]) - Math.max(r[0], q[0]), oy = Math.min(r[3], q[3]) - Math.max(r[1], q[1]);
@@ -331,9 +338,11 @@ G.Claridad = (() => {
   }
 
   /** fx.js, draw(): los números (tamaño 11, los grandes 16; contorno de 2). Primero los de los
-   *  golpes, centrados; después los del escudo, a la derecha del número de su enemigo con el
-   *  hueco para su saltito (si no lo hay, junto al centro). Sueltos, suben desde donde estaban;
-   *  uno del escudo ya suelto se aparta si su enemigo estrena número debajo. */
+   *  golpes, centrados; después los del escudo, a la derecha de los números de su enemigo (el
+   *  vivo y el que se acaba de soltar, que sube casi a su altura) con el hueco para su saltito.
+   *  Sin ninguno, junto al centro; si el de los golpes se desvanece, el del escudo se queda donde
+   *  estaba (sin saltar). Sueltos, suben desde donde estaban; uno del escudo ya suelto se aparta
+   *  si su enemigo estrena número debajo. */
   const SALTO = 0.35, HUECO = 4;
   function dibujarNumeros(ctx) {
     if (!grupos.length || !(G.Settings && G.Settings.get('dmgNumbers'))) return;
@@ -341,7 +350,7 @@ G.Claridad = (() => {
     ctx.lineJoin = 'round';
     ctx.lineWidth = 2;
     ctx.strokeStyle = 'rgba(0,0,0,.8)';
-    const bordes = new Map();   // enemigo -> borde derecho de su número, con el saltito más grande
+    const bordes = new Map();   // enemigo -> borde derecho de sus números de golpes, con el saltito más grande
     for (const escudo of [false, true]) {
       ctx.textAlign = escudo ? 'left' : 'center';
       for (const g of grupos) {
@@ -352,9 +361,12 @@ G.Claridad = (() => {
         const s = String(Math.round(g.suma));
         if (escudo) {
           const b = bordes.get(g.e);
-          if (!g.suelto) { g.dx = b !== undefined ? b - g.e.x : HUECO; g.x = g.e.x + g.dx; }
+          if (!g.suelto) { g.dx = b !== undefined ? b - g.e.x : Math.max(HUECO, g.dx); g.x = g.e.x + g.dx; }
           else if (b !== undefined && g.x < b) g.x = b;   // ya suelto: que no lo pise un número nuevo de su enemigo
-        } else if (!g.suelto) bordes.set(g.e, g.x + ctx.measureText(s).width / crece * (1 + SALTO) / 2 + HUECO);
+        } else {
+          const b = g.x + ctx.measureText(s).width / crece * (1 + SALTO) / 2 + HUECO, antes = bordes.get(g.e);
+          if (antes === undefined || b > antes) bordes.set(g.e, b);   // también el suelto: sube despacio y casi a la misma altura
+        }
         ctx.strokeText(s, g.x, g.y);
         ctx.fillStyle = g.color;
         ctx.fillText(s, g.x, g.y);
@@ -472,7 +484,7 @@ G.Claridad = (() => {
   }
 
   return {
-    escenaOrdenada, encima, chevron, aro, tapado, rectSprite, rectProp,
+    escenaOrdenada, encima, chevron, aro, tapado, rectSprite, rectProp, alzado,
     sumar, actualizar, dibujarNumeros, disparoHostil, conContorno, barra, golpe, vineta, alfaVineta,
     /** Para pruebas: los números de daño vivos y los jugadores tapados en el último fotograma. */
     get numeros() { return grupos.map(g => ({ clave: g.clave, id: g.e.id, suma: g.suma, golpes: g.golpes, color: g.color, big: g.big, suelto: g.suelto, escudo: g.escudo, x: g.x, y: g.y })); },
