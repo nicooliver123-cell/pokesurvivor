@@ -2,12 +2,14 @@
  *   node tools/nico/check.js            (desde la raíz del repo o desde tools/nico)
  *
  * Pasarlo SIEMPRE tras `git merge upstream/main` y antes de publicar. Comprueba:
- *   1. Higiene de fork: nada del Firebase/TURN/dominio/correo del original en lo que se
+ *   1. Higiene de fork: nada del Firebase/TURN/dominio/correo del proyecto base en lo que se
  *      sirve; que no han vuelto CNAME, robots.txt, sitemap.xml, en/, las páginas SEO, etc.;
  *      y Firebase: la config publicada es null o de un proyecto de la lista blanca
  *      (G.FIREBASE_PROYECTOS en js/core/firebase-config.js), igual que toda URL de
- *      Firebase en la nube que aparezca en lo servido.
- *   2. index.html y dev.html (también se publica): noindex, sin SEO del original, sin
+ *      Firebase en la nube que aparezca en lo servido. Y nada de lo publicado (todo el
+ *      repositorio salvo LICENSE, que conserva el aviso MIT) nombra el proyecto base: su nombre,
+ *      su autor, su dominio, su Firebase, su apiKey ni su correo (en base64 en tools/nico/base.js).
+ *   2. index.html y dev.html (también se publica): noindex, sin SEO del proyecto base, sin
  *      enlaces a páginas borradas, y que el ?v= de index.html coincide con js/app.min.js.
  *      Y que el paquete js/app.min.js está al día con las fuentes (lo reconstruye en una
  *      carpeta temporal con los mismos parámetros que tools/build.js y compara).
@@ -101,14 +103,12 @@ function walk(dir, out = []) {
 console.log('1. Higiene de fork');
 const SERVED = ['index.html', 'dev.html', '404.html', 'sw.js', 'manifest.webmanifest', 'contacto/index.html',
   ...walk('js').filter(f => f.endsWith('.js')), ...walk('css')].filter(ex);
-const FORBIDDEN = [
-  [/pokesurvivor-jpter/i, 'proyecto Firebase del original'],
-  [/turn\.pokesurvivor\.com/i, 'Worker TURN/contador del original'],
-  [/AIzaSyD4YpfZ/, 'apiKey del original'],
-  [/ko-fi\.com\/jpter78|kofi:\s*'jpter78'/i, 'Ko-fi del original'],
-  [/jpieratorregrosa/i, 'correo del autor original (el contacto es el del fork)'],
-  [/github\.com\/JPTER78\/pokesurvivor\/issues/i, 'avisos del original como contacto (el contacto es el del fork)']
-];
+// Las señas del proyecto base (dominio, proyecto Firebase, apiKey, autor, su correo y el nombre del juego), codificadas
+// en tools/nico/base.js para que no salgan en claro en lo que se publica.
+const BASE = require('./base.js');
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const RE_DOMINIO = new RegExp(reEsc(BASE.DOMINIO), 'i'), RE_AUTOR = new RegExp(reEsc(BASE.AUTOR), 'i');
+const FORBIDDEN = BASE.VIGILADO;
 // Firebase: lista blanca y config, con el código real de js/core/firebase-config.js.
 function loadFirebaseConfig(host, search) {
   const ctx = { URL, URLSearchParams, location: { hostname: host, search } };
@@ -131,7 +131,28 @@ for (const f of SERVED) {
     if (!ALLOWED.includes(id)) { hits++; bad(`${f}: URL de Firebase de un proyecto fuera de la lista blanca: ${m[0]}`); }
   }
 }
-if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestructura ni al correo del original`);
+if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestructura ni al correo del proyecto base`);
+// Y en TODO lo publicado (GitHub Pages sirve el repositorio entero: también README, CREDITS, CLAUDE.md, PLAN.md y
+// tools/), ni el nombre del proyecto base, ni su dominio, su Firebase, su apiKey, su autor (ni su repositorio) ni su
+// correo. Sólo LICENSE conserva el aviso MIT, que es obligatorio. Los binarios (imágenes, fuentes, sonido) no se miran.
+{
+  let pub = null;
+  try { pub = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\0').filter(Boolean); }
+  catch (e) { pub = ['.'].flatMap(d => walk(d)).map(f => f.replace(/^\.\//, '')).filter(f => !/^(\.git|tools\/nico\/(node_modules|out)|tools\/cache)\//.test(f)); }
+  const BIN = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf|mp3|ogg|wav|zip|gz)$/i;
+  const malos = [];
+  for (const f of pub.filter(f => f !== 'LICENSE' && !BIN.test(f) && ex(f))) {
+    const lineas = rd(f).split('\n');
+    lineas.forEach((l, i) => { for (const [re, what] of BASE.VIGILADO) if (re.test(l)) malos.push(`${f}:${i + 1} (${what})`); });
+  }
+  if (malos.length) bad(`lo publicado nombra el proyecto base (${malos.length}): ${malos.slice(0, 12).join('; ')}${malos.length > 12 ? '…' : ''}`);
+  else ok(`${pub.length} ficheros publicados sin el nombre, el dominio, el Firebase, la apiKey, el autor ni el correo del proyecto base (salvo el aviso MIT de LICENSE)`);
+  // Y LICENSE conserva el aviso MIT tal cual (la única excepción).
+  const lic = rd('LICENSE');
+  if (/^MIT License$/m.test(lic) && /^Copyright \(c\) 2026 /m.test(lic) && RE_AUTOR.test(lic) && /The above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software\./.test(lic.replace(/\r/g, '')))
+    ok('LICENSE conserva el aviso MIT del proyecto base, con su copyright');
+  else bad('LICENSE: falta el aviso MIT con su copyright (es obligatorio conservarlo)');
+}
 const GONE = ['CNAME', 'robots.txt', 'sitemap.xml', 'en', 'guia', 'pokedex', 'legendarios', 'shinies', 'tipos', 'movimientos',
   'objetos', 'logros', 'novedades', 'apoyar', 'functions', 'tools/activar_dominio.sh', '.github/FUNDING.yml',
   // PokéSwarm (12-10-2026): documentación, Worker y generadores del proyecto base, donaciones y el generador del
@@ -146,22 +167,22 @@ else ok('404.html sin rutas absolutas (vale en subruta)');
 if (/"default"\s*:\s*"demo-ps"/.test(rd('.firebaserc'))) ok('.firebaserc apunta a demo-ps'); else bad('.firebaserc no apunta a demo-ps');
 if (/"functions"/.test(rd('firebase.json'))) bad('firebase.json vuelve a tener el bloque functions'); else ok('firebase.json sin functions');
 if (FB) {
-  const okList = ALLOWED.length && ALLOWED.every(x => typeof x === 'string' && x && !/jpter/i.test(x)) && ALLOWED.includes('demo-ps');
+  const okList = ALLOWED.length && ALLOWED.every(x => typeof x === 'string' && x && !RE_AUTOR.test(x)) && ALLOWED.includes('demo-ps');
   if (okList) ok(`lista blanca de Firebase: ${ALLOWED.join(', ')}`); else bad(`lista blanca de Firebase incorrecta: ${JSON.stringify(ALLOWED)}`);
   const P = FB.FIREBASE_PERMITIDA, cfg = FB.FIREBASE_CONFIG;
   if (typeof P !== 'function') bad('falta G.FIREBASE_PERMITIDA en firebase-config.js (db.js no conectaría con nada)');
   else {
     // Controles: lo que debe rechazar.
     const no = [
-      { projectId: 'pokesurvivor-jpter', authDomain: 'pokesurvivor-jpter.firebaseapp.com' },
+      { projectId: BASE.FIREBASE, authDomain: BASE.FIREBASE + '.firebaseapp.com' },
       { projectId: 'otro-proyecto' },
       { projectId: 'demo-ps', databaseURL: 'https://otro-default-rtdb.europe-west1.firebasedatabase.app' },
       { projectId: 'demo-ps', authDomain: 'otro.firebaseapp.com' },
-      { projectId: 'demo-ps', authDomain: 'pokesurvivor.com', databaseURL: 'https://demo-ps-default-rtdb.europe-west1.firebasedatabase.app' },
+      { projectId: 'demo-ps', authDomain: BASE.DOMINIO, databaseURL: 'https://demo-ps-default-rtdb.europe-west1.firebasedatabase.app' },
       { projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com' },
       { projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com', databaseURL: 'https://otro.example.com/?ns=demo-ps-default-rtdb' },
       { projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com', databaseURL: 'http://demo-ps-default-rtdb.europe-west1.firebasedatabase.app' }].filter(c => P(c));
-    if (no.length) bad('G.FIREBASE_PERMITIDA acepta configs ajenas: ' + JSON.stringify(no)); else ok('G.FIREBASE_PERMITIDA rechaza el proyecto del original, proyectos fuera de la lista y URLs de otro proyecto');
+    if (no.length) bad('G.FIREBASE_PERMITIDA acepta configs ajenas: ' + JSON.stringify(no)); else ok('G.FIREBASE_PERMITIDA rechaza el proyecto del proyecto base, proyectos fuera de la lista y URLs de otro proyecto');
     if (cfg === null) ok('config publicada en null (modo local) hasta tener el Firebase propio');
     else if (!cfg || !ALLOWED.includes(cfg.projectId) || !P(cfg) || cfg.emulator || /^demo-/.test(cfg.projectId))
       bad(`config publicada NO permitida: proyecto ${cfg && cfg.projectId} (lista blanca: ${ALLOWED.join(', ')}; sin emulator ni demo-)`);
@@ -177,15 +198,15 @@ if (FB) {
 console.log('2. index.html y js/app.min.js');
 const idx = rd('index.html');
 if (/<meta name="robots" content="noindex">/.test(idx)) ok('index.html lleva noindex'); else bad('index.html sin noindex: construir con node tools/build.js --privado');
-if (/pokesurvivor\.com/i.test(idx) || /rel="canonical"/.test(idx)) bad('index.html conserva SEO del original (canonical/og): construir con --privado');
-else ok('index.html sin canonical ni enlaces al dominio del original');
+if (RE_DOMINIO.test(idx) || /rel="canonical"/.test(idx)) bad('index.html conserva SEO del proyecto base (canonical/og): construir con --privado');
+else ok('index.html sin canonical ni enlaces al dominio del proyecto base');
 // dev.html también se publica (GitHub Pages sirve todo el repo).
 const devH = rd('dev.html');
 const robots = [...devH.matchAll(/<meta name="robots" content="([^"]*)">/g)].map(m => m[1]);
 if (robots.length && robots.every(c => /noindex/.test(c))) ok('dev.html lleva noindex y ningún robots "index"');
 else bad(`dev.html: robots ${JSON.stringify(robots)} (debe haber noindex y ningún "index")`);
-if (/pokesurvivor\.com/i.test(devH) || /rel="canonical"/.test(devH)) bad('dev.html conserva el SEO del original (canonical/og a pokesurvivor.com)');
-else ok('dev.html sin canonical ni enlaces al dominio del original');
+if (RE_DOMINIO.test(devH) || /rel="canonical"/.test(devH)) bad('dev.html conserva el SEO del proyecto base (canonical/og a su dominio)');
+else ok('dev.html sin canonical ni enlaces al dominio del proyecto base');
 if (/window\.PS_PAGES = false;/.test(devH) && !/PS_PAGES\s*=\s*true/.test(devH)) ok('dev.html: window.PS_PAGES = false (sin botones a guía, Pokédex ni apoyar)');
 else bad('dev.html: falta window.PS_PAGES = false o vuelve a ponerse a true');
 const noidx = ['404.html', 'contacto/index.html'].filter(f => !/<meta name="robots" content="noindex">/.test(rd(f)));
@@ -195,9 +216,9 @@ const DEAD = /href="(\.\.\/|\.\/|\/)?(en|guia|pokedex|legendarios|shinies|tipos|
 const deadIn = ['index.html', 'dev.html', '404.html', 'contacto/index.html'].filter(f => DEAD.test(rd(f)));
 if (deadIn.length) bad('enlaces a páginas que el fork borró en: ' + deadIn.join(', '));
 else ok('ninguna página enlaza a las que borró el fork (guia/, pokedex/, en/, apoyar/...)');
-const domIn = ['index.html', 'dev.html', '404.html', 'contacto/index.html'].filter(f => /pokesurvivor\.com/i.test(rd(f)));
-if (domIn.length) bad('el dominio del original aparece en páginas publicadas: ' + domIn.join(', '));
-else ok('ninguna página HTML publicada menciona el dominio del original');
+const domIn = ['index.html', 'dev.html', '404.html', 'contacto/index.html'].filter(f => RE_DOMINIO.test(rd(f)));
+if (domIn.length) bad('el dominio del proyecto base aparece en páginas publicadas: ' + domIn.join(', '));
+else ok('ninguna página HTML publicada menciona el dominio del proyecto base');
 const min =fs.readFileSync(path.join(ROOT, 'js/app.min.js'));
 const hash = crypto.createHash('sha1').update(min).digest('hex').slice(0, 10);
 if (idx.includes(`js/app.min.js?v=${hash}`)) ok('index.html carga js/app.min.js?v=' + hash); else bad('index.html no apunta a la huella actual de js/app.min.js');
@@ -244,7 +265,7 @@ const HOOKS = [
   ['js/entities/player.js', /this\.bodyH = G\.Sprites\.bodyHeight\(mon\.dex, this\.scale\)/, 'alto (nombre/números) a escala'],
   ['js/entities/player.js', /drawShadow\(ctx, this\.dex, this\.x, this\.y, this\.scale\)/, 'sombra a escala'],
   ['js/net/net.js', /const TURN_URL = '';/, 'TURN apagado'],
-  ['js/core/db.js', /\/jpter\/i\.test\(/, 'db.js rechaza el proyecto del original'],
+  ['js/core/db.js', /\/\\x6a\\x70\\x74\\x65\\x72\/i\.test\(/, 'db.js rechaza el proyecto base (su autor, en hexadecimal)'],
   ['js/core/db.js', /if \(!\(G\.FIREBASE_PERMITIDA && G\.FIREBASE_PERMITIDA\(cfg\)\) \|\|/, 'db.js sólo conecta con la lista blanca (si falta, con nada)'],
   ['js/core/db.js', /\(cfg\.emulator && !\/\^\(localhost\|127/, 'db.js rechaza configs de emulador fuera de este PC'],
   ['js/ui/ui.js', /const CONTACT = 'https:\/\/github\.com\/nicooliver123-cell\/pokesurvivor\/issues';/, 'contacto del aviso legal: avisos del fork'],
@@ -424,7 +445,7 @@ try {
   r.push(['nunca por encima de la vida máxima', M.vidaDelAnfitrion({ maxHp: 100, hp: 50 }, 130) === 100]);
   M.curacionEnemiga = true;
   const o = { maxHp: 100, hp: 90, golpePredichoT: now, net: { st: 4 } };
-  r.push(['con curacionEnemiga=true, como el original', M.predecirGolpe(o) === true && M.vidaDelAnfitrion(o, 100) === 100]);
+  r.push(['con curacionEnemiga=true, como el proyecto base', M.predecirGolpe(o) === true && M.vidaDelAnfitrion(o, 100) === 100]);
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`ventana ${W} ms directo / ${WR} ms por el relé: ${r.length} casos bien`);
   else failed.forEach(x => bad('ventana de vida: ' + x[0]));
@@ -1382,11 +1403,11 @@ function gachaChecks() {
     t('premio(): sin tickets no inventa ninguno; null y undefined pasan', soloMonedas.coins === 100 && !('t1' in soloMonedas) && !('t10' in soloMonedas) &&
       M.premio(null) === null && M.premio(undefined) === undefined);
     M.ticketsMult = 1;
-    t('premio() y textos con ticketsMult = 1: como el original', M.premio(def) === def && M.textoTicket('ticket') === '+1 ticket' && M.textoTicket('ticket10') === '¡Ticket ×10!');
+    t('premio() y textos con ticketsMult = 1: como el proyecto base', M.premio(def) === def && M.textoTicket('ticket') === '+1 ticket' && M.textoTicket('ticket10') === '¡Ticket ×10!');
     M.ticketsMult = 2;
     t('texto que flota con ×2: «+2 tickets» y «¡2 tickets ×10!»', M.textoTicket('ticket') === '+2 tickets' && M.textoTicket('ticket10') === '¡2 tickets ×10!');
     const en = ['+2 tickets', '¡2 tickets ×10!', '+1 ticket', '¡Ticket ×10!'].map(EN);
-    t('texto que flota, en inglés (i18n.js real): «+2 tickets», «2 ×10 tickets!» y los del original', en.join('|') === '+2 tickets|2 ×10 tickets!|+1 ticket|Ticket ×10!', en);
+    t('texto que flota, en inglés (i18n.js real): «+2 tickets», «2 ×10 tickets!» y los del proyecto base', en.join('|') === '+2 tickets|2 ×10 tickets!|+1 ticket|Ticket ×10!', en);
   }
 
   // Trozos de js/game.js, tal cual: si upstream los cambia, esto falla y hay que revisarlo.
@@ -1443,10 +1464,10 @@ ${fTicket}      }
     const finB = B.J.final(), finB1 = B1.J.final();
     t('invitado: al terminar no se cobra otra vez; la pantalla final dice lo apuntado (×2: +8 y +2 ×10; ×1: +4 y +1)',
       B.sv.t1 === 8 && B.sv.t10 === 2 && finB.t1 === 8 && finB.t10 === 2 && B1.sv.t1 === 4 && finB1.t1 === 4 && finB1.t10 === 1, { finB, finB1 });
-    // Con ticketsMult = 1: el original.
+    // Con ticketsMult = 1: el proyecto base.
     const O = partida({ mult: 1 });
     O.J.nueva(O.jugador()); O.J.recoge({ kind: 'ticket' }); O.J.recoge({ kind: 'ticket10' });
-    t('con ticketsMult = 1, como el original: +1 por ticket y los textos de siempre', O.sv.t1 === 11 && O.sv.t10 === 2 && O.S.textos.join('|') === '+1 ticket|¡Ticket ×10!', O.S.textos);
+    t('con ticketsMult = 1, como el proyecto base: +1 por ticket y los textos de siempre', O.sv.t1 === 11 && O.sv.t10 === 2 && O.S.textos.join('|') === '+1 ticket|¡Ticket ×10!', O.S.textos);
   } catch (e) { t('trozos de js/game.js en node:vm', false, String(e && e.stack || e)); }
 
   // Premios de misiones y logros: js/systems/progress.js con las definiciones reales.
@@ -1524,11 +1545,11 @@ ${fTicket}      }
     const trasContinuar = A.visible();
     A.avanzar(3000);
     const seVa = A.visible();
-    // Fuera del gacha (en partida o en el menú), al momento, como el original.
+    // Fuera del gacha (en partida o en el menú), al momento, como el proyecto base.
     const B = aviso();
     B.logro();
     const enMenu = B.visible();
-    // avisosTrasGacha = false: como el original, también con el resultado abierto.
+    // avisosTrasGacha = false: como el proyecto base, también con el resultado abierto.
     const O = aviso({ mods: { avisosTrasGacha: false } });
     O.els['scr-gacha'].classList.remove('hidden');
     O.logro(); O.els['pull-fx'].classList.remove('hidden');
@@ -1589,7 +1610,7 @@ ${fTicket}      }
       Math.abs(p[1] - 1.5 / 512) < 1e-15 && Math.abs(p[2] - 0.015) < 1e-15 && M.probShiny(0.9) === 1, p);
     const raros = [0, -1, NaN, 'x', Infinity].map(v => { M.shinyMult = v; return M.probShiny(0.01); });
     M.shinyMult = 1;
-    t('shiny: con un ajuste no válido o con 1, la del original', raros.every(x => x === 0.01) && M.probShiny(0.01) === 0.01, raros);
+    t('shiny: con un ajuste no válido o con 1, la del proyecto base', raros.every(x => x === 0.01) && M.probShiny(0.01) === 0.01, raros);
     // Gacha real, 100.000 tiradas sembradas en los 9 banners: proporción de shiny entre los que tienen sprite shiny.
     const tasa = (mult, s, n = 100000) => {
       const { G, R } = gacha();
@@ -1631,7 +1652,7 @@ ${fTicket}      }
     t(`legendario de la grieta (start() real): ${r15} veces 1/512 con 1,5 (1,35-1,65); con 1, ${r1} (0,85-1,15)`, r15 >= 1.35 && r15 <= 1.65 && r1 >= 0.85 && r1 <= 1.15, { r15, r1 });
     // Cartel del gacha: refresh() real de js/ui/gacha-ui.js con un DOM mínimo.
     const c15 = cartelGacha({ mult: 1.5 }), c1 = cartelGacha({ mult: 1 });
-    t('cartel del gacha (refresh() real): «1.5%» de shiny con 1,5 y «1%» con 1, como el original', /\[shiny\] Shiny<\/span><span>1\.5%<\/span>/.test(c15) && !c15.includes('<span>1%</span>') &&
+    t('cartel del gacha (refresh() real): «1.5%» de shiny con 1,5 y «1%» con 1, como el proyecto base', /\[shiny\] Shiny<\/span><span>1\.5%<\/span>/.test(c15) && !c15.includes('<span>1%</span>') &&
       /\[shiny\] Shiny<\/span><span>1%<\/span>/.test(c1), c15.slice(c15.indexOf('[shiny]'), c15.indexOf('[shiny]') + 60));
   } catch (e) { t('shiny con el código real', false, String(e && e.stack || e)); }
 
@@ -1685,7 +1706,7 @@ ${fTicket}      }
     t('repetido de Bulbasaur sin Ivysaur: desbloquea Ivysaur (from evo), 0 monedas, gasta su ticket',
       x.dex === 1 && !x.isNew && x.evo === 2 && x.refund === 0 && s.coins === 1000 && s.owned[2] && s.owned[2].from === 'evo' && s.tickets.t1 === 499 && !s.shiny[2], x);
     x = res1(s, 1);
-    t(`repetido de Bulbasaur con Ivysaur: las monedas del original (${RE[1]}) y no desbloquea Venusaur`, !x.evo && x.refund === RE[1] && s.coins === 1000 + RE[1] && !s.owned[3], x);
+    t(`repetido de Bulbasaur con Ivysaur: las monedas del proyecto base (${RE[1]}) y no desbloquea Venusaur`, !x.evo && x.refund === RE[1] && s.coins === 1000 + RE[1] && !s.owned[3], x);
     // Eevee: 8 repetidos -> sus 8 evoluciones, cada una entre las que faltan; el noveno, monedas.
     s = partida([133]);
     const vistas = [];
@@ -1710,7 +1731,7 @@ ${fTicket}      }
     t('shiny repetido con Ivysaur normal pero sin su shiny: da el shiny de Ivysaur (la normal se queda como estaba)', x.evo === 2 && s.shiny[2].from === 'evo' && s.owned[2].from === 'gacha', x);
     s = partida([1, 2], [1, 2]);
     x = res1(s, 1, true);
-    t(`shiny repetido con el shiny de Ivysaur: el triple del original (${RE[1] * 3}) y nada de Venusaur`, !x.evo && x.refund === RE[1] * 3 && !s.owned[3] && !s.shiny[3], x);
+    t(`shiny repetido con el shiny de Ivysaur: el triple del proyecto base (${RE[1] * 3}) y nada de Venusaur`, !x.evo && x.refund === RE[1] * 3 && !s.owned[3] && !s.shiny[3], x);
     s = partida([1]);
     x = res1(s, 1, true);
     t('shiny NUEVO de Bulbasaur con la normal ya tenida: es nuevo (no repetido), sin evolución ni monedas', x.shiny && x.isNew && !x.evo && x.refund === 0 && s.shiny[1].from === 'gacha' && !s.owned[2], x);
@@ -1744,14 +1765,14 @@ ${fTicket}      }
     const tyro = [0, 0.5, 0.999].map(v => { R.cola = [v]; const d = G.MODS.evolucionDeRepetido(partida([236, 106, 237]), 236, false); R.cola = []; return d; });
     t('ramas: sólo entre las que faltan (Tyrogue con Hitmonlee y Hitmontop: siempre Hitmonchan) y nunca una especie que no está en el juego',
       fuera.every(d => d === 2) && tyro.every(d => d === 107), { fuera, tyro });
-    // Sin G.EVO o con el ajuste en false: el original.
+    // Sin G.EVO o con el ajuste en false: el proyecto base.
     const EVO = G.EVO;
     delete G.EVO;
     s = partida([1]); x = res1(s, 1);
     G.EVO = EVO; G.MODS.repetidoDaEvolucion = false;
     const s2 = partida([1]), x2 = res1(s2, 1);
     G.MODS.repetidoDaEvolucion = true;
-    t('sin js/data/evolutions.js (G.EVO) o con repetidoDaEvolucion = false: monedas como el original', !x.evo && x.refund === RE[1] && !s.owned[2] && !x2.evo && x2.refund === RE[1] && !s2.owned[2]);
+    t('sin js/data/evolutions.js (G.EVO) o con repetidoDaEvolucion = false: monedas como el proyecto base', !x.evo && x.refund === RE[1] && !s.owned[2] && !x2.evo && x2.refund === RE[1] && !s2.owned[2]);
   } catch (e) { t('pull() real con las evoluciones', false, String(e && e.stack || e)); }
   // La carta, el inglés y el cartel.
   try {
@@ -1771,7 +1792,7 @@ ${fTicket}      }
       en[1] === 'Duplicate! You unlock shiny Mr. Mime' && /^· A duplicate unlocks its next evolution/.test(en[2]), en);
     const VIEJA = '· Los repetidos dan Pokémonedas (los shiny repetidos, el triple).';
     const h1 = cartelGacha(), h2 = cartelGacha({ repetidos: false }), h3 = cartelGacha({ evo: false });
-    t('cartel del gacha (refresh() real): la nota de los repetidos habla de la evolución; con el ajuste en false o sin G.EVO, la del original',
+    t('cartel del gacha (refresh() real): la nota de los repetidos habla de la evolución; con el ajuste en false o sin G.EVO, la del proyecto base',
       h1.includes(G.MODS.NOTA_REPETIDOS) && !h1.includes(VIEJA) && h2.includes(VIEJA) && h3.includes(VIEJA) && !h3.includes(G.MODS.NOTA_REPETIDOS));
   } catch (e) { t('la carta y el cartel del gacha', false, String(e && e.stack || e)); }
 
@@ -1953,7 +1974,7 @@ function claridadChecks() {
     const a = subida(1 / 30), b = subida(1 / 144);
     t('frenado de la subida independiente de los FPS (0,5 s a 30 y a 144 FPS)', a > 8 && Math.abs(a - b) < 1, { a30: +a.toFixed(2), a144: +b.toFixed(2) });
   } catch (e) { t('subida independiente de los FPS', false, String(e && e.stack || e)); }
-  // Ajustes: sin números de daño, nada; con numerosAgrupados = false, como el original (uno por golpe).
+  // Ajustes: sin números de daño, nada; con numerosAgrupados = false, como el proyecto base (uno por golpe).
   try {
     const sin = mundo({ numeros: false }), e = sin.enemigo();
     e.hurt(10); e.hurt(10);
@@ -1989,7 +2010,7 @@ function claridadChecks() {
     t('jefes, legendarios, shiny, duendes del tesoro y apoyos (escudo, invocador, curandero) la conservan', Object.values(siempre).every(Boolean), siempre);
     const h = W.enemigo(); h.hp -= 50; barra(h); S.reloj += 3000;
     G.MODS.barrasTrasGolpe = 0; const orig = barra(h); G.MODS.barrasTrasGolpe = 1.5;
-    t('barrasTrasGolpe = 0: como el original (siempre que esté herido)', orig && !barra(h));
+    t('barrasTrasGolpe = 0: como el proyecto base (siempre que esté herido)', orig && !barra(h));
     // Invitado: la vida le llega por red (la línea de coop.js con la ventana de mods.js).
     const cp = W.enemigo({ remote: true });
     barra(cp);

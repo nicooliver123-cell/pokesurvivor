@@ -32,7 +32,7 @@
  *        escudo, así que la prueba sabe detectarlo.
  *      - Vuelta de la grieta: el invitado borra sus copias y el anfitrión las vuelve a
  *        anunciar ('ne'), como en rift.js; las copias nacen con la vida real.
- *   7. Falla si algún cliente habla con la infraestructura del juego original, si hay
+ *   7. Falla si algún cliente habla con la infraestructura del proyecto base, si hay
  *      errores de JavaScript o si el aviso legal no lleva el contacto del fork.
  *   8. Antes de la partida, A trae una partida "oficial" sintética por Ajustes > Cuenta (elegir
  *      archivo, vista previa, Confirmar), con la ventana a 844x390 (móvil en horizontal): tiene
@@ -175,8 +175,9 @@ function stopEmulator(child) {
 }
 
 // ---------------- jugadores ----------------
-// Patrones de la infraestructura del original: ningún cliente debe tocarlos.
-const PROD = [/pokesurvivor-jpter/i, /pokesurvivor\.com/i, /firebaseio\.com/i, /firebasedatabase\.app/i,
+// Patrones de la infraestructura del proyecto base: ningún cliente debe tocarlos.
+const SENAS = require('./base.js');   // las señas del proyecto base, codificadas
+const PROD = [...SENAS.VIGILADO.slice(0, 2).map(v => v[0]), /firebaseio\.com/i, /firebasedatabase\.app/i,
   /^https?:\/\/(firestore|identitytoolkit|securetoken|firebaseinstallations|firebase)\.googleapis\.com/i];
 // Antes que el juego: guarda las RTCPeerConnection (para leer el par de candidatos elegido) y
 // permite simular latencia en el canal directo (window.__lat ms por sentido, 0 = nada). La
@@ -291,7 +292,7 @@ async function legalNotice(P) {
   await page.click('#scr-login [data-legal]');
   await waitVisible(page, '#scr-legal');
   await sleep(900);   // que termine la transición, para la captura
-  const r = await page.evaluate(repo => {
+  const r = await page.evaluate(([repo, base]) => {
     const m = document.getElementById('legal-mail'), rp = document.getElementById('legal-repo'), box = document.getElementById('scr-legal');
     return { contacto: m.href, textoContacto: m.textContent, abreAparte: m.target === '_blank', repo: rp.href,
       correo: /mailto:|@gmail\.com/i.test(box.innerHTML), donaciones: /donaci[oó]n/i.test(box.textContent),
@@ -299,14 +300,14 @@ async function legalNotice(P) {
       ajenos: [...box.querySelectorAll('a[href*="github.com/"]')].map(a => a.href).filter(h => !h.startsWith(repo) && !h.startsWith('https://github.com/PMDCollab/')),
       nombre: /PokéSwarm/.test(box.textContent) && !/Pok[ée]Survivor/i.test(box.textContent),
       licencia: !!box.querySelector('a[href="https://creativecommons.org/licenses/by-nc/4.0/"]'),
-      rechazaOriginal: G.FIREBASE_PERMITIDA({ projectId: 'pokesurvivor-jpter' }) === false };
-  }, FORK_REPO);
+      rechazaOriginal: G.FIREBASE_PERMITIDA({ projectId: base }) === false };
+  }, [FORK_REPO, SENAS.FIREBASE]);
   report.capturaAvisoLegal = await shot(page, P.tag + '_aviso_legal');
   await page.click('#legal-close');
   await waitVisible(page, '#scr-login');
   check('Aviso legal: contacto = avisos del repositorio, código = el repositorio, PokéSwarm sin el nombre anterior, ningún enlace a otro repositorio (salvo SpriteCollab), la licencia de los sprites enlazada, sin correo ni donaciones',
     r.contacto === FORK_ISSUES && r.abreAparte && r.repo === FORK_REPO && !r.correo && !r.donaciones && !r.ajenos.length && r.nombre && r.licencia, r);
-  check('En la página, G.FIREBASE_PERMITIDA rechaza el proyecto del original', r.rechazaOriginal);
+  check('En la página, G.FIREBASE_PERMITIDA rechaza el proyecto del proyecto base', r.rechazaOriginal);
 }
 
 async function register(P, name, pass) {
@@ -1009,7 +1010,7 @@ async function guaranteedRift(A, B) {
     const claridadB = await B.page.evaluate(id => {
       const M = window.__claridad;
       clearInterval(M.timer); G.Enemy.prototype.hurt = M.hurt; G.Claridad.barra = M.barra;
-      // La copia herida que no cambia (escudo permanente): en el original llevaría barra; aquí, no.
+      // La copia herida que no cambia (escudo permanente): en el proyecto base llevaría barra; aquí, no.
       const q = G.EnemyMgr.get(id);
       const quieta = q ? { herida: q.hp < q.maxHp, escudo: !!(q.net && q.net.st & 4), barra: G.Claridad.barra(q) } : null;
       return { muestras: M.muestras, maxPorClave: M.maxPorClave, golpesMax: M.golpesMax, golpes: M.golpes, barraTrasGolpe: M.barraTrasGolpe, ocultas: M.ocultas, quieta };
@@ -1020,7 +1021,7 @@ async function guaranteedRift(A, B) {
     check('Claridad en el invitado: la barra de vida se ve tras cada golpe suyo (la vida le llega por red) y una copia herida sin cambios no la lleva',
       claridadB.golpes >= 10 && claridadB.barraTrasGolpe === claridadB.golpes && claridadB.quieta && claridadB.quieta.herida && claridadB.quieta.escudo &&
       claridadB.quieta.barra === false, claridadB);
-    // Control del invitado: su cliente como el original (curacionEnemiga=true sólo en B: no cambia
+    // Control del invitado: su cliente como el proyecto base (curacionEnemiga=true sólo en B: no cambia
     // nada del anfitrión). Debe ver el rebote que la prueba tiene que saber detectar.
     await B.page.evaluate(() => { G.MODS.curacionEnemiga = true; window.__hpTrap.fase = 'B-original'; });
     await sleep(6000);
@@ -1200,7 +1201,7 @@ async function guaranteedRift(A, B) {
       report.red[P.tag] = { hosts, infraOriginal: P.prodHits, fallidas: P.failed.slice(0, 20), erroresDePagina: P.pageErrors };
     }
     if (A && B) {
-      check('Ningún cliente habla con la infraestructura del juego original', !A.prodHits.length && !B.prodHits.length, { A: A.prodHits, B: B.prodHits });
+      check('Ningún cliente habla con la infraestructura del proyecto base', !A.prodHits.length && !B.prodHits.length, { A: A.prodHits, B: B.prodHits });
       const ext = Object.keys(Object.assign({}, report.red.A.hosts, report.red.B.hosts)).filter(h => !/^127\.0\.0\.1(:\d+)?$/.test(h) && h !== 'www.gstatic.com');
       check('Sólo hosts locales y el SDK de Firebase (www.gstatic.com)', ext.length === 0, ext.length ? ext : Object.keys(Object.assign({}, report.red.A.hosts, report.red.B.hosts)));
       check('Sin errores de JavaScript en las páginas', !A.pageErrors.length && !B.pageErrors.length, { A: A.pageErrors, B: B.pageErrors });

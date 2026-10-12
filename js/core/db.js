@@ -279,10 +279,10 @@ G.DB = (() => {
     if (!/^https?:$/.test(location.protocol)) { localReason = 'file'; return false; }
     if (!cfg || !cfg.apiKey || !cfg.projectId) { localReason = 'config'; return false; }
     // MOD nico: sólo un proyecto de la lista blanca de js/core/firebase-config.js (si falta, ninguno),
-    // nunca el del juego original (por si un merge de upstream lo reintroduce), y una config de
+    // nunca el del proyecto base (por si un merge de upstream lo reintroduce), y una config de
     // emulador sólo vale en este PC (nunca en la web publicada).
     if (!(G.FIREBASE_PERMITIDA && G.FIREBASE_PERMITIDA(cfg)) ||   // MOD nico: lista blanca
-        /jpter/i.test([cfg.projectId, cfg.authDomain, cfg.databaseURL].join(' ')) ||
+        /\x6a\x70\x74\x65\x72/i.test([cfg.projectId, cfg.authDomain, cfg.databaseURL].join(' ')) ||   // MOD nico: el autor del proyecto base, en hexadecimal
         (cfg.emulator && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) { localReason = 'config'; return false; }
     await loadScript(SDK + 'firebase-app-compat.js');
     await loadScript(SDK + 'firebase-auth-compat.js');
