@@ -321,6 +321,7 @@ G.Coop = (() => {
       case 'sh': api.shiny(ev[1]); break;
       case 'ov': { const cb = api.over; const d = ev[1]; end(); cb(d); break; }
       case 'rift': case 'riftx': case 'arena': case 'aw': case 'al': G.Rift.onEvent(ev); break;
+      case 'af': G.Rift.onEvent(ev); break;   // MOD nico: vuelta de la grieta, la marca el anfitrión (rift.js)
       case 'wx': G.Weather.onEvent(ev); break;
       case 'ev': G.Events.onNet(ev); break;
       case 'hz': G.Hazards.add(ev[1], true); break;

@@ -28,7 +28,9 @@
  *      hostiles y que todos sus textos tienen inglés).
  *   9. Grieta garantizada: la lógica de js/core/mods.js (hora, una por partida, reintentos, jefe,
  *      quién manda) y js/systems/rift.js real con el juego simulado, en solitario y en grupo
- *      (anfitrión e invitado): el legendario de esa grieta con el 60 % y las naturales intactas.
+ *      (anfitrión e invitado): el legendario de esa grieta con el 60 % y las naturales intactas. Y la
+ *      vuelta en grupo con js/net/coop.js real y la red simulada: el invitado vuelve con el anfitrión
+ *      ('af') y conserva las copias de los enemigos del mapa; fusiones y aviso «Pausa: …» sin tu nombre.
  *  10. Gacha y tickets: tickets ganados ×2 (bankTickets, syncTeam y la recogida de game.js, los
  *      premios de progress.js; sin cobro doble, sin restas, sin tocar las definiciones ni traer dos
  *      veces la partida oficial) y shiny ×1,5 (el gacha real sembrado, rollShiny de spawner.js y la línea
@@ -215,6 +217,14 @@ const HOOKS = [
     'grieta garantizada: start() marca su arena antes de anunciarla'],
   ['js/systems/rift.js', /const e = new G\.Enemy\(def, [^\n]*\r?\n\s*if \(G\.MODS && G\.MODS\.vidaLegendario\) G\.MODS\.vidaLegendario\(e, arena\);\s*\/\/ MOD nico/,
     'grieta garantizada: spawnLegend() rebaja la vida de su legendario'],
+  ['js/systems/rift.js', /G\.Weather\.clear\(\);\r?\n\s*if \(G\.Coop\.isHost\) G\.Coop\.broadcast\(\['af'\]\);\s*\/\/ MOD nico[^\n]*\r?\n\s*if \(authority\(\)\) G\.EnemyMgr\.restore\(\); else G\.EnemyMgr\.clearRemote\(\);/,
+    "vuelta de la grieta: el anfitrión avisa ('af') antes de restore(), que anuncia con 'ne' los enemigos del mapa"],
+  ['js/systems/rift.js', /arena\.endT -= dt;\r?\n\s*if \(!authority\(\) && arena\.endT > -3\) return;\s*\/\/ MOD nico[^\n]*\r?\n\s*if \(arena\.endT <= 0\) finish\(\);/,
+    "vuelta de la grieta: el invitado no vuelve por su cuenta (espera 'af'; si no llega, 3 s más)"],
+  ['js/systems/rift.js', /case 'al': lost\(\); break;\r?\n\s*case 'af': if \(arena\) finish\(\); break;\s*\/\/ MOD nico/, "vuelta de la grieta: el invitado vuelve al recibir 'af'"],
+  ['js/net/coop.js', /case 'aw': case 'al': G\.Rift\.onEvent\(ev\); break;\r?\n\s*case 'af': G\.Rift\.onEvent\(ev\); break;\s*\/\/ MOD nico/, "vuelta de la grieta: coop.js pasa 'af' a rift.js"],
+  ['js/game.js', /const others = holdBy\.filter\(n => n !== \(G\.Social\.me && G\.Social\.me\.name\)\);\s*\/\/ MOD nico[^\n]*\r?\n\s*if \(!mine && others\.length\) G\.Spawner\.say\('Pausa: ' \+ others\.join\(', '\) \+ ' ' \+ \(others\.length > 1 \? 'eligen' : 'elige'\) \+ ' fusión…', 999, true\);/,
+    'fusión: el aviso «Pausa: … elige fusión» nunca lleva tu propio nombre (coopApi.hold)'],
   ['js/game.js', /sv\.tickets\.t1 \+= G\.MODS && G\.MODS\.tickets \? G\.MODS\.tickets\(d1\) : d1; sv\.tickets\.t10 \+= G\.MODS && G\.MODS\.tickets \? G\.MODS\.tickets\(d10\) : d10;\s*\/\/ MOD nico/,
     'tickets ×2: bankTickets() apunta en la partida guardada los nuevos multiplicados'],
   ['js/game.js', /if \(p\.kind === 'ticket'\) pl\.t1\+\+; else pl\.t10\+\+;\r?\n\s*bankTickets\(\);/, 'tickets ×2: la recogida sigue contando 1 por objeto (pl.t1++, lo que viaja por la red)'],
@@ -1043,6 +1053,152 @@ function grietaChecks() {
     t('grupo: si el invitado entra justo cuando en el anfitrión ya se cerró, sigue siendo la garantizada (hasta 5 s); más tarde, no',
       t1.sinGrieta && t1.forzada === 1 && t1.vida === Math.round(t1.normal * 0.6) && t2.sinGrieta && t2.forzada === 0 && t2.vida === t2.normal, { t1, t2 });
   }
+
+  // ---- C. La vuelta de la grieta en grupo, con la red simulada ----
+  // Dos clientes en node:vm con util.js, mods.js, js/net/coop.js y js/systems/rift.js reales y, de js/game.js tal cual,
+  // offerBond() y coopApi.hold() (la fusión y su pausa común). El resto, mínimo: un gestor de enemigos como el de
+  // enemy.js (add() anuncia con 'ne', stash/restore, las copias del invitado), el bucle (sólo 'playing' hace avanzar el
+  // juego; la red se atiende siempre) y el diálogo de fusión, que el arnés elige a los `elige` s. La red entrega en
+  // orden, `lat` fotogramas más tarde. Antes del arreglo el invitado volvía con su propia cuenta atrás (5 s desde 'aw'),
+  // después de recibir los 'ne' con los que el anfitrión anuncia al volver los enemigos que guardó, y los borraba.
+  try {
+    const gsrc9 = rd('js/game.js');
+    const trozo9 = (re, que) => { const m = gsrc9.match(re); if (!m) throw new Error('no encuentro en js/game.js: ' + que); return m[0]; };
+    const fOffer = trozo9(/  function offerBond\(quiet = false\) \{[\s\S]*?\r?\n  \}\r?\n/, 'offerBond');
+    const fHold = trozo9(/    hold\(names\) \{[\s\S]*?\r?\n    \}\r?\n/, 'coopApi.hold');
+    const enRed = ({ lat = 0, ritmoInvitado = 1, elige = 0.6, eligeInvitado = elige, pierden = false, n = 12 } = {}) => {
+      const cola = [], C = {};
+      let f = 0;
+      const envia = (de, a, msg) => cola.push({ llega: f + lat, de, a, msg: JSON.parse(JSON.stringify(msg)) });
+      function cliente(uid, nombre, anfitrion) {
+        const S = { time: 80, propios: 0, enArenaEnPausa: 0, estuvo: false, vuelta: null, dialogos: 0, eligeF: 0, banderas: [] };
+        const c = { console, performance: { now: () => f * DT * 1000 } };
+        vm.createContext(c);
+        c.window = c; c.G = {};
+        for (const fl of ['js/core/util.js', 'js/core/mods.js']) vm.runInContext(rd(fl), c, { filename: fl });
+        vm.runInContext('Math.random = () => 0.5', c);
+        const G = c.G, nop = () => {};
+        G.MODS.grietaGarantizadaAntesDe = 0;   // la arena la empieza la prueba (el invitado pide entrar)
+        let nid = anfitrion ? 0 : 1e6;
+        const enemigo = (id, x, y, hp) => ({ id, x, y, hp, maxHp: hp, dead: false, boss: false, remote: false, dex: 19, dmg: 5, behavior: 'chaser',
+          anim: { cur: 'Idle', dir: 0 }, burn: 0, poison: 0, shield: 0 });
+        const lista = [], porId = new Map();
+        let guardados = null;
+        const quita = e => { porId.delete(e.id); const i = lista.indexOf(e); if (i >= 0) lista.splice(i, 1); };
+        const EM = {
+          all: () => lista, get: id => porId.get(id), bossAlive: () => lista.some(e => e.boss && !e.dead),
+          add(e) { lista.push(e); porId.set(e.id, e); if (G.Coop.isHost) G.Coop.enemyAdded(e); return e; },
+          addRemote(o) {
+            if (porId.has(o.id)) return porId.get(o.id);
+            const e = Object.assign(enemigo(o.id, o.x, o.y, o.hp), { remote: true, net: { x: o.x, y: o.y, vx: 0, vy: 0, age: 0, dir: 0, anim: 0, st: 0 } });
+            lista.push(e); porId.set(e.id, e); return e;
+          },
+          removeRemote(id) { const e = porId.get(id); if (e) quita(e); },
+          stash() { guardados = lista.filter(e => !e.dead); lista.length = 0; porId.clear(); },
+          restore() {
+            for (const e of lista.splice(0)) { porId.delete(e.id); if (G.Coop.isHost) G.Coop.enemyGone(e, false); }
+            for (const e of guardados || []) EM.add(e);
+            guardados = null;
+          },
+          clearRemote() { for (const e of lista.filter(x => x.remote)) quita(e); }
+        };
+        const ui = new Set();
+        let bond = null, announce = '', announceT = 0;
+        const pl = { x: 0, y: 0, dead: false, bonds: 0, bodyH: 30, hp: 100, maxHp: 100, moveAngle: 0, walking: false, magnet: 78, aim: 0, xpMul: 1, reviveT: 0,
+          revive: nop, activeGroup: () => [], bondOptions: () => ({ mode: 'pair', group: [], loose: [{ name: 'a' }, { name: 'b' }] }),
+          fuse(p) { this.bonds--; return p; } };
+        Object.assign(G, {
+          Net: { uid, on: fn => { S.recibe = fn; }, onPeer: nop, slow: () => false, viaTurn: () => false,
+            send: (to, msg) => envia(uid, to, msg), toHost: msg => envia(uid, 'A', msg) },
+          Player: class { constructor(mon) { Object.assign(this, { mon, dex: mon.dex, x: 0, y: 0, hp: 100, maxHp: 100, dead: false }); } },
+          startMoveOf: () => 'tackle',
+          Tiles: { T: 16, arenaBiome: () => 0, ARENA_THEMES: {} }, Sprites: { PX: 2, hasShiny: () => false, preload: nop },
+          Game: { get player() { return pl; }, st: { get time() { return S.time; } }, everyone: () => G.Coop.players(), flash: nop, offerBond: () => c.__J.offerBond() },
+          EnemyMgr: EM, World: { isFree: () => true, setArena: nop, setBiome: nop, biome: 0 },
+          Projectiles: { clear: nop, clearOrbs: nop }, Combat: { clearFields: nop }, Hazards: { clear: nop }, Weather: { force: nop, clear: nop },
+          Camera: { x: 0, y: 0, kick: nop }, Audio: { sfx: nop }, FX: { ring: nop, dmgText: nop, burst: nop, px: nop },
+          Spawner: { say(txt, secs) { announce = txt; announceT = secs; }, banner: () => (announceT > 0 ? { text: announce, t: announceT } : null) },
+          Progress: { event: nop }, Pickups: { pullAll: nop }, Guard: { flag: w => S.banderas.push(w) },
+          UI: { isOpen: id => ui.has(id) },
+          RunUI: { showBond: (opt, cb) => { ui.add('scr-bond'); bond = cb; S.dialogos++; S.eligeF = Math.round((anfitrion ? elige : eligeInvitado) / DT); } },
+          Social: { me: { name: nombre } },
+          DEX: [{ dex: 150, name: 'Mewtwo', leg: true, types: ['psychic'], spd: 130 }], SPRITE_META: { 150: {} },
+          Enemy: class { constructor(def, x, y, sc, boss) { Object.assign(this, enemigo(++nid, x, y, Math.round(def.hp * sc.hp)), { boss, name: def.name, dex: def.dex, dmg: def.dmg }); } makeShiny() {} }
+        });
+        G.DEX_BY = { 150: G.DEX[0] };
+        vm.runInContext(rd('js/net/coop.js'), c, { filename: 'js/net/coop.js' });
+        vm.runInContext(rd('js/systems/rift.js'), c, { filename: 'js/systems/rift.js' });
+        c.__pl = pl;
+        vm.runInContext(`var __J = (() => {
+          let pl = __pl, state = 'playing', holdBy = [];
+${fOffer}
+          const coopApi = {
+${fHold}          };
+          return { offerBond, coopApi, get state() { return state; } };
+        })();`, c, { filename: 'js/game.js (offerBond y coopApi.hold)' });
+        const J = c.__J;
+        G.Coop.begin({ host: 'A', members: [{ uid: 'A', name: 'Ana', dex: 150 }, { uid: 'B', name: 'Bea', dex: 150 }] }, pl, Object.assign({
+          team: () => ({ time: S.time, level: 1, xp: 0, xpNext: 10, kills: 0, bosses: 0, coins: 0, t1: 0, t10: 0 }),
+          syncTeam: tm => { if (tm.time != null) S.time = tm.time; },
+          levelStart: nop, waiting: nop, resume: nop, shiny: nop, over: nop, lost: nop, item: nop, mateLeft: nop
+        }, J.coopApi));
+        function fotograma() {
+          const dt = DT * (anfitrion ? 1 : ritmoInvitado);
+          if (J.state === 'playing') { S.time += dt; G.Rift.update(dt, pl, S.time); if (pl.bonds > 0) J.offerBond(true); }
+          if (bond && --S.eligeF <= 0) { const cb = bond; bond = null; ui.delete('scr-bond'); cb(['a', 'b']); }
+          // Lo que se ve al pintar este fotograma: el aviso «Pausa: …» con tu propio nombre no debe salir nunca.
+          const b = G.Spawner.banner(), m = b && /^Pausa: (.+) eligen? fusión…$/.exec(b.text);
+          if (m && m[1].split(', ').includes(nombre)) S.propios++;
+          if (G.Rift.inArena) { S.estuvo = true; if (J.state === 'held') S.enArenaEnPausa++; } else if (S.estuvo && S.vuelta === null) S.vuelta = f;
+          G.Coop.tick(dt);
+        }
+        return (C[uid] = { S, G, pl, J, EM, fotograma, nuevo: (x, y) => EM.add(enemigo(++nid, x, y, 50)) });
+      }
+      const H = cliente('A', 'Ana', true), I = cliente('B', 'Bea', false);
+      const paso = () => {
+        while (cola.length && cola[0].llega <= f) { const m = cola.shift(); C[m.a].S.recibe(m.de, m.msg); }
+        H.fotograma(); I.fotograma(); f++;
+      };
+      const copias = () => I.EM.all().filter(e => e.remote).map(e => e.id).sort((a, b) => a - b);
+      for (let i = 0; i < n; i++) H.nuevo(40 * i, 120);
+      for (let i = 0; i < 20; i++) paso();
+      const antes = copias().length;
+      I.G.Coop.toHost(['re']);                       // el invitado entra en la grieta: el anfitrión empieza la arena para los dos
+      for (let i = 0; i < 40; i++) paso();
+      const enArena = H.G.Rift.inArena && I.G.Rift.inArena, jefe = H.EM.get(H.G.Rift.arena && H.G.Rift.arena.bossId);
+      const copiaJefe = !!(jefe && I.EM.get(jefe.id)), sinMapa = copias().length === 1;
+      if (pierden) H.G.Rift.arena.t = 1e9; else jefe.dead = true;
+      const listos = () => !H.G.Rift.inArena && !I.G.Rift.inArena && H.J.state === 'playing' && I.J.state === 'playing' && !H.S.eligeF && !I.S.eligeF;
+      for (let i = 0; i < 30 * 30 && !listos(); i++) paso();
+      for (let i = 0; i < 30; i++) paso();
+      const vivos = H.EM.all().filter(e => !e.dead && !e.remote).map(e => e.id).sort((a, b) => a - b), cs = copias();
+      return { antes, enArena, copiaJefe, sinMapa, vivos: vivos.length, copias: cs.length, iguales: vivos.join() === cs.join(), listos: listos(),
+        vueltaA: H.S.vuelta, vueltaB: I.S.vuelta, pausaB: I.S.enArenaEnPausa, dialogos: [H.S.dialogos, I.S.dialogos], bonds: [H.pl.bonds, I.pl.bonds],
+        propios: [H.S.propios, I.S.propios], banderas: H.S.banderas.length + I.S.banderas.length };
+    };
+    const casos = [
+      ['sin latencia', { lat: 0 }], ['150 ms', { lat: 4 }], ['150 ms y el reloj del invitado un 15 % más rápido', { lat: 4, ritmoInvitado: 1.15 }],
+      ['70 ms y el reloj del invitado a la mitad', { lat: 2, ritmoInvitado: 0.5 }],
+      // Los dos eligen en el mismo fotograma: al invitado le llega después un 'hp' que aún le incluye (el anfitrión no ha recibido su 'he').
+      ['150 ms y eligen a la vez', { lat: 4, eligeInvitado: 0.45 }]
+    ].map(([k, o]) => [k, o, enRed(o)]);
+    const base = x => x.antes === 12 && x.enArena && x.copiaJefe && x.sinMapa && x.listos && x.banderas === 0;
+    t('vuelta (coop.js real, red simulada): ganada, el invitado se queda con la copia de los 12 enemigos del mapa (sin latencia, 150 ms, su reloj más rápido o más lento, eligen a la vez)',
+      casos.every(([, , x]) => base(x) && x.vivos === 12 && x.iguales), casos.map(([k, , x]) => ({ k, vivos: x.vivos, copias: x.copias, iguales: x.iguales })));
+    t("vuelta: el invitado vuelve cuando le llega 'af' (lat fotogramas después que el anfitrión) y no se queda en pausa dentro de la arena",
+      casos.every(([, o, x]) => x.pausaB === 0 && x.vueltaB - x.vueltaA >= 0 && x.vueltaB - x.vueltaA <= o.lat + 2),
+      casos.map(([k, , x]) => ({ k, vueltaA: x.vueltaA, vueltaB: x.vueltaB, pausaB: x.pausaB })));
+    t('fusión: los dos eligen (un diálogo cada uno, bonds a 0) y nadie ve su propio nombre en «Pausa: … elige fusión»',
+      casos.every(([, , x]) => x.dialogos.join() === '1,1' && x.bonds.join() === '0,0' && x.propios.join() === '0,0'),
+      casos.map(([k, , x]) => ({ k, dialogos: x.dialogos, bonds: x.bonds, propios: x.propios })));
+    const rapido = enRed({ lat: 2, ritmoInvitado: 2.5 }), perdida = enRed({ lat: 2, pierden: true });
+    t("vuelta: si 'af' no llega a tiempo (reloj del invitado 2,5 veces más rápido), vuelve 3 s después por su cuenta y aun así tiene todas las copias",
+      base(rapido) && rapido.vueltaB < rapido.vueltaA && rapido.vivos === 12 && rapido.iguales && rapido.propios.join() === '0,0',
+      { vueltaA: rapido.vueltaA, vueltaB: rapido.vueltaB, vivos: rapido.vivos, copias: rapido.copias });
+    t('vuelta: perdida (se acaba el tiempo), sin vínculo; el invitado vuelve con el anfitrión y tiene todas las copias',
+      base(perdida) && perdida.vivos === 12 && perdida.iguales && perdida.pausaB === 0 && perdida.vueltaB - perdida.vueltaA >= 0 && perdida.vueltaB - perdida.vueltaA <= 4 &&
+      perdida.dialogos.join() === '0,0', { vueltaA: perdida.vueltaA, vueltaB: perdida.vueltaB, vivos: perdida.vivos, copias: perdida.copias, dialogos: perdida.dialogos });
+  } catch (e) { t('vuelta de la grieta con la red simulada (coop.js real)', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`grieta garantizada: ${r.length} casos bien`);

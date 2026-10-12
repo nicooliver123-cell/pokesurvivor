@@ -16,6 +16,7 @@
  * Cooperativo: lo decide el anfitrión. Mensajes (ver coop.js):
  *   'rift' x y ttl · 'riftx' · 'arena' cfg · 'aw' (ganada) · 'al' (perdida)
  *   y del invitado al anfitrión 're' (he entrado en la grieta).
+ *   MOD nico: 'af' (el anfitrión vuelve al mapa; el invitado vuelve con él, antes de los 'ne').
  */
 G.Rift = (() => {
   // (0.14 hasta el 11-10-2026: más grietas para que se vean los vínculos)
@@ -177,6 +178,7 @@ G.Rift = (() => {
       return;
     }
     arena.endT -= dt;
+    if (!authority() && arena.endT > -3) return;   // MOD nico: el invitado vuelve cuando se lo dice el anfitrión ('af'); si no le llega, 3 s más tarde
     if (arena.endT <= 0) finish();
   }
 
@@ -209,6 +211,7 @@ G.Rift = (() => {
     arena = null;
     G.World.setBiome(a.biome, true);
     G.Weather.clear();
+    if (G.Coop.isHost) G.Coop.broadcast(['af']);   // MOD nico: el invitado vuelve ya y borra sus copias ANTES de que le lleguen los 'ne' de restore()
     if (authority()) G.EnemyMgr.restore(); else G.EnemyMgr.clearRemote();
     G.Projectiles.clear();
     G.Combat.clearFields();
@@ -254,6 +257,7 @@ G.Rift = (() => {
       case 'arena': begin(ev[1]); break;
       case 'aw': won(); break;
       case 'al': lost(); break;
+      case 'af': if (arena) finish(); break;   // MOD nico: el anfitrión ha vuelto al mapa
     }
   }
 

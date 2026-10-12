@@ -45,7 +45,10 @@
  *      reloj hasta la hora elegida (ayuda de depuración: sólo en esta prueba; el juego nunca la
  *      usa); B la recibe en las mismas x e y y no abre ninguna por su cuenta aunque también le
  *      toque; B entra, los dos acaban en la arena, el legendario tiene el 60 % de la vida que
- *      tendría sin el mod y, al vencerlo, los dos tienen un vínculo (bonds === 1).
+ *      tendría sin el mod y, al vencerlo, los dos tienen un vínculo (bonds === 1). Después, la
+ *      vuelta real, con la cuenta atrás de B retrasada 1 s (así fallaba): B vuelve con A ('af'),
+ *      sin quedarse en pausa dentro de la arena, con la copia de todos los enemigos vivos de A,
+ *      y ninguno ve su propio nombre en el aviso «Pausa: … elige fusión».
  *  10. Tickets ganados ×2 (G.MODS.ticketsMult), en plena partida: A (anfitrión) suelta a sus
  *      pies un ticket y un ticket ×10 y los recoge; el contador de la partida sube 1 (es lo que
  *      viaja por la red) y cada uno apunta +2 en su partida guardada. Después, con
@@ -700,7 +703,9 @@ async function guaranteedRift(A, B) {
     b0.x === Math.round(a0.x) && b0.y === Math.round(a0.y) && ga.pide === 1 && gb.pide === 0,
     { horaA, relojAlActivar: aEnHora, abierta: a0, recibida: b0, pideA: ga.pide, pideB: gb.pide });
   report.capturasGrieta = [await shot(A.page, 'A_grieta_garantizada'), await shot(B.page, 'B_grieta_garantizada')];
-  // 3. B entra (el invitado pide entrar y el anfitrión crea la arena para los dos).
+  // 3. B entra (el invitado pide entrar y el anfitrión crea la arena para los dos). Antes, los enemigos del mapa
+  // de A: los guarda durante la arena y los vuelve a anunciar al volver (tienen que llegar a B).
+  const mapaAntes = await A.page.evaluate(() => G.EnemyMgr.all().filter(e => !e.dead && !e.remote).map(e => e.id));
   await B.page.evaluate(() => { const r = G.Rift.rift, p = G.Game.player; p.x = r.x; p.y = r.y - 10; });
   await Promise.all([A, B].map(P => P.page.waitForFunction(() => G.Rift.inArena, null, { timeout: 10000 })));
   await A.page.waitForFunction(() => !!window.__grieta.legendario, null, { timeout: 5000 });
@@ -720,6 +725,23 @@ async function guaranteedRift(A, B) {
     { reloj: Math.round(leg.t * 100) / 100, jugadores: leg.n, vida: leg.max, sinMod: sinMod * (leg.shiny ? 2 : 1), proporcion: +(leg.max / (sinMod * (leg.shiny ? 2 : 1))).toFixed(4), enB: arB.copia });
   await sleep(1300);   // que pase el destello del viaje a la arena
   report.capturasArena = [await shot(A.page, 'A_arena_garantizada'), await shot(B.page, 'B_arena_garantizada')];
+  // La vuelta, vista en cada cliente: cuándo sale de la arena, si se queda en pausa dentro de ella (el invitado,
+  // esperando a que el anfitrión elija su fusión), si se abre su diálogo de fusión y si el aviso «Pausa: … elige
+  // fusión» llega a decir su propio nombre.
+  const VUELTA = `(() => {
+    const W = window.__vuelta = { volvio: null, pausaEnArena: 0, dialogo: false, avisosPropios: [] };
+    const yo = G.Social.me && G.Social.me.name;
+    W.timer = setInterval(() => {
+      const enArena = G.Rift.inArena;
+      if (!enArena && W.volvio === null) W.volvio = Date.now();
+      if (enArena && G.Game.state === 'held') W.pausaEnArena++;
+      if (G.UI.isOpen('scr-bond')) W.dialogo = true;
+      const b = G.Spawner.banner(), m = b && /^Pausa: (.+) eligen? fusión…$/.exec(b.text);
+      if (m && yo && m[1].split(', ').includes(yo) && !W.avisosPropios.includes(b.text)) W.avisosPropios.push(b.text);
+    }, 10);
+    return yo;
+  })()`;
+  const nombres = { A: await A.page.evaluate(VUELTA), B: await B.page.evaluate(VUELTA) };
   // 4. Lo vence el anfitrión (es quien decide); 'aw' llega al invitado.
   await A.page.evaluate(() => { const e = G.EnemyMgr.get(G.Rift.arena.bossId); e.shield = 0; e.hurt(e.hp + 10); });
   const vinculo = P => P.page.waitForFunction(() => G.Rift.arena && G.Rift.arena.phase === 'won', null, { timeout: 8000 })
@@ -727,11 +749,45 @@ async function guaranteedRift(A, B) {
   const [bA, bB] = await Promise.all([vinculo(A), vinculo(B)]);   // a la vez: la fase 'won' dura 5 s
   const bonds = { A: bA, B: bB };
   check('Grieta garantizada: al vencer al legendario, los dos tienen un vínculo (bonds === 1)', bonds.A === 1 && bonds.B === 1, bonds);
+  // La cuenta atrás de B (5 s desde que le llega 'aw') va por detrás de la de A: lo normal con latencia o con el envío
+  // cada 1/15 s, pero aquí, con los dos en el mismo PC, a veces va por delante. Se retrasa 1 s (sólo en la prueba) para
+  // que sea siempre el caso que fallaba: B volvía por su cuenta después de recibir los enemigos que A anunciaba al volver.
+  const retrasoB = await B.page.evaluate(() => { const a = G.Rift.arena; if (!a || a.phase !== 'won') return null; a.endT += 1; return Math.round(a.endT * 100) / 100; });
   await Promise.all([A, B].map(P => P.page.waitForFunction(() => !G.Rift.inArena, null, { timeout: 15000 })));
   const fin = { A: await leer(A), B: await leer(B) };
   for (const P of [A, B]) await P.page.evaluate(() => clearInterval(window.__grieta.timer));
   check('Grieta garantizada: los dos vuelven al mapa y no se ha abierto ninguna otra', fin.A.grietas.length === 1 && fin.B.grietas.length === 1 && fin.B.pide === 0,
     { A: fin.A.grietas.length, B: fin.B.grietas.length });
+  // 5. La vuelta real (no simulada). La marca el anfitrión ('af', antes de anunciar con 'ne' los enemigos que guardó):
+  // B tiene que volver con A, no quedarse en pausa dentro de la arena, y quedarse con la copia de todos los enemigos
+  // vivos de A. Las fusiones las elige solo el arnés (UNBLOCK); se espera a que los dos sigan jugando.
+  await Promise.all([A, B].map(P => P.page.waitForFunction(() => !G.Rift.inArena && G.Game.state === 'playing' && !G.UI.isOpen('scr-bond'), null, { timeout: 15000 })));
+  await sleep(1000);
+  const vivosA = () => A.page.evaluate(() => G.EnemyMgr.all().filter(e => !e.dead && !e.remote).map(e => e.id));
+  const vA0 = await vivosA();
+  await sleep(700);
+  const copiasB = new Set(await B.page.evaluate(() => G.EnemyMgr.all().filter(e => e.remote && !e.dead).map(e => e.id)));
+  const vA1 = new Set(await vivosA());
+  const vuelta = {};
+  for (const P of [A, B]) vuelta[P.tag] = await P.page.evaluate(() => { const W = window.__vuelta; clearInterval(W.timer); return W; });
+  const esperadas = vA0.filter(id => vA1.has(id)), faltan = esperadas.filter(id => !copiasB.has(id));
+  const delMapa = mapaAntes.filter(id => vA1.has(id)), faltanMapa = delMapa.filter(id => !copiasB.has(id));
+  // Copias de B que no están vivas en A en ninguna de las dos lecturas (informativo: puede ser uno nacido y caído entre ellas).
+  const deMas = [...copiasB].filter(id => !vA1.has(id) && !vA0.includes(id));
+  report.vueltaGrieta = { nombres, vuelta, retrasoB, mapaAntes: mapaAntes.length, delMapaVivos: delMapa.length, faltanDelMapa: faltanMapa.length,
+    vivosEnA: esperadas.length, copiasEnB: copiasB.size, faltan: faltan.slice(0, 20), copiasDeMas: deMas.slice(0, 20) };
+  report.capturasVuelta = [await shot(A.page, 'A_vuelta_grieta'), await shot(B.page, 'B_vuelta_grieta')];
+  check('Vuelta de la grieta (real): B tiene la copia de todos los enemigos vivos de A, también de los del mapa que A guardó durante la arena',
+    delMapa.length > 0 && esperadas.length > 0 && faltan.length === 0 && faltanMapa.length === 0,
+    `del mapa antes de la arena ${mapaAntes.length}, siguen vivos en A ${delMapa.length} (sin copia en B: ${faltanMapa.length}); ` +
+    `vivos en A ${esperadas.length}, sin copia en B ${faltan.length}; copias en B ${copiasB.size} (de enemigos que A no tiene en ninguna de las dos lecturas: ${deMas.length})`);
+  const desfase = vuelta.A.volvio && vuelta.B.volvio ? vuelta.B.volvio - vuelta.A.volvio : null;
+  check('Vuelta de la grieta: B vuelve con A (lo marca el anfitrión) y no se queda en pausa dentro de la arena; eligen la fusión a la vez',
+    retrasoB !== null && desfase !== null && Math.abs(desfase) < 500 && vuelta.B.pausaEnArena === 0,
+    { cuentaAtrasDeBconElRetraso: retrasoB, msBdespuesDeA: desfase, muestrasDeBenPausaEnLaArena: vuelta.B.pausaEnArena, dialogoA: vuelta.A.dialogo, dialogoB: vuelta.B.dialogo });
+  check('Fusión: nadie ve su propio nombre en el aviso «Pausa: … elige fusión» (A y B abren su diálogo)',
+    vuelta.A.dialogo && vuelta.B.dialogo && !vuelta.A.avisosPropios.length && !vuelta.B.avisosPropios.length,
+    { nombres, dialogoA: vuelta.A.dialogo, dialogoB: vuelta.B.dialogo, propiosA: vuelta.A.avisosPropios, propiosB: vuelta.B.avisosPropios });
   report.grietaGarantizada = { horaA, horaB, abierta: a0, recibida: b0, legendario: leg, sinMod, esperada, bonds, ttl: TTL };
 }
 

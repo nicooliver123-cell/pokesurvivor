@@ -220,7 +220,7 @@ G.Game = (() => {
       if (holdBy.length) {
         if (state === 'playing') state = 'held';
         if (pl && pl.bonds > 0) offerBond(true);      // si tú también tienes vínculo, eliges a la vez
-        const others = mine ? holdBy.filter(n => n !== (G.Social.me && G.Social.me.name)) : holdBy;
+        const others = holdBy.filter(n => n !== (G.Social.me && G.Social.me.name));   // MOD nico: nunca tu propio nombre (antes sólo se quitaba con tu diálogo ya abierto, y holdStart() llega aquí antes de abrirlo)
         if (!mine && others.length) G.Spawner.say('Pausa: ' + others.join(', ') + ' ' + (others.length > 1 ? 'eligen' : 'elige') + ' fusión…', 999, true);
       } else {
         if (state === 'held') state = 'playing';
