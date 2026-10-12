@@ -101,14 +101,14 @@ G.UI = (() => {
 
   // ---------------- aviso legal ----------------
 
-  const CONTACT = 'jpieratorregrosa@gmail.com';
-  const REPO = 'https://github.com/JPTER78/pokesurvivor';
+  const CONTACT = 'https://github.com/nicooliver123-cell/pokesurvivor/issues';   // MOD nico: avisos del fork, sin correo personal
+  const REPO = 'https://github.com/nicooliver123-cell/pokesurvivor';   // MOD nico: repo del fork (el original sale como atribución)
   let legalBack = null;
 
   function openLegal() {
     legalBack = SCREENS.find(s => isOpen(s)) || null;
-    $('legal-mail').textContent = CONTACT;
-    $('legal-mail').href = 'mailto:' + CONTACT + '?subject=Pok%C3%A9Survivor';
+    $('legal-mail').textContent = CONTACT.replace('https://', '');   // MOD nico: un enlace, no un correo
+    $('legal-mail').href = CONTACT; $('legal-mail').target = '_blank'; $('legal-mail').rel = 'noopener';   // MOD nico
     $('legal-repo').textContent = REPO.replace('https://', '');
     $('legal-repo').href = REPO;
     const canDelete = G.DB.loggedIn && !G.DB.guest;

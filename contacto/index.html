@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><!-- MOD nico: versión no oficial, que no compita en buscadores -->
 <title>Contacto · PokéSurvivor</title>
-<meta name="description" content="Cómo contactar con PokéSurvivor: correo, fallos y sugerencias.">
+<meta name="description" content="Cómo contactar con esta versión modificada de PokéSurvivor: fallos, sugerencias y retirada de contenido.">
 <meta name="theme-color" content="#0a1430">
 <link rel="icon" href="../favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="48x48" href="../assets/icons/icon-48.png"><link rel="icon" type="image/png" sizes="96x96" href="../assets/icons/icon-96.png">
 <link rel="stylesheet" href="../css/pages.css">
@@ -13,10 +13,8 @@
   .contact { list-style: none; padding: 0; display: grid; gap: 10px; }
   .contact li { background: rgba(5,10,30,.45); border: 2px solid rgba(244,248,255,.25); border-radius: 10px; padding: 12px 14px; margin: 0; }
   .contact b { display: block; color: var(--gold); font-family: 'Pixelify', sans-serif; font-size: 19px; }
-  .contact .mail { font-size: 18px; word-break: break-all; }
   .contact .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
   .btn.small { font-size: 15px; padding: 6px 14px; }
-  #copied { color: #5fe08a; margin-left: 6px; }
   [data-l="en"] { display: none; }
   html[lang="en"] [data-l="es"] { display: none; }
   html[lang="en"] [data-l="en"] { display: initial; }
@@ -44,23 +42,19 @@
   <h1 data-l="en">Contact</h1>
   <p class="lead" data-l="es">¿Has encontrado un fallo, tienes una idea o quieres decirnos algo? Escríbenos.</p>
   <p class="lead" data-l="en">Found a bug, have an idea or want to tell us something? Get in touch.</p>
+  <!-- MOD nico: contacto de esta versión modificada (avisos de su repositorio, sin correo personal); el original sólo como atribución -->
   <ul class="contact">
     <li>
-      <b><span data-l="es">Correo</span><span data-l="en">Email</span></b>
-      <span class="mail" id="mail">jpieratorregrosa@gmail.com</span>
-      <div class="row">
-        <a class="btn small" href="mailto:jpieratorregrosa@gmail.com?subject=Pok%C3%A9Survivor"><span data-l="es">Escribir un correo</span><span data-l="en">Send an email</span></a>
-        <button class="btn small ghost" id="copy" type="button"><span data-l="es">Copiar</span><span data-l="en">Copy</span></button>
-        <span id="copied"></span>
-      </div>
-      <p data-l="es">Para cualquier cosa: dudas, problemas con tu cuenta, sugerencias o si eres titular de derechos y quieres que retiremos algo.</p>
-      <p data-l="en">For anything: questions, account problems, suggestions, or if you are a rights holder and want something removed.</p>
+      <b><span data-l="es">Avisos en GitHub</span><span data-l="en">Issues on GitHub</span></b>
+      <p data-l="es">Abre un aviso en el repositorio de esta versión para cualquier cosa: fallos, sugerencias, problemas con tu cuenta o si eres titular de derechos y quieres que retiremos algo.</p>
+      <p data-l="en">Open an issue in this version's repository for anything: bugs, suggestions, account problems, or if you are a rights holder and want something removed.</p>
+      <div class="row"><a class="btn small" href="https://github.com/nicooliver123-cell/pokesurvivor/issues" target="_blank" rel="noopener"><span data-l="es">Abrir un aviso</span><span data-l="en">Open an issue</span></a></div>
     </li>
     <li>
-      <b><span data-l="es">Fallos y sugerencias</span><span data-l="en">Bugs and suggestions</span></b>
-      <p data-l="es">Si tienes cuenta de GitHub, puedes abrir un aviso en el repositorio del juego.</p>
-      <p data-l="en">If you have a GitHub account, you can open an issue in the game's repository.</p>
-      <div class="row"><a class="btn small ghost" href="https://github.com/JPTER78/pokesurvivor/issues" target="_blank" rel="noopener">GitHub</a></div>
+      <b><span data-l="es">Juego original</span><span data-l="en">Original game</span></b>
+      <p data-l="es">Esta es una versión modificada no oficial basada en PokéSurvivor de JPTER78 (código MIT). Su autor no la mantiene ni responde de ella: no le escribas por fallos de esta versión.</p>
+      <p data-l="en">This is an unofficial modified version based on PokéSurvivor by JPTER78 (MIT code). Its author does not maintain it and is not responsible for it: please don't contact them about bugs in this version.</p>
+      <div class="row"><a class="btn small ghost" href="https://github.com/JPTER78/pokesurvivor" target="_blank" rel="noopener"><span data-l="es">PokéSurvivor de JPTER78</span><span data-l="en">PokéSurvivor by JPTER78</span></a></div>
     </li>
     <li>
       <b><span data-l="es">Criptomonedas</span><span data-l="en">Cryptocurrencies</span></b>
@@ -70,13 +64,5 @@
   </ul>
 </article>
 </main>
-<script>
-  document.getElementById('copy').onclick = function () {
-    var t = document.getElementById('mail').textContent;
-    var ok = function () { document.getElementById('copied').textContent = document.documentElement.lang === 'en' ? 'Copied!' : '¡Copiado!'; };
-    if (navigator.clipboard) navigator.clipboard.writeText(t).then(ok, function () {});
-    else { var r = document.createRange(); r.selectNodeContents(document.getElementById('mail')); var s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); ok(); }
-  };
-</script>
 </body>
 </html>

@@ -7,7 +7,7 @@ G.SettingsUI = (() => {
   const $ = G.UI.$;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const VERSION = '1.2 · 2026-10-09';
-  const REPO = 'https://github.com/JPTER78/pokesurvivor';
+  const REPO = 'https://github.com/nicooliver123-cell/pokesurvivor';   // MOD nico: repo del fork
   let tab = 'sound';
 
   function init() {
@@ -98,6 +98,7 @@ G.SettingsUI = (() => {
         + `<p class="sub">Juego de fans <b>gratuito y sin ánimo de lucro</b>: sin anuncios ni compras. Pokémon y sus personajes son propiedad de Nintendo, Creatures y GAME FREAK; este proyecto no está afiliado a ellos.</p>`
         + section('Créditos')
         + `<ul class="credits">
+             <li><b>Versión modificada no oficial</b> basada en <a href="https://github.com/JPTER78/pokesurvivor" target="_blank" rel="noopener">PokéSurvivor de JPTER78</a> (MIT).</li><!-- MOD nico: atribución -->
              <li><b>Sprites:</b> PMD SpriteCollab y sus artistas (CC BY-NC 4.0).</li>
              <li><b>Datos de los Pokémon:</b> PokéAPI.</li>
              <li><b>Música y sonidos:</b> originales, generados por el propio juego.</li>
