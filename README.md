@@ -6,6 +6,12 @@
 > los Pokémon más grandes son más pequeños en partida (sus sprites se muestran a
 > escala reducida). No usa la infraestructura del juego original. Detalles en
 > [CLAUDE.md](CLAUDE.md); licencias y créditos en [LICENSE](LICENSE) y [CREDITS.md](CREDITS.md).
+>
+> **Jugar:** https://nicooliver123-cell.github.io/pokesurvivor/ · Fallos, sugerencias
+> y retiradas de contenido: [avisos del repositorio](https://github.com/nicooliver123-cell/pokesurvivor/issues).
+>
+> **Aquí se empieza de cero.** Es otra web y otra base de datos (un Firebase propio),
+> así que no se traen las cuentas, la colección ni el progreso del juego oficial.
 
 Bullet-heaven con Pokémon al estilo de Survivor.io y Megabonk, con sprites de
 *Pokémon Mundo Misterioso*, capa roguelike, **966 Pokémon de las 9 generaciones**,
@@ -65,8 +71,8 @@ Cada día hay **misiones** (y semanales) que dan tickets y monedas; los
 **logros** dan medallas y títulos, y tu **perfil** enseña tus 3 Pokémon
 favoritos, tus marcas y tus medallas. En las runs encuentras **objetos** (Restos,
 Cinta Elección...) y tus movimientos **evolucionan** al máximo nivel. Los
-enemigos tienen personalidad: curan, ponen escudos, llaman a su manada o atacan
-con aviso en el suelo.
+enemigos tienen personalidad: ponen escudos, llaman a su manada o atacan
+con aviso en el suelo (en esta versión ninguno cura).
 
 Las **mejoras** son de cada Pokémon. El **gacha** va con **tickets** que se
 ganan jugando (×1 de algunos Pokémon, ×10 de jefes y legendarios), y se tira
