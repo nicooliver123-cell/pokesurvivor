@@ -110,8 +110,10 @@ G.Gacha = (() => {
         if (isNew) save.owned[mon.dex] = { at: Date.now(), from: 'gacha' };
         else refund = REFUND[rarity];
       }
+      const evo = !isNew && G.MODS && G.MODS.evolucionDeRepetido ? G.MODS.evolucionDeRepetido(save, mon.dex, shiny) : 0; if (evo) refund = 0;   // MOD nico: repetido -> su evolución
       save.coins += refund;
       out.push({ dex: mon.dex, rarity, shiny, isNew, refund });
+      if (evo) out[out.length - 1].evo = evo;   // MOD nico
     }
     save.stats.pulls = (save.stats.pulls || 0) + n;
     return out;

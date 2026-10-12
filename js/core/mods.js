@@ -101,18 +101,82 @@ G.MODS = {
    * la grieta los sortea el anfitrión; el gacha, cada uno el suyo. 1 = como el original. */
   shinyMult: 1.5,
 
+  /* Pokémon REPETIDO en el gacha (decisión de Nico):
+   *   - Repetido normal: desbloquea su siguiente fase inmediata que no tengas (con varias ramas,
+   *     una de las que te faltan al azar: Eevee da sus 8 evoluciones, una por repetido).
+   *   - Repetido SHINY (ya tenías ese shiny): su siguiente fase en SHINY (y la normal, si te
+   *     faltaba), entre las que tienen sprite shiny y aún no tienes en shiny. Las 4 evoluciones
+   *     sin sprite shiny (Greedent, Barraskewda, Oinkologne, Naclstack) no cuentan: un shiny
+   *     repetido vale el triple y no se rebaja a un desbloqueo normal.
+   *   - Si no queda ninguna o la especie no evoluciona: Pokémonedas, como el original (un
+   *     shiny repetido, el triple).
+   *   - Un shiny nuevo de una especie que ya tienes en normal sigue siendo NUEVO (no es repetido).
+   *   - En una tirada ×10 se miran en orden; el pity no cambia. Quedan apuntados con from 'evo'.
+   *   - Datos: js/data/evolutions.js (G.EVO, de tools/nico/evoluciones.js). Si falta, todo como el
+   *     original. Sólo el gacha: el shiny salvaje repetido y el rescate no cambian.
+   * false = como el original. */
+  repetidoDaEvolucion: true,
+
   /** spawner.js, rift.js y gacha.js: la probabilidad de shiny `p` con el ajuste (como mucho 1). */
   probShiny(p) {
     const k = +this.shinyMult;
     return k > 0 && isFinite(k) ? Math.min(1, p * k) : p;
   },
 
+  /** gacha.js, pull(): `dex` ha salido repetido (`shiny`: ya tenías ese shiny). Si le queda una
+   *  evolución por desbloquear, la apunta en `save` (from 'evo') y devuelve su dex; si no, 0 (y
+   *  pull() da las monedas del original). Con varias ramas, una de las que faltan al azar. */
+  evolucionDeRepetido(save, dex, shiny) {
+    if (!this.repetidoDaEvolucion || !G.EVO || !save || !save.owned) return 0;
+    const hijos = G.EVO[dex];
+    if (!Array.isArray(hijos)) return 0;
+    const meta = G.SPRITE_META || {};
+    const enJuego = d => !!(G.DEX_BY && G.DEX_BY[d] && meta[d]);
+    const conShiny = d => (G.Sprites && G.Sprites.hasShiny ? G.Sprites.hasShiny(d) : !!meta[d].sh);
+    save.shiny = save.shiny || {};
+    const faltan = hijos.filter(d => enJuego(d) && (shiny ? conShiny(d) && !save.shiny[d] : !save.owned[d]));
+    if (!faltan.length) return 0;
+    const d = faltan.length === 1 ? faltan[0] : faltan[Math.min(faltan.length - 1, Math.floor(Math.random() * faltan.length))];
+    const at = Date.now();
+    if (!save.owned[d]) save.owned[d] = { at, from: 'evo' };
+    if (shiny) save.shiny[d] = { at, from: 'evo' };
+    return d;
+  },
+
+  /** Texto de la carta de un repetido que desbloquea su evolución (`r`: resultado de pull, con `evo`). */
+  textoEvolucion(r) {
+    const n = ((G.DEX_BY && G.DEX_BY[r.evo]) || {}).name || '';
+    return '¡Repetido! Desbloqueas ' + n + (r.shiny ? ' shiny' : '');
+  },
+
+  /** gacha-ui.js, al pintar la carta `card` de ese repetido: el texto y la evolución en pequeño. */
+  marcarEvolucion(card, r) {
+    const tag = card && card.querySelector && card.querySelector('.tag');
+    if (!tag || !r || !G.DEX_BY || !G.DEX_BY[r.evo]) return;
+    tag.textContent = '';
+    const s = document.createElement('span');
+    s.className = 'new';
+    s.textContent = this.textoEvolucion(r);
+    tag.appendChild(s);
+    if (G.UI && G.UI.spriteCanvas) {
+      const cv = G.UI.spriteCanvas(r.evo, 40, 40, { scale: 1, shiny: !!r.shiny });
+      cv.style.cssText = 'display:block;margin:2px auto 0;width:40px;height:40px';
+      tag.appendChild(cv);
+    }
+  },
+
+  /** La nota de los repetidos en el cartel del gacha, con repetidoDaEvolucion. */
+  NOTA_REPETIDOS: '· Un repetido desbloquea su siguiente evolución si aún no la tienes (si es shiny, en shiny); si ya no le queda ninguna, da Pokémonedas (un shiny, el triple).',
+
   /** gacha-ui.js, refresh(): el cartel de probabilidades (su HTML ya pintado) con el % de shiny
-   *  del ajuste. Si upstream cambia ese texto, no toca nada (tools/nico/check.js lo vigila). */
+   *  del ajuste y, con repetidoDaEvolucion, la nota de los repetidos. Si upstream cambia esos
+   *  textos, no toca nada (tools/nico/check.js lo vigila). */
   notasGacha(html) {
     if (typeof html !== 'string' || !G.Gacha) return html;
     const pct = +(this.probShiny(G.Gacha.SHINY_RATE) * 100).toFixed(2) + '%';
-    return html.replace('<span>1%</span>', '<span>' + pct + '</span>');
+    let h = html.replace('<span>1%</span>', '<span>' + pct + '</span>');
+    if (this.repetidoDaEvolucion && G.EVO) h = h.replace('· Los repetidos dan Pokémonedas (los shiny repetidos, el triple).', this.NOTA_REPETIDOS);
+    return h;
   },
 
   /** Multiplicador de tickets saneado: entero ≥ 1 (cualquier otro valor, 1). */

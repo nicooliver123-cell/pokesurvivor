@@ -32,7 +32,9 @@
  *  10. Gacha y tickets: tickets ganados ×2 (bankTickets, syncTeam y la recogida de game.js, los
  *      premios de progress.js; sin cobro doble, sin restas, sin tocar las definiciones ni traer dos
  *      veces la partida oficial) y shiny ×1,5 (el gacha real sembrado, rollShiny de spawner.js y la línea
- *      del legendario de rift.js tal cual, y el cartel del gacha con el refresh() real de gacha-ui.js).
+ *      del legendario de rift.js tal cual, y el cartel del gacha con el refresh() real de gacha-ui.js) y
+ *      repetido -> su evolución (js/data/evolutions.js sin ciclos y sólo con especies del juego; pull() real
+ *      con las tiradas guionizadas: Bulbasaur, Eevee, shiny, ×10 en orden, ramas; la carta y el inglés).
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -173,8 +175,9 @@ if (!process.argv.includes('--sin-paquete')) {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 const minS = min.toString('utf8');
-if (['curacionEnemiga', 'anchoMaxJugador', 'grietaGarantizadaAntesDe', 'ticketsMult', 'shinyMult'].every(k => minS.includes(k))) ok('el paquete incluye js/core/mods.js');
+if (['curacionEnemiga', 'anchoMaxJugador', 'grietaGarantizadaAntesDe', 'ticketsMult', 'shinyMult', 'repetidoDaEvolucion'].every(k => minS.includes(k))) ok('el paquete incluye js/core/mods.js');
 else bad('el paquete no incluye js/core/mods.js (o una versión vieja)');
+if (minS.includes('G.EVO={1:[2],')) ok('el paquete incluye js/data/evolutions.js'); else bad('el paquete no incluye js/data/evolutions.js');
 if (minS.includes('pokesurvivor-partida') && minS.includes('imp-box')) ok('el paquete incluye el importador (js/core/importar.js y js/ui/importar-ui.js)');
 else bad('el paquete no incluye js/core/importar.js o js/ui/importar-ui.js');
 
@@ -225,7 +228,12 @@ const HOOKS = [
   ['js/systems/rift.js', /shiny: G\.Sprites\.hasShiny\(mon\.dex\) && Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(1 \/ 512\) : 1 \/ 512\),\s*\/\/ MOD nico/, 'shiny ×1,5: legendario de la grieta'],
   ['js/systems/gacha.js', /Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(SHINY_RATE\) : SHINY_RATE\)\);\s*\/\/ MOD nico/, 'shiny ×1,5: gacha'],
   ['js/ui/gacha-ui.js', /<span>1%<\/span><\/div>[\s\S]*?<\/p>`;\r?\n\s*if \(G\.MODS && G\.MODS\.notasGacha\) \$\('gacha-rates'\)\.innerHTML = G\.MODS\.notasGacha\(\$\('gacha-rates'\)\.innerHTML\);\s*\/\/ MOD nico/,
-    'shiny ×1,5: el cartel del gacha (el «1%» de upstream sigue ahí y el gancho lo cambia después de pintarlo)']
+    'shiny ×1,5: el cartel del gacha (el «1%» de upstream sigue ahí y el gancho lo cambia después de pintarlo)'],
+  ['dev.html', /src="js\/data\/sprites-meta\.js"><\/script>\r?\n<script defer src="js\/data\/evolutions\.js"><\/script><!-- MOD nico/, 'repetidos: evolutions.js se carga justo después de sprites-meta.js'],
+  ['js/systems/gacha.js', /else refund = REFUND\[rarity\];\r?\n\s*\}\r?\n\s*const evo = !isNew && G\.MODS && G\.MODS\.evolucionDeRepetido \? G\.MODS\.evolucionDeRepetido\(save, mon\.dex, shiny\) : 0; if \(evo\) refund = 0;\s*\/\/ MOD nico[^\n]*\n\s*save\.coins \+= refund;\r?\n\s*out\.push\(\{ dex: mon\.dex, rarity, shiny, isNew, refund \}\);\r?\n\s*if \(evo\) out\[out\.length - 1\]\.evo = evo;\s*\/\/ MOD nico/,
+    'repetidos: pull() pregunta por la evolución antes de dar las monedas y la apunta en el resultado'],
+  ['js/ui/gacha-ui.js', /<div class="tag">\$\{tag\}<\/div>`\);\r?\n\s*if \(r\.evo && G\.MODS && G\.MODS\.marcarEvolucion\) G\.MODS\.marcarEvolucion\(c, r\);\s*\/\/ MOD nico/, 'repetidos: la carta enseña la evolución desbloqueada'],
+  ['js/ui/gacha-ui.js', /· Los repetidos dan Pokémonedas \(los shiny repetidos, el triple\)\.<br>/, 'repetidos: la nota de upstream que cambia notasGacha() sigue ahí']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -1209,6 +1217,20 @@ ${fTicket}      }
     return { c, G: c.G, R };
   }
   const trozoDe = (f, re, que) => { const m = rd(f).match(re); if (!m) throw new Error(`no encuentro en ${f}: ${que}`); return m[0]; };
+  /** El cartel de probabilidades que pinta el refresh() real de js/ui/gacha-ui.js, con un DOM mínimo. */
+  function cartelGacha({ mult = 1.5, evo = true, repetidos = true } = {}) {
+    const { c, G } = gacha(evo ? ['js/data/evolutions.js'] : []);
+    G.MODS.shinyMult = mult; G.MODS.repetidoDaEvolucion = repetidos;
+    const els = {};
+    const el = id => els[id] || (els[id] = { id, innerHTML: '', textContent: '', disabled: false, style: {}, classList: { toggle() {}, add() {}, remove() {} }, appendChild() {} });
+    G.UI = { $: el, show() {}, stars: () => '*', spriteCanvas: () => ({}), refreshCoins() {} };
+    G.Icons = { html: k => `[${k}]` };
+    G.DB = { save: { owned: {}, shiny: {}, pity: {}, tickets: { t1: 0, t10: 0 } } };
+    c.document = { querySelectorAll: () => [] };
+    vm.runInContext(rd('js/ui/gacha-ui.js'), c, { filename: 'js/ui/gacha-ui.js' });
+    G.GachaUI.open();
+    return els['gacha-rates'].innerHTML;
+  }
   try {
     const M = nuevoMods().G.MODS;
     const p = [1 / 4096, 1 / 512, 1 / 100].map(x => M.probShiny(x));
@@ -1257,23 +1279,150 @@ ${fTicket}      }
     medidas.push(`grieta ×${r15} (con 1: ×${r1})`);
     t(`legendario de la grieta (start() real): ${r15} veces 1/512 con 1,5 (1,35-1,65); con 1, ${r1} (0,85-1,15)`, r15 >= 1.35 && r15 <= 1.65 && r1 >= 0.85 && r1 <= 1.15, { r15, r1 });
     // Cartel del gacha: refresh() real de js/ui/gacha-ui.js con un DOM mínimo.
-    const cartel = mult => {
-      const { c, G } = gacha();
-      G.MODS.shinyMult = mult;
-      const els = {};
-      const el = id => els[id] || (els[id] = { id, innerHTML: '', textContent: '', disabled: false, style: {}, classList: { toggle() {}, add() {}, remove() {} }, appendChild() {} });
-      G.UI = { $: el, show() {}, stars: () => '*', spriteCanvas: () => ({}), refreshCoins() {} };
-      G.Icons = { html: k => `[${k}]` };
-      G.DB = { save: { owned: {}, shiny: {}, pity: {}, tickets: { t1: 0, t10: 0 } } };
-      c.document = { querySelectorAll: () => [] };
-      vm.runInContext(rd('js/ui/gacha-ui.js'), c, { filename: 'js/ui/gacha-ui.js' });
-      G.GachaUI.open();
-      return els['gacha-rates'].innerHTML;
-    };
-    const c15 = cartel(1.5), c1 = cartel(1);
+    const c15 = cartelGacha({ mult: 1.5 }), c1 = cartelGacha({ mult: 1 });
     t('cartel del gacha (refresh() real): «1.5%» de shiny con 1,5 y «1%» con 1, como el original', /\[shiny\] Shiny<\/span><span>1\.5%<\/span>/.test(c15) && !c15.includes('<span>1%</span>') &&
       /\[shiny\] Shiny<\/span><span>1%<\/span>/.test(c1), c15.slice(c15.indexOf('[shiny]'), c15.indexOf('[shiny]') + 60));
   } catch (e) { t('shiny con el código real', false, String(e && e.stack || e)); }
+
+  // ---- C. Repetido -> su evolución (js/data/evolutions.js y pull() real con las tiradas guionizadas) ----
+  try {
+    const { G } = gacha(['js/data/evolutions.js']);
+    const E = G.EVO, enJuego = d => !!(G.DEX_BY[d] && G.SPRITE_META[d]);
+    const padres = Object.keys(E).map(Number), hijos = padres.flatMap(p => E[p]);
+    const malos = padres.filter(p => !enJuego(p) || !Array.isArray(E[p]) || !E[p].length || E[p].some(h => !enJuego(h) || h === p) || new Set(E[p]).size !== E[p].length);
+    let ciclo = null;
+    for (const p of padres) {
+      const pila = [[p, [p]]];
+      while (pila.length && !ciclo) { const [n, cam] = pila.pop(); for (const h of E[n] || []) { if (cam.includes(h)) ciclo = [...cam, h]; else pila.push([h, [...cam, h]]); } }
+    }
+    const conDosPadres = hijos.filter((h, i) => hijos.indexOf(h) !== i);
+    t(`evolutions.js: ${padres.length} especies con evolución y ${hijos.length} evoluciones, todas del juego (G.DEX_BY con G.SPRITE_META), sin ciclos ni hijos con dos padres`,
+      padres.length > 400 && !malos.length && !ciclo && !conDosPadres.length, { malos, ciclo, conDosPadres });
+    t('evolutions.js: Eevee con sus 8, Tyrogue con 3, Pidove -> Unfezant (sin Tranquill, que no está en el juego) y Meowth -> Persian y Perrserker (forma regional)',
+      E[133].join() === '134,135,136,196,197,470,471,700' && E[236].join() === '106,107,237' && E[519].join() === '521' && !enJuego(520) && E[52].join() === '53,863',
+      { 133: E[133], 236: E[236], 519: E[519], 52: E[52] });
+  } catch (e) { t('datos de js/data/evolutions.js', false, String(e && e.stack || e)); }
+  try {
+    const { G, R } = gacha(['js/data/evolutions.js']);
+    const RE = G.Gacha.REFUND;
+    // Valores de Math.random para que la tirada sea `dex` (normal o shiny) en su banner y, si hay que elegir rama, `rama`.
+    const BANDA = [0, 45, 75, 92, 98.5, 100];
+    const guion = (dex, shiny = false, rama) => {
+      const p = G.DEX_BY[dex], lista = G.Gacha.pool(p.rarity, p.gen), i = lista.findIndex(x => x.dex === dex);
+      if (i < 0) throw new Error('no está en su banner: ' + dex);
+      const v = [(BANDA[p.rarity - 1] + BANDA[p.rarity]) / 200, (i + 0.5) / lista.length];
+      if (G.Sprites.hasShiny(dex)) v.push(shiny ? 0 : 0.999);
+      if (rama !== undefined) v.push(rama);
+      return v;
+    };
+    const partida = (owned = [], shinies = [], coins = 1000) => ({ coins, tickets: { t1: 500, t10: 0 }, stats: {}, pity: {},
+      owned: Object.fromEntries(owned.map(d => [d, { at: 1, from: 'gacha' }])), shiny: Object.fromEntries(shinies.map(d => [d, { at: 1, from: 'gacha' }])) });
+    /** Tira `n` en el banner del primero, con el guion de cada [dex, shiny?, rama?]; falla si sobra algún valor del guion. */
+    const tira = (save, dexes, n = dexes.length) => {
+      R.cola = dexes.flatMap(x => guion(...x));
+      const res = G.Gacha.pull(save, n, G.DEX_BY[dexes[0][0]].gen);
+      const sobran = R.cola.length;
+      R.cola = [];
+      if (sobran) throw new Error(`sobran ${sobran} valores del guion`);
+      return res;
+    };
+    const res1 = (s, ...x) => tira(s, [x])[0];
+    t('por defecto: repetidoDaEvolucion = true', G.MODS.repetidoDaEvolucion === true);
+    // Bulbasaur repetido.
+    let s = partida([1]);
+    let x = res1(s, 1);
+    t('repetido de Bulbasaur sin Ivysaur: desbloquea Ivysaur (from evo), 0 monedas, gasta su ticket',
+      x.dex === 1 && !x.isNew && x.evo === 2 && x.refund === 0 && s.coins === 1000 && s.owned[2] && s.owned[2].from === 'evo' && s.tickets.t1 === 499 && !s.shiny[2], x);
+    x = res1(s, 1);
+    t(`repetido de Bulbasaur con Ivysaur: las monedas del original (${RE[1]}) y no desbloquea Venusaur`, !x.evo && x.refund === RE[1] && s.coins === 1000 + RE[1] && !s.owned[3], x);
+    // Eevee: 8 repetidos -> sus 8 evoluciones, cada una entre las que faltan; el noveno, monedas.
+    s = partida([133]);
+    const vistas = [];
+    let soloFaltan = true;
+    for (const v of [0, 0.999, 0.5, 0.3, 0.999, 0, 0.7, 0.2]) {
+      const antes = new Set(Object.keys(s.owned).map(Number));
+      const quedan = G.EVO[133].filter(d => !s.owned[d]).length;   // con una sola, no se sortea
+      const y = tira(s, [quedan > 1 ? [133, false, v] : [133]])[0];
+      if (!y.evo || antes.has(y.evo) || !G.EVO[133].includes(y.evo)) soloFaltan = false;
+      vistas.push(y.evo);
+    }
+    const y9 = res1(s, 133), ER = G.DEX_BY[133].rarity;
+    t('Eevee: 8 repetidos dan sus 8 evoluciones distintas, cada una de las que faltaban; el noveno da monedas', soloFaltan && new Set(vistas).size === 8 &&
+      vistas.slice().sort((a, b) => a - b).join() === G.EVO[133].join() && !y9.evo && y9.refund === RE[ER] && vistas.every(d => s.owned[d].from === 'evo'), { vistas, noveno: y9 });
+    // Shiny.
+    s = partida([1], [1]);
+    x = res1(s, 1, true);
+    t('shiny repetido (ya tenías el shiny de Bulbasaur): desbloquea Ivysaur en shiny (y en normal), 0 monedas', x.shiny && !x.isNew && x.evo === 2 && x.refund === 0 &&
+      s.shiny[2] && s.shiny[2].from === 'evo' && s.owned[2] && s.owned[2].from === 'evo' && s.coins === 1000, x);
+    s = partida([1, 2], [1]);
+    x = res1(s, 1, true);
+    t('shiny repetido con Ivysaur normal pero sin su shiny: da el shiny de Ivysaur (la normal se queda como estaba)', x.evo === 2 && s.shiny[2].from === 'evo' && s.owned[2].from === 'gacha', x);
+    s = partida([1, 2], [1, 2]);
+    x = res1(s, 1, true);
+    t(`shiny repetido con el shiny de Ivysaur: el triple del original (${RE[1] * 3}) y nada de Venusaur`, !x.evo && x.refund === RE[1] * 3 && !s.owned[3] && !s.shiny[3], x);
+    s = partida([1]);
+    x = res1(s, 1, true);
+    t('shiny NUEVO de Bulbasaur con la normal ya tenida: es nuevo (no repetido), sin evolución ni monedas', x.shiny && x.isNew && !x.evo && x.refund === 0 && s.shiny[1].from === 'gacha' && !s.owned[2], x);
+    // Evolución sin sprite shiny (Skwovet -> Greedent): el shiny repetido no se rebaja a un desbloqueo normal.
+    const sinSh = [...new Set(Object.values(G.EVO).flat())].filter(d => !G.Sprites.hasShiny(d)).sort((a, b) => a - b);
+    s = partida([819], [819]);
+    x = res1(s, 819, true);
+    const sN = partida([819]), xN = res1(sN, 819);
+    t(`evoluciones sin sprite shiny (${sinSh.join(', ')}): un shiny repetido de Skwovet da el triple; uno normal sí desbloquea Greedent`,
+      sinSh.join() === '820,847,916,933' && G.Sprites.hasShiny(819) && !x.evo && x.refund === RE[G.DEX_BY[819].rarity] * 3 && !s.owned[820] && xN.evo === 820 && !sN.shiny[820], { x, xN });
+    // Orden en la ×10: lo desbloqueado en una tirada cuenta para las siguientes. Con el mod apagado, mismas rarezas y mismo pity.
+    const seq = [[1], [1], [2], [3], [4], [5], [7], [7], [133], [133, false, 0.5]];
+    const orden = on => {
+      G.MODS.repetidoDaEvolucion = on;
+      const sv = partida([1, 4]), res = tira(sv, on ? seq : seq.map(z => z.slice(0, 2)), 10);
+      G.MODS.repetidoDaEvolucion = true;
+      return { sv, res };
+    };
+    const A = orden(true), B = orden(false);
+    const resumen = A.res.map(z => (z.isNew ? 'nuevo' : z.evo ? 'evo' + z.evo : '+' + z.refund));
+    t('×10 en orden: Bulbasaur -> Ivysaur, Bulbasaur otra vez -> monedas, Ivysaur (desbloqueado en esta ×10) -> Venusaur, Venusaur -> monedas...; pity y rarezas como sin el mod',
+      resumen.slice(0, 9).join() === `evo2,+${RE[1]},evo3,+${RE[G.DEX_BY[3].rarity]},evo5,evo6,nuevo,evo8,nuevo` && G.EVO[133].includes(A.res[9].evo) &&
+      A.sv.pity[1] === 10 && B.sv.pity[1] === 10 && A.res.map(z => z.rarity).join() === B.res.map(z => z.rarity).join() && A.sv.stats.pulls === 10 &&
+      B.res.every(z => !z.evo) && A.sv.coins === 1000 + RE[1] + RE[G.DEX_BY[3].rarity] && B.sv.coins === 1000 + B.res.reduce((k, z) => k + z.refund, 0),
+      { resumen, sinMod: B.res.map(z => (z.isNew ? 'nuevo' : '+' + z.refund)) });
+    // Ramas sólo entre las que faltan y nada fuera del juego (520, Tranquill, no está; 99999 no existe).
+    const E1 = G.EVO[1];
+    G.EVO[1] = [520, 2, 99999];
+    const fuera = [0, 0.3, 0.6, 0.9999999].map(v => { R.cola = [v]; const d = G.MODS.evolucionDeRepetido(partida([1]), 1, false); R.cola = []; return d; });
+    G.EVO[1] = E1;
+    const tyro = [0, 0.5, 0.999].map(v => { R.cola = [v]; const d = G.MODS.evolucionDeRepetido(partida([236, 106, 237]), 236, false); R.cola = []; return d; });
+    t('ramas: sólo entre las que faltan (Tyrogue con Hitmonlee y Hitmontop: siempre Hitmonchan) y nunca una especie que no está en el juego',
+      fuera.every(d => d === 2) && tyro.every(d => d === 107), { fuera, tyro });
+    // Sin G.EVO o con el ajuste en false: el original.
+    const EVO = G.EVO;
+    delete G.EVO;
+    s = partida([1]); x = res1(s, 1);
+    G.EVO = EVO; G.MODS.repetidoDaEvolucion = false;
+    const s2 = partida([1]), x2 = res1(s2, 1);
+    G.MODS.repetidoDaEvolucion = true;
+    t('sin js/data/evolutions.js (G.EVO) o con repetidoDaEvolucion = false: monedas como el original', !x.evo && x.refund === RE[1] && !s.owned[2] && !x2.evo && x2.refund === RE[1] && !s2.owned[2]);
+  } catch (e) { t('pull() real con las evoluciones', false, String(e && e.stack || e)); }
+  // La carta, el inglés y el cartel.
+  try {
+    const { c, G } = gacha(['js/data/evolutions.js']);
+    c.document = { createElement: tag => ({ tag, className: '', textContent: '' }) };
+    G.UI = { spriteCanvas: (dex, w, h, o) => ({ tag: 'canvas', dex, w, h, o, style: {} }) };
+    const carta = () => { const tag = { textContent: 'Repetido · +0', hijos: [], appendChild(n) { this.hijos.push(n); } }; return { tag, querySelector: q => (q === '.tag' ? tag : null) }; };
+    const k1 = carta(), k2 = carta();
+    G.MODS.marcarEvolucion(k1, { dex: 1, evo: 2, shiny: false });
+    G.MODS.marcarEvolucion(k2, { dex: 439, evo: 122, shiny: true });
+    const [a, b] = [k1.tag.hijos, k2.tag.hijos];
+    t('carta: «¡Repetido! Desbloqueas Ivysaur» (y «… Mr. Mime shiny») en dorado y la evolución en pequeño (40x40, shiny si lo es)',
+      k1.tag.textContent === '' && a.length === 2 && a[0].className === 'new' && a[0].textContent === '¡Repetido! Desbloqueas Ivysaur' && a[1].dex === 2 && a[1].w === 40 &&
+      a[1].o.shiny === false && /width:40px/.test(a[1].style.cssText) && b[0].textContent === '¡Repetido! Desbloqueas Mr. Mime shiny' && b[1].o.shiny === true, [a, b]);
+    const en = ['¡Repetido! Desbloqueas Ivysaur', '¡Repetido! Desbloqueas Mr. Mime shiny', G.MODS.NOTA_REPETIDOS].map(EN);
+    t('inglés (i18n.js real): «Duplicate! You unlock Ivysaur», «… shiny Mr. Mime» y la nota del cartel', en[0] === 'Duplicate! You unlock Ivysaur' &&
+      en[1] === 'Duplicate! You unlock shiny Mr. Mime' && /^· A duplicate unlocks its next evolution/.test(en[2]), en);
+    const VIEJA = '· Los repetidos dan Pokémonedas (los shiny repetidos, el triple).';
+    const h1 = cartelGacha(), h2 = cartelGacha({ repetidos: false }), h3 = cartelGacha({ evo: false });
+    t('cartel del gacha (refresh() real): la nota de los repetidos habla de la evolución; con el ajuste en false o sin G.EVO, la del original',
+      h1.includes(G.MODS.NOTA_REPETIDOS) && !h1.includes(VIEJA) && h2.includes(VIEJA) && h3.includes(VIEJA) && !h3.includes(G.MODS.NOTA_REPETIDOS));
+  } catch (e) { t('la carta y el cartel del gacha', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`gacha y tickets: ${r.length} casos bien` + (medidas.length ? ` (shiny: ${medidas.join(', ')})` : ''));

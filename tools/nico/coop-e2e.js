@@ -50,6 +50,10 @@
  *      pies un ticket y un ticket ×10 y los recoge; el contador de la partida sube 1 (es lo que
  *      viaja por la red) y cada uno apunta +2 en su partida guardada. Después, con
  *      ticketsMult = 1 sólo en B, otro ticket: A +2 y B +1.
+ *  11. Gacha (A, a 844x390, tras traer la partida): un Pokémon que A tiene, con una evolución que no
+ *      tiene, sale repetido por la interfaz real (el azar sigue un guion sólo dentro de esa tirada):
+ *      la carta dice «¡Repetido! Desbloqueas …» con su sprite, se apunta con from 'evo' y no da
+ *      monedas; el cartel dice 1.5% de shiny y la nota nueva de los repetidos.
  *
  * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
  * desde el último golpe que el propio invitado predijo en ella (lo mide la trampa):
@@ -544,6 +548,64 @@ async function trapSummary(P) {
  * prueba) y tiene que abrirla al llegar a ella. B entra en la que recibe; el legendario sale con el 60 % de
  * la vida; al vencerlo, un vínculo cada uno.
  */
+/**
+ * Gacha (A, a 844x390): un repetido desbloquea su evolución. Se elige un Pokémon que A tiene, con una sola
+ * evolución que no tiene, y sólo durante esa tirada (dentro de G.Gacha.pull) el azar sale de un guion para que
+ * toque ése y no shiny: la interfaz, la tirada y el paquete son los reales. También mira el cartel (1,5 % y la nota).
+ */
+async function gachaRepetido(P) {
+  const { page, tag } = P;
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.click('#scr-menu [data-go="gacha"]');
+  await waitVisible(page, '#scr-gacha');
+  const plan = await page.evaluate(() => {
+    const s = G.DB.save, BANDA = [0, 45, 75, 92, 98.5, 100];
+    const dex = Object.keys(s.owned).map(Number).sort((a, b) => a - b)
+      .find(d => G.EVO[d] && G.EVO[d].length === 1 && !s.owned[G.EVO[d][0]] && G.DEX_BY[d] && G.DEX_BY[d].rarity < 5);
+    if (!dex) return null;
+    const p = G.DEX_BY[dex], lista = G.Gacha.pool(p.rarity, p.gen), i = lista.findIndex(x => x.dex === dex);
+    const guion = [(BANDA[p.rarity - 1] + BANDA[p.rarity]) / 200, (i + 0.5) / lista.length];
+    if (G.Sprites.hasShiny(dex)) guion.push(0.999);
+    const pull = G.Gacha.pull;
+    G.Gacha.pull = function () {
+      const R = Math.random, q = guion.slice();
+      Math.random = () => (q.length ? q.shift() : R());
+      try { return pull.apply(this, arguments); } finally { Math.random = R; G.Gacha.pull = pull; }
+    };
+    const evo = G.EVO[dex][0];
+    return { dex, nombre: p.name, gen: p.gen, evo, nombreEvo: G.DEX_BY[evo].name, coins: s.coins, t1: s.tickets.t1, t10: s.tickets.t10, ach: Object.keys(s.ach || {}) };
+  });
+  if (!plan) { check('Gacha: hay un Pokémon de A con una evolución que no tiene (para probar el repetido)', false, 'ninguno'); return; }
+  await page.click(`#gacha-gens .gen-tab[data-gen="${plan.gen}"]`);
+  const cartel = (await text(page, '#gacha-rates')).replace(/\s+/g, ' ');
+  await page.click('#pull-1');
+  await page.locator('#slot').click().catch(() => {});   // «Clic para acelerar»
+  await waitVisible(page, '#pull-close', 20000);
+  await sleep(500);
+  report.capturaGachaRepetido = await shot(page, tag + '_gacha_repetido_844x390');
+  const r = await page.evaluate(plan => {
+    const cards = [...document.querySelectorAll('#pull-results .pcard')], c = cards[0], t = c && c.querySelector('.tag'), cv = t && t.querySelector('canvas');
+    const caja = el => { const b = el.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; };
+    const s = G.DB.save;
+    // Lo que hayan dado los logros conseguidos con esta tirada (con el premio de G.MODS, como grant()).
+    const lg = G.AchDefs.LIST.filter(a => s.ach[a.id] && !plan.ach.includes(a.id)).map(a => G.MODS.premio(a.reward) || {})
+      .reduce((x, w) => ({ t1: x.t1 + (w.t1 || 0), t10: x.t10 + (w.t10 || 0), coins: x.coins + (w.coins || 0) }), { t1: 0, t10: 0, coins: 0 });
+    return { cartas: cards.length, nombre: c && c.querySelector('b').textContent.trim(), tag: t && t.textContent.trim(), dorado: !!(t && t.querySelector('span.new')),
+      sprite: cv ? { ancho: cv.width, alto: cv.height, caja: caja(cv) } : null, cartaVisible: c ? (b => b.top >= 0 && b.bottom <= innerHeight + 1)(c.getBoundingClientRect()) : false,
+      owned: s.owned[plan.evo] || null, coins: s.coins - plan.coins - lg.coins, t1: s.tickets.t1 - plan.t1 - lg.t1, t10: s.tickets.t10 - plan.t10 - lg.t10, logros: lg };
+  }, plan);
+  check(`Gacha (844x390): ${plan.nombre} repetido (sin ${plan.nombreEvo}) desbloquea ${plan.nombreEvo}: la carta lo dice en dorado con su sprite pequeño (40x40), se apunta con from 'evo' y no da monedas`,
+    r.cartas === 1 && r.nombre === plan.nombre && r.tag === `¡Repetido! Desbloqueas ${plan.nombreEvo}` && r.dorado && r.sprite && r.sprite.ancho === 40 && r.sprite.caja.w === 40 &&
+    r.owned && r.owned.from === 'evo' && r.coins === 0 && r.t1 === -1 && r.t10 === 0, { plan: { dex: plan.dex, evo: plan.evo }, r });
+  check('Gacha: el cartel de probabilidades dice 1.5% de shiny y la nota nueva de los repetidos',
+    /Shiny\s*1\.5%/.test(cartel) && !/Shiny\s*1%/.test(cartel) && cartel.includes('Un repetido desbloquea su siguiente evolución') && !cartel.includes('Los repetidos dan Pokémonedas'),
+    cartel.slice(cartel.indexOf('Shiny') - 2, cartel.indexOf('Shiny') + 260));
+  await page.click('#pull-close');
+  await page.click('#scr-gacha [data-back]');
+  await waitVisible(page, '#scr-menu');
+  await page.setViewportSize({ width: 1280, height: 720 });
+}
+
 /** Tickets ganados ×ticketsMult en grupo. Por si cae algún otro ticket o salta un logro durante la prueba, se
  *  compara cada partida guardada con SU contador de la partida y los logros nuevos (lo que daría grant()). */
 async function ticketsCoop(A, B) {
@@ -693,6 +755,7 @@ async function guaranteedRift(A, B) {
     await register(B, cred.B.nombre, cred.B.pass);
     await personality(A); await personality(B);
     await importOfficial(A);   // Ajustes > Cuenta > traer la partida del juego oficial (sintética), en la nube
+    await gachaRepetido(A);    // Gacha: un repetido desbloquea su evolución (y el cartel con 1,5 % de shiny)
     const monA = await setPartner(A, BIG), monB = await setPartner(B, NORMAL);
     check('El Pokémon grande de la prueba es de los que se reducen', monA.escalaEsperada < 1, `${monA.name}: ${monA.escalaEsperada.toFixed(3)}`);
     check('El Pokémon normal de la prueba no se reduce', monB.escalaEsperada === 1, `${monB.name}: ${monB.escalaEsperada}`);

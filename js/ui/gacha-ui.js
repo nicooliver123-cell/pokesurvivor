@@ -110,6 +110,7 @@ G.GachaUI = (() => {
         ? `<span class="new">${r.shiny ? '¡SHINY NUEVO!' : '¡NUEVO!'}</span>`
         : `Repetido · <span class="coin"></span> +${r.refund}`;
       c.insertAdjacentHTML('beforeend', `<b>${r.shiny ? G.Icons.html('shiny', 12) + ' ' : ''}${mon.name}</b><div class="tag">${tag}</div>`);
+      if (r.evo && G.MODS && G.MODS.marcarEvolucion) G.MODS.marcarEvolucion(c, r);   // MOD nico: repetido -> su evolución
       out.appendChild(c);
       G.Audio.sfx('reveal', { rarity: r.rarity });
       await wait(n === 10 ? 150 : 0);

@@ -83,7 +83,10 @@ con aviso en el suelo (en esta versión ninguno cura).
 Las **mejoras** son de cada Pokémon. El **gacha** va con **tickets** que se
 ganan jugando (×1 de algunos Pokémon, ×10 de jefes y legendarios), y se tira
 en una tragaperras pixel art. En esta versión cada ticket que ganas cuenta
-doble: los que recoges en las runs y los de las misiones y los logros.
+doble: los que recoges en las runs y los de las misiones y los logros. Y un
+Pokémon repetido desbloquea su siguiente evolución si aún no la tienes (si es
+un shiny repetido, en shiny; Eevee, una de las que te falten); si ya no le
+queda ninguna, da Pokémonedas como en el original.
 
 Cada enemigo tiene 1/4096 de salir **shiny**: brilla, una flecha en el borde de
 la pantalla te dice dónde está, y si lo derrotas te lo quedas. En el gacha sale

@@ -95,5 +95,10 @@ G.I18n.add({
   'La partida es de una versión más nueva del juego oficial: se trae lo que esta versión reconoce.':
     'The save is from a newer version of the official game: whatever this version recognises is brought over.',
   // Tickets ganados ×ticketsMult (js/core/mods.js, textoTicket): lo que flota al coger uno. '+2 tickets' es igual.
-  '¡{x} tickets ×10!': '{x} ×10 tickets!'
+  '¡{x} tickets ×10!': '{x} ×10 tickets!',
+  // Gacha: un repetido desbloquea su evolución (js/core/mods.js, textoEvolucion y NOTA_REPETIDOS). El shiny, antes.
+  '¡Repetido! Desbloqueas {x} shiny': 'Duplicate! You unlock shiny {x}',
+  '¡Repetido! Desbloqueas {x}': 'Duplicate! You unlock {x}',
+  '· Un repetido desbloquea su siguiente evolución si aún no la tienes (si es shiny, en shiny); si ya no le queda ninguna, da Pokémonedas (un shiny, el triple).':
+    '· A duplicate unlocks its next evolution if you don\'t have it yet (shiny if it\'s shiny); if it has none left, it gives PokéCoins (triple for a shiny).'
 });
