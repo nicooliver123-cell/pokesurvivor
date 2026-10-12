@@ -2,17 +2,22 @@
  *   node tools/nico/check.js            (desde la raíz del repo o desde tools/nico)
  *
  * Pasarlo SIEMPRE tras `git merge upstream/main` y antes de publicar. Comprueba:
- *   1. Higiene de fork: nada del Firebase/TURN/dominio del original en lo que se sirve,
- *      y que no han vuelto CNAME, robots.txt, sitemap.xml, en/, las páginas SEO, etc.
- *   2. index.html: noindex, sin SEO del original, y que su ?v= coincide con js/app.min.js.
+ *   1. Higiene de fork: nada del Firebase/TURN/dominio/correo del original en lo que se
+ *      sirve; que no han vuelto CNAME, robots.txt, sitemap.xml, en/, las páginas SEO, etc.;
+ *      y Firebase: la config publicada es null o de un proyecto de la lista blanca
+ *      (G.FIREBASE_PROYECTOS en js/core/firebase-config.js), igual que toda URL de
+ *      Firebase en la nube que aparezca en lo servido.
+ *   2. index.html y dev.html (también se publica): noindex, sin SEO del original, sin
+ *      enlaces a páginas borradas, y que el ?v= de index.html coincide con js/app.min.js.
  *   3. Que el paquete js/app.min.js está al día con las fuentes (lo reconstruye en una
  *      carpeta temporal con los mismos parámetros que tools/build.js y compara).
  *   4. Que siguen los ganchos "// MOD nico" y js/core/mods.js se carga en dev.html.
  *   5. Curación: simula 2.000 runs con el código real (node:vm) y exige 0 curanderos,
  *      y que con curacionEnemiga=true sí salgan (control: la prueba sabe detectarlos).
  *   6. Tamaño: escala de los 966 Pokémon con el código real; normales intactos.
- *   7. Busca en el código de enemigos/red asignaciones de vida nuevas (posible curación
- *      nueva de upstream) que no estén en la lista de conocidas.
+ *   7. Invitado del cooperativo: la ventana que evita el rebote de vida (js/core/mods.js).
+ *   8. Busca en TODO js/ (menos js/app.min.js) asignaciones de vida que no estén en la
+ *      lista de conocidas: una nueva es FALLO hasta revisarla (posible curación de upstream).
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -43,15 +48,33 @@ const FORBIDDEN = [
   [/pokesurvivor-jpter/i, 'proyecto Firebase del original'],
   [/turn\.pokesurvivor\.com/i, 'Worker TURN/contador del original'],
   [/AIzaSyD4YpfZ/, 'apiKey del original'],
-  [/firebasedatabase\.app|firebaseio\.com/i, 'URL de una Realtime Database en la nube (debe venir de la config propia)'],
-  [/ko-fi\.com\/jpter78|kofi:\s*'jpter78'/i, 'Ko-fi del original']
+  [/ko-fi\.com\/jpter78|kofi:\s*'jpter78'/i, 'Ko-fi del original'],
+  [/jpieratorregrosa/i, 'correo del autor original (el contacto es el del fork)'],
+  [/github\.com\/JPTER78\/pokesurvivor\/issues/i, 'avisos del original como contacto (el contacto es el del fork)']
 ];
+// Firebase: lista blanca y config, con el código real de js/core/firebase-config.js.
+function loadFirebaseConfig(host, search) {
+  const ctx = { URLSearchParams, location: { hostname: host, search } };
+  vm.createContext(ctx);
+  ctx.G = {};
+  vm.runInContext(rd('js/core/firebase-config.js'), ctx, { filename: 'js/core/firebase-config.js' });
+  return ctx.G;
+}
+let FB = null, ALLOWED = [];
+try { FB = loadFirebaseConfig('nicooliver123-cell.github.io', ''); ALLOWED = Array.isArray(FB.FIREBASE_PROYECTOS) ? [...FB.FIREBASE_PROYECTOS] : []; }
+catch (e) { bad('no se pudo evaluar js/core/firebase-config.js: ' + e.message); }
+// Toda URL de Firebase en la nube (Realtime Database, Auth/Hosting) debe ser de un proyecto de la lista.
+const FB_HOST = /(?<![\w<>.-])([a-z0-9][a-z0-9-]*)((?:\.[a-z0-9-]+)*)\.(firebasedatabase\.app|firebaseio\.com|firebaseapp\.com|web\.app)\b/g;
 let hits = 0;
 for (const f of SERVED) {
   const s = rd(f);
   for (const [re, what] of FORBIDDEN) if (re.test(s)) { hits++; bad(`${f}: ${what} (${re})`); }
+  for (const m of s.matchAll(FB_HOST)) {
+    const id = m[1].replace(/-default-rtdb$/, '');
+    if (!ALLOWED.includes(id)) { hits++; bad(`${f}: URL de Firebase de un proyecto fuera de la lista blanca: ${m[0]}`); }
+  }
 }
-if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestructura del original`);
+if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestructura ni al correo del original`);
 const GONE = ['CNAME', 'robots.txt', 'sitemap.xml', 'en', 'guia', 'pokedex', 'legendarios', 'shinies', 'tipos', 'movimientos',
   'objetos', 'logros', 'novedades', 'apoyar', 'functions', 'tools/activar_dominio.sh', '.github/FUNDING.yml'];
 const back = GONE.filter(ex);
@@ -61,8 +84,29 @@ if (/(href|src)="\//.test(rd('404.html'))) bad('404.html vuelve a tener rutas ab
 else ok('404.html sin rutas absolutas (vale en subruta)');
 if (/"default"\s*:\s*"demo-ps"/.test(rd('.firebaserc'))) ok('.firebaserc apunta a demo-ps'); else bad('.firebaserc no apunta a demo-ps');
 if (/"functions"/.test(rd('firebase.json'))) bad('firebase.json vuelve a tener el bloque functions'); else ok('firebase.json sin functions');
-if (/^G\.FIREBASE_CONFIG = null;/m.test(rd('js/core/firebase-config.js'))) ok('firebase-config.js en null (modo local) con interruptor ?emu');
-else warn('firebase-config.js no está en null: comprueba que es el proyecto PROPIO');
+if (FB) {
+  const okList = ALLOWED.length && ALLOWED.every(x => typeof x === 'string' && x && !/jpter/i.test(x)) && ALLOWED.includes('demo-ps');
+  if (okList) ok(`lista blanca de Firebase: ${ALLOWED.join(', ')}`); else bad(`lista blanca de Firebase incorrecta: ${JSON.stringify(ALLOWED)}`);
+  const P = FB.FIREBASE_PERMITIDA, cfg = FB.FIREBASE_CONFIG;
+  if (typeof P !== 'function') bad('falta G.FIREBASE_PERMITIDA en firebase-config.js (db.js no conectaría con nada)');
+  else {
+    // Controles: lo que debe rechazar.
+    const no = [
+      { projectId: 'pokesurvivor-jpter', authDomain: 'pokesurvivor-jpter.firebaseapp.com' },
+      { projectId: 'otro-proyecto' },
+      { projectId: 'demo-ps', databaseURL: 'https://otro-default-rtdb.europe-west1.firebasedatabase.app' },
+      { projectId: 'demo-ps', authDomain: 'otro.firebaseapp.com' }].filter(c => P(c));
+    if (no.length) bad('G.FIREBASE_PERMITIDA acepta configs ajenas: ' + JSON.stringify(no)); else ok('G.FIREBASE_PERMITIDA rechaza el proyecto del original, proyectos fuera de la lista y URLs de otro proyecto');
+    if (cfg === null) ok('config publicada en null (modo local) hasta tener el Firebase propio');
+    else if (!cfg || !ALLOWED.includes(cfg.projectId) || !P(cfg) || cfg.emulator || /^demo-/.test(cfg.projectId))
+      bad(`config publicada NO permitida: proyecto ${cfg && cfg.projectId} (lista blanca: ${ALLOWED.join(', ')}; sin emulator ni demo-)`);
+    else ok(`config publicada del proyecto propio ${cfg.projectId} (en la lista blanca)`);
+    const emu = loadFirebaseConfig('127.0.0.1', '?emu').FIREBASE_CONFIG;
+    if (emu && emu.emulator && emu.projectId === 'demo-ps' && P(emu)) ok('?emu en 127.0.0.1 usa el emulador (demo-ps)'); else bad('?emu en local no da la config del emulador demo-ps');
+    const emuFuera = loadFirebaseConfig('nicooliver123-cell.github.io', '?emu').FIREBASE_CONFIG;
+    if (emuFuera && emuFuera.emulator) bad('?emu activa el emulador fuera de este PC'); else ok('?emu no hace nada fuera de localhost');
+  }
+}
 
 // ---------------- 2-3. index.html y paquete ----------------
 console.log('2. index.html y js/app.min.js');
@@ -122,6 +166,10 @@ const HOOKS = [
   ['js/entities/player.js', /drawShadow\(ctx, this\.dex, this\.x, this\.y, this\.scale\)/, 'sombra a escala'],
   ['js/net/net.js', /const TURN_URL = '';/, 'TURN apagado'],
   ['js/core/db.js', /\/jpter\/i\.test\(/, 'db.js rechaza el proyecto del original'],
+  ['js/core/db.js', /if \(!\(G\.FIREBASE_PERMITIDA && G\.FIREBASE_PERMITIDA\(cfg\)\) \|\|/, 'db.js sólo conecta con la lista blanca (si falta, con nada)'],
+  ['js/core/db.js', /\(cfg\.emulator && !\/\^\(localhost\|127/, 'db.js rechaza configs de emulador fuera de este PC'],
+  ['js/ui/ui.js', /const CONTACT = 'https:\/\/github\.com\/nicooliver123-cell\/pokesurvivor\/issues';/, 'contacto del aviso legal: avisos del fork'],
+  ['js/ui/settings-ui.js', /const REPO = 'https:\/\/github\.com\/nicooliver123-cell\/pokesurvivor';/, 'Ajustes > Acerca de: repo del fork'],
   ['js/entities/enemy.js', /if \(!G\.MODS \|\| G\.MODS\.predecirGolpe\(this\)\) this\.hp = /, 'invitado: sin predecir golpes con escudo'],
   ['js/net/coop.js', /e\.hp = G\.MODS \? G\.MODS\.vidaDelAnfitrion\(e, a\[3\]\) :/, 'invitado: ventana sin subidas tras un golpe predicho'],
   ['js/net/coop.js', /e\.behavior, Math\.ceil\(e\.hp\)\]\);/, "'ne' lleva la vida real (vuelta de la grieta)"],
@@ -221,30 +269,63 @@ try {
   else failed.forEach(x => bad('ventana de vida: ' + x[0]));
 } catch (e) { bad('no se pudo probar la ventana de vida: ' + (e && e.stack || e)); }
 
-// ---------------- 8. asignaciones de vida en el código de enemigos ----------------
-console.log('7. Vías de vida de enemigos (detección de curaciones nuevas de upstream)');
-const KNOWN = new Set([
-  'js/entities/enemy.js|this.hp = this.maxHp;',                                   // constructor (enemigo nuevo)
-  'js/entities/enemy.js|this.maxHp *= 2; this.hp = this.maxHp;',                  // makeShiny (sólo enemigos nuevos)
-  'js/entities/enemy.js|if (!G.MODS || G.MODS.predecirGolpe(this)) this.hp = Math.max(1, this.hp - d);', // golpe predicho en el invitado (baja)
-  'js/entities/enemy.js|e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.07);',        // healAround (bloqueado por el gancho B)
-  'js/net/coop.js|e.hp = G.MODS ? G.MODS.vidaDelAnfitrion(e, a[3]) : Math.min(e.maxHp, a[3]);', // sincronización del invitado (ventana en mods.js)
-  'js/systems/interact.js|pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.14 * dt);', // manantial: cura al JUGADOR
-  'js/entities/enemy.js|if (this.pt <= 0) { this.hp = 0; this.die(); }',          // mecha del bomber: muere
-  'js/entities/enemy.js|e.maxHp = o.hp; e.hp = o.vida > 0 && o.vida < o.hp ? o.vida : o.hp;', // copia nueva en el invitado ('ne'), nunca por encima de la máxima
-  "js/data/enemies.js|if (behavior === 'bomber') { d.spd = Math.round(d.spd * 1.25); d.hp = Math.round(d.hp * 0.8); }", // definición, no instancia
-  "js/data/enemies.js|if (r) { r.behavior = 'runner'; r.spd = Math.round(r.spd * 1.6); r.hp = Math.round(r.hp * 0.7); }", // definición
-  'js/systems/spawner.js|if (G.EnemyMgr.count >= CAP * ELITE_FROM) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }' // élite, antes de add
-]);
-const SCAN = ['js/entities/enemy.js', 'js/net/coop.js', 'js/data/enemies.js', ...walk('js/systems').filter(f => f.endsWith('.js'))];
-let unknown = 0;
+// ---------------- 8. asignaciones de vida en todo js/ ----------------
+console.log('7. Asignaciones de vida en js/ (detección de curaciones nuevas de upstream)');
+// Cada línea que asigna vida (=, +=, -=, *=, ++...), revisada a mano, con las veces que puede salir.
+// Si upstream añade una nueva o repite una conocida en otro sitio, es FALLO hasta revisarla:
+// si no puede subir la vida de un enemigo, se añade aquí con su motivo.
+const KNOWN = [
+  // enemigos
+  ['js/entities/enemy.js|this.hp = this.maxHp;', 1, 'constructor (enemigo nuevo)'],
+  ['js/entities/enemy.js|this.maxHp *= 2; this.hp = this.maxHp;', 1, 'makeShiny (sólo enemigos nuevos)'],
+  ['js/entities/enemy.js|if (!G.MODS || G.MODS.predecirGolpe(this)) this.hp = Math.max(1, this.hp - d);', 1, 'golpe predicho en el invitado (baja)'],
+  ['js/entities/enemy.js|this.hp -= Math.max(1, Math.round(amount));', 1, 'golpe en el anfitrión o en solitario (baja)'],
+  ['js/entities/enemy.js|if (this.pt <= 0) { this.hp = 0; this.die(); }', 1, 'mecha del bomber: muere'],
+  ['js/entities/enemy.js|e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.07);', 1, 'healAround: CURA, bloqueada por el gancho B'],
+  ['js/entities/enemy.js|e.maxHp = o.hp; e.hp = o.vida > 0 && o.vida < o.hp ? o.vida : o.hp;', 1, "copia nueva en el invitado ('ne'), nunca por encima de la máxima"],
+  ['js/net/coop.js|e.hp = G.MODS ? G.MODS.vidaDelAnfitrion(e, a[3]) : Math.min(e.maxHp, a[3]);', 1, 'sincronización del invitado (ventana en mods.js)'],
+  ["js/data/enemies.js|if (behavior === 'bomber') { d.spd = Math.round(d.spd * 1.25); d.hp = Math.round(d.hp * 0.8); }", 1, 'definición, no instancia'],
+  ["js/data/enemies.js|if (r) { r.behavior = 'runner'; r.spd = Math.round(r.spd * 1.6); r.hp = Math.round(r.hp * 0.7); }", 1, 'definición, no instancia'],
+  ['js/systems/spawner.js|function scaled(sc, k) { return k === 1 ? sc : Object.assign({}, sc, { hp: sc.hp * k }); }', 1, 'escala de la definición, antes de crear'],
+  ['js/systems/spawner.js|if (G.EnemyMgr.count >= CAP * ELITE_FROM) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }', 1, 'élite, antes de add'],
+  ['js/systems/weather.js|e.hp -= e.maxHp * 0.02 + 1;', 1, 'clima: daño a enemigos (baja)'],
+  // jugador, compañero perdido y objetos del mapa (no son enemigos)
+  ['js/entities/player.js|this.hp = this.maxHp;', 1, 'jugador: constructor'],
+  ['js/entities/player.js|this.hp = Math.max(1, this.hp - Math.max(1, this.maxHp * 0.01));', 1, 'jugador: daño'],
+  ['js/entities/player.js|this.hp -= d;', 1, 'jugador: daño'],
+  ['js/entities/player.js|this.hp = 1; this.invuln = 1.2;', 1, 'jugador: aguante'],
+  ['js/entities/player.js|this.hp = 0; this.dead = true;', 1, 'jugador: KO'],
+  ['js/entities/player.js|this.hp = Math.min(this.maxHp, this.hp + amount);', 1, 'jugador: curación'],
+  ['js/entities/player.js|addMaxHp(amount) { this.maxHp += amount; this.hp += amount; }', 1, 'jugador: más vida máxima'],
+  ['js/entities/player.js|if (this.bellHeal > 0) { const h = Math.min(this.bellHeal, 4 * dt); this.hp = Math.min(this.maxHp, this.hp + h); this.bellHeal -= h; }', 1, 'jugador: Cascabel'],
+  ['js/entities/player.js|if (this.regen > 0) this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);', 1, 'jugador: regeneración'],
+  ['js/entities/player.js|this.hp = Math.max(1, this.maxHp * frac);', 1, 'jugador: reanimado'],
+  ['js/entities/player.js|this.hp = n.hp; this.maxHp = n.maxHp;', 1, 'compañero remoto: su vida por red'],
+  ['js/systems/interact.js|pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.14 * dt);', 1, 'manantial: cura al JUGADOR'],
+  ['js/systems/weather.js|pl.hp -= d;', 1, 'clima: daño al jugador'],
+  ['js/systems/events.js|L.hp -= Math.min(30, hits.reduce((a, e) => a + 4 + e.dmg * 0.12, 0));', 1, 'Pokémon perdido que escoltas (baja)'],
+  ['js/world/world.js|p.hp -= amount;', 1, 'rocas y cofres (baja)']
+];
+const HP_RE = /\.hp\s*(\+\+|--|[-+*\/]?=(?!=))|\bhp\s*(\+\+|--)|\[\s*['"]hp['"]\s*\]\s*[-+*\/]?=(?!=)|Object\.assign\([^)]*\bhp\s*:/;
+const SCAN = walk('js').filter(f => f.endsWith('.js') && f !== 'js/app.min.js');
+const found = new Map();
 for (const f of SCAN) rd(f).split(/\r?\n/).forEach((line, n) => {
-  if (!/\.hp\s*(\+=|=(?!=))/.test(line)) return;
+  if (!HP_RE.test(line)) return;
   const key = f + '|' + line.trim().replace(/\s*\/\/.*$/, '');
-  if (!KNOWN.has(key)) { unknown++; warn(`${f}:${n + 1} asignación de vida no revisada: ${line.trim()}`); }
+  if (!found.has(key)) found.set(key, []);
+  found.get(key).push(n + 1);
 });
-if (!unknown) ok('sin asignaciones de vida nuevas en enemigos, sistemas y red');
-else warn('revisa si alguna de esas líneas puede subir la vida de un enemigo; si no, añádela a KNOWN en tools/nico/check.js');
+const expected = new Map(KNOWN.map(([k, c]) => [k, c]));
+let unknown = 0;
+for (const [key, lines] of found) {
+  const f = key.slice(0, key.indexOf('|')), code = key.slice(key.indexOf('|') + 1);
+  if (!expected.has(key)) { unknown++; bad(`${f}:${lines.join(',')} asignación de vida no revisada: ${code}`); }
+  else if (lines.length > expected.get(key)) { unknown++; bad(`${f}:${lines.join(',')} asignación conocida repetida (${lines.length} veces, esperadas ${expected.get(key)}): ${code}`); }
+}
+const stale = KNOWN.filter(([k]) => !found.has(k));
+if (stale.length) warn(`${stale.length} línea(s) de la lista ya no están (actualizar KNOWN): ${stale.map(([k]) => k).join(' · ')}`);
+if (!unknown) ok(`${SCAN.length} ficheros de js/: sólo las ${KNOWN.length} asignaciones de vida revisadas`);
+else console.log('        Revisa si alguna puede subir la vida de un enemigo; si no, añádela a KNOWN en tools/nico/check.js con su motivo.');
 
 console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
 process.exit(fails ? 1 : 0);
