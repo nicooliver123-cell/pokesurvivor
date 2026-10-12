@@ -17,8 +17,9 @@
  *   4. Comprueba que cada uno ve al otro moverse, que el grande sale reducido en los dos
  *      clientes (misma escala, hitbox, alto y sprite) y el normal intacto.
  *   5. Transporte (obligatorio): los dos se ven por el canal directo (G.Net.mode 'direct'),
- *      el par de candidatos elegido de WebRTC está conectado, no pasa por un TURN y lleva
- *      datos, y durante la partida no se manda nada por el relé de la base de datos.
+ *      el par de candidatos elegido de WebRTC está conectado y no pasa por un TURN, el canal
+ *      del juego lleva mensajes en los dos sentidos, y durante la partida no se manda nada
+ *      por el relé de la base de datos.
  *   6. Vida de los enemigos, con una TRAMPA en el setter de `hp` de G.Enemy (cada
  *      escritura, sin huecos de muestreo), en los dos clientes:
  *      - Anfitrión: con el mod no sube nunca (curandera forzada incluida); como control,
@@ -380,14 +381,19 @@ async function transport(P, peer) {
       if (!pair) st.forEach(s => { if (s.type === 'candidate-pair' && s.nominated && s.state === 'succeeded') pair = s; });
       if (!pair) continue;
       const l = st.get(pair.localCandidateId) || {}, r = st.get(pair.remoteCandidateId) || {};
+      // Lo que lleva el canal de datos del juego ('g'): los contadores de bytes del par a veces
+      // se quedan atrás en Chromium; los mensajes del canal no.
+      let canal = null;
+      st.forEach(s => { if (s.type === 'data-channel' && s.label === 'g') canal = { estado: s.state, mensajesEnviados: s.messagesSent, mensajesRecibidos: s.messagesReceived }; });
       pares.push({ estado: pair.state, local: l.candidateType, remoto: r.candidateType, protocolo: l.protocol,
-        bytesEnviados: pair.bytesSent, bytesRecibidos: pair.bytesReceived, rttMs: pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null });
+        bytesEnviados: pair.bytesSent, bytesRecibidos: pair.bytesReceived, rttMs: pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null, canal });
     }
     return { modo: G.Net.mode(u), viaTurn: G.Net.viaTurn(u), pares, rele: G.Net.stats.relaySent, enviados: G.Net.stats.sent };
   }, peer);
 }
 const directOk = t => t.modo === 'direct' && !t.viaTurn && t.pares.length > 0 &&
-  t.pares.every(p => p.estado === 'succeeded' && p.local && p.remoto && p.local !== 'relay' && p.remoto !== 'relay' && p.bytesEnviados > 0 && p.bytesRecibidos > 0);
+  t.pares.every(p => p.estado === 'succeeded' && p.local && p.remoto && p.local !== 'relay' && p.remoto !== 'relay' &&
+    p.canal && p.canal.estado === 'open' && p.canal.mensajesEnviados > 0 && p.canal.mensajesRecibidos > 0);
 
 /** Resumen de la trampa de vida de un cliente. */
 async function trapSummary(P) {
@@ -515,7 +521,7 @@ async function trapSummary(P) {
     // Transporte (obligatorio)
     const trA = await transport(A, uidB), trB = await transport(B, uidA);
     report.transporte = { A: trA, B: trB };
-    check('Transporte: A y B se hablan por el canal directo de WebRTC (sin TURN) y el par elegido lleva datos', directOk(trA) && directOk(trB),
+    check('Transporte: A y B se hablan por el canal directo de WebRTC: par elegido conectado, sin TURN, y el canal del juego abierto con mensajes en los dos sentidos', directOk(trA) && directOk(trB),
       { A: { modo: trA.modo, pares: trA.pares }, B: { modo: trB.modo, pares: trB.pares } });
 
     // ---- Vida en el ANFITRIÓN: curandera forzada, y control con la curación activada ----
