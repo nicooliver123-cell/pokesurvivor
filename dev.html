@@ -182,7 +182,7 @@
     <!-- MOD nico: aviso de versión modificada -->
     <p><b>Versión modificada no oficial</b>, basada en <a href="https://github.com/JPTER78/pokesurvivor" target="_blank" rel="noopener">PokéSurvivor de JPTER78</a> (licencia MIT; sprites CC BY-NC 4.0).
       Cambios: los enemigos no se curan y los Pokémon más grandes son más pequeños en partida (sus sprites se muestran a escala reducida).
-      Sus cuentas y partidas son independientes de las del juego original: aquí se empieza de cero.
+      Sus cuentas y partidas son independientes de las del juego original, pero puedes traer aquí tu partida oficial desde Ajustes &gt; Cuenta.
       El autor del juego original no mantiene esta versión ni responde de ella.</p>
     <p><b>PokéSurvivor</b> es un juego hecho por fans, <b>gratuito y sin ánimo de lucro</b>.
       No tiene anuncios, compras ni donaciones.</p><!-- MOD nico: esta versión no acepta donaciones -->
@@ -481,6 +481,7 @@
 <!-- núcleo -->
 <script defer src="js/core/firebase-config.js"></script>
 <script defer src="js/core/db.js"></script>
+<script defer src="js/core/importar.js"></script><!-- MOD nico: traer la partida del juego oficial -->
 <script defer src="js/core/audio.js"></script>
 <script defer src="js/core/input.js"></script>
 <script defer src="js/core/touch.js"></script>
@@ -539,6 +540,7 @@
 <script defer src="js/ui/ranking-ui.js"></script>
 <script defer src="js/ui/goals-ui.js"></script>
 <script defer src="js/ui/settings-ui.js"></script>
+<script defer src="js/ui/importar-ui.js"></script><!-- MOD nico: Ajustes > Cuenta > traer la partida del juego oficial -->
 <script defer src="js/ui/support-ui.js"></script>
 <!-- juego -->
 <script defer src="js/game.js"></script>

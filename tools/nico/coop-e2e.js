@@ -34,6 +34,9 @@
  *        anunciar ('ne'), como en rift.js; las copias nacen con la vida real.
  *   7. Falla si algún cliente habla con la infraestructura del juego original, si hay
  *      errores de JavaScript o si el aviso legal no lleva el contacto del fork.
+ *   8. Antes de la partida, A trae una partida "oficial" sintética por Ajustes > Cuenta (elegir
+ *      archivo, vista previa, Confirmar): tiene que sumarse y subirse a Firestore con la
+ *      transacción normal, y traer otra vez el mismo archivo no puede sumar nada.
  *
  * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
  * desde el último golpe que el propio invitado predijo en ella (lo mide la trampa):
@@ -318,6 +321,60 @@ async function setPartner(P, dex) {
   return r;
 }
 
+/**
+ * Traer la partida del juego oficial por Ajustes > Cuenta, en modo nube (emulador): elegir el
+ * archivo, vista previa, Confirmar, subida con la transacción normal y reimportación sin duplicar.
+ * La partida "oficial" es sintética (formato de newSave()): la prueba nunca habla con el juego oficial.
+ */
+async function importOfficial(P) {
+  const { page, tag } = P;
+  const file = path.join(OUT, 'partida-oficial-sintetica.json');
+  const env = await page.evaluate(() => {
+    const s = G.DB.newSave('OficialE2E');
+    s.created = Date.UTC(2026, 3, 1); s.coins = 4321; s.tickets = { t1: 9, t10: 2 };
+    for (const d of [1, 4, 7, 25, 133, 150, 249]) s.owned[d] = { at: s.created, from: 'gacha' };
+    s.shiny[25] = { at: s.created, from: 'wild' }; s.partner = 25; s.partnerShiny = true;
+    // Coherente, como una real: los logros que ya le dan sus datos (si no, el fork los daría con su premio al entrar al menú).
+    s.legends = { 150: s.created }; s.ach = { own1: s.created, shiny1: s.created, leg_150: s.created }; s.pupg = { 25: { hp: 3 } };
+    return { tipo: 'pokesurvivor-partida', version: 1, origen: 'pruebas', exportado: Date.now(), save: s };
+  });
+  fs.writeFileSync(file, JSON.stringify(env));
+  const antes = await page.evaluate(() => ({ coins: G.DB.save.coins, t1: G.DB.save.tickets.t1, t10: G.DB.save.tickets.t10 }));
+  await page.click('#btn-settings');
+  await waitVisible(page, '#scr-settings');
+  await page.click('#set-tabs .gen-tab[data-t="acc"]');
+  await waitVisible(page, '#imp-pick');
+  await page.setInputFiles('#imp-file', file);
+  await waitVisible(page, '#imp-ok');
+  await page.locator('#imp-box .imp-prev').scrollIntoViewIfNeeded();
+  report.capturaImportar = await shot(page, tag + '_importar_vista_previa');
+  const previa = (await text(page, '#imp-box .imp-prev')).replace(/\s+/g, ' ');
+  await page.click('#imp-ok');
+  await page.waitForFunction(() => /subida a la nube|se subirá/.test((document.querySelector('#imp-box .imp-msg') || {}).textContent || ''), null, { timeout: 20000 });
+  const r = await page.evaluate(async () => {
+    const fb = G.DB.fb, snap = await fb.fs.collection('saves').doc(fb.uid).get({ source: 'server' });
+    const nube = snap.data().save, s = G.DB.save;
+    return { coins: s.coins, t1: s.tickets.t1, t10: s.tickets.t10, partner: s.partner, partnerShiny: s.partnerShiny, sync: G.DB.syncState,
+      nube: { coins: nube.coins, t1: nube.tickets.t1, owned: [1, 4, 7, 25, 133, 150, 249].every(d => nube.owned[d]), shiny25: !!nube.shiny[25],
+        legend150: !!nube.legends[150], hp25: (nube.pupg[25] || {}).hp, reg: nube.importOficial },
+      msg: document.querySelector('#imp-box .imp-msg').textContent.replace(/\s+/g, ' ').trim() };
+  });
+  step(`${tag}: traer partida oficial`, `vista previa «${previa.slice(0, 160)}…» · ${r.msg}`);
+  check('Importar (nube): suma colección, monedas y tickets, pone el compañero y lo sube a Firestore con la transacción normal',
+    r.coins === antes.coins + 4321 && r.t1 === antes.t1 + 9 && r.t10 === antes.t10 + 2 && r.partner === 25 && r.partnerShiny === true && r.sync === 'ok' &&
+    r.nube.coins === r.coins && r.nube.t1 === r.t1 && r.nube.owned && r.nube.shiny25 && r.nube.legend150 && r.nube.hp25 === 3 &&
+    r.nube.reg && r.nube.reg[String(env.save.created)] && r.nube.reg[String(env.save.created)].coins === 4321, { antes, despues: r });
+  // Otra vez el mismo archivo: nada nuevo y Confirmar desactivado.
+  await page.setInputFiles('#imp-file', file);
+  await waitVisible(page, '#imp-box .imp-prev');
+  const re = await page.evaluate(() => ({ desactivado: document.getElementById('imp-ok').disabled,
+    yaTraida: /Ya habías traído esta partida/.test(document.querySelector('#imp-box .imp-prev').textContent),
+    coins: G.DB.save.coins }));
+  check('Importar otra vez el mismo archivo no ofrece sumar nada (monedas y tickets sin duplicar)', re.desactivado && re.yaTraida && re.coins === r.coins, re);
+  await page.click('#imp-cancel');
+  await page.click('#set-close');
+}
+
 async function openFriends(P) {
   const { page, tag } = P;
   await page.click('#scr-menu [data-go="friends"]');
@@ -423,6 +480,7 @@ async function trapSummary(P) {
     await register(A, cred.A.nombre, cred.A.pass);
     await register(B, cred.B.nombre, cred.B.pass);
     await personality(A); await personality(B);
+    await importOfficial(A);   // Ajustes > Cuenta > traer la partida del juego oficial (sintética), en la nube
     const monA = await setPartner(A, BIG), monB = await setPartner(B, NORMAL);
     check('El Pokémon grande de la prueba es de los que se reducen', monA.escalaEsperada < 1, `${monA.name}: ${monA.escalaEsperada.toFixed(3)}`);
     check('El Pokémon normal de la prueba no se reduce', monB.escalaEsperada === 1, `${monB.name}: ${monB.escalaEsperada}`);
