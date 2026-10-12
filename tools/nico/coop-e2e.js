@@ -1062,6 +1062,39 @@ async function guaranteedRift(A, B) {
       tiros > 0 && disparosB.hostiles >= tiros && disparosB.contorneados > 0 && disparosB.contorno[0] === disparosB.sprite[0] + 2 && disparosB.contorno[1] === disparosB.sprite[1] + 2 &&
       disparosB.pixelesRojos > 0, report.disparosInvitado);
 
+    // ---- HUD Dex en el invitado (B en Dex y A en Clásico: el estilo es de cada uno y no viaja por la red) ----
+    // B pinta su HUD en un lienzo aparte con G.HUD.draw (el de verdad, con el gancho) y se apunta lo que escribe y rellena.
+    const HUD_B = () => B.page.evaluate(() => {
+      const cv = document.createElement('canvas'); cv.width = innerWidth; cv.height = innerHeight;
+      const ctx = cv.getContext('2d'), rec = { textos: [], rellenos: [] };
+      const ft = ctx.fillText.bind(ctx), fr = ctx.fillRect.bind(ctx);
+      ctx.fillText = (t, x, y) => { rec.textos.push(String(t)); return ft(t, x, y); };
+      ctx.fillRect = (x, y, w, h) => { rec.rellenos.push({ x, y, w, h, c: String(ctx.fillStyle).toLowerCase() }); return fr(x, y, w, h); };
+      G.HUD.draw(ctx, innerWidth, innerHeight, G.Game.player, G.Game.st);
+      const Bd = G.HudDex.bandas(), fila = Bd.piezas.companeros[0], ps = ['#58d873', '#ffcb3d', '#f2493b', '#ff8a80'];
+      const barra = !!fila && rec.rellenos.some(r => ps.includes(r.c) && r.y >= fila.y - 1 && r.y + r.h <= fila.y + fila.h + 1 && r.x > fila.x && r.w > 2);
+      return { estilo: G.Estilo.actual, textos: rec.textos, barra, flechas: Bd.flechas.map(f => f.tipo), variante: Bd.variante, nombreA: G.Coop.mates[0].name };
+    });
+    const estilos = { A: await A.page.evaluate(() => { G.Estilo.set('clasico'); return G.Estilo.actual; }), B: await B.page.evaluate(() => { G.Estilo.set('dex'); return G.Estilo.actual; }) };
+    await sleep(300);
+    const h1 = await HUD_B();
+    check('HUD Dex en el invitado: B (en Dex; A sigue en Clásico) pinta la barra de vida de A en su panel de compañeros, con su nombre',
+      estilos.A === 'clasico' && h1.estilo === 'dex' && h1.barra && h1.textos.includes(h1.nombreA), { estilos, variante: h1.variante, barra: h1.barra, nombreA: h1.nombreA, textos: h1.textos.slice(0, 30) });
+    await A.page.evaluate(() => { G.Game.player.x += 1100; });
+    await sleep(700);
+    const h2 = await HUD_B();
+    const etiqueta = h2.textos.find(x => x.startsWith(h2.nombreA + ' · ') && / \d+ m$/.test(x));
+    check('HUD Dex en el invitado: con A a más de 1.000 px, B pinta la flecha «A · N m» hacia él', !!etiqueta && +/(\d+) m$/.exec(etiqueta)[1] >= 30 && h2.flechas.includes('companero'),
+      { etiqueta, flechas: h2.flechas });
+    await A.page.evaluate(() => { G.Game.player.dead = true; });
+    await sleep(700);
+    const h3 = await HUD_B();
+    await A.page.evaluate(() => { const p = G.Game.player; p.dead = false; p.hp = p.maxHp; p.x -= 1100; });
+    check('HUD Dex en el invitado: con A caído, B pinta «Caído» en su panel y la flecha «¡A necesita ayuda! · N m»',
+      h3.textos.includes('Caído') && h3.textos.some(x => x.startsWith('¡' + h3.nombreA + ' necesita ayuda! · ')) && h3.flechas.includes('caido'),
+      { textos: h3.textos.filter(x => /Caído|ayuda/.test(x)), flechas: h3.flechas });
+    await sleep(500);
+
     // ---- Vuelta de la grieta: el invitado borra sus copias y el anfitrión las anuncia de nuevo ----
     await B.page.evaluate(() => {
       window.__hpTrap.fase = 'grieta';

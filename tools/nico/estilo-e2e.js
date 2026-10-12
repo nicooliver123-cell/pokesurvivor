@@ -1,5 +1,5 @@
 /* ============ tools/nico/estilo-e2e.js — prueba de la identidad visual en el navegador ============
- *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas]
+ *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud]
  *
  * Arnés del estilo «Dex de Expedición» (lote 1: base del estilo y menús). Modo local, un jugador
  * invitado, sin emulador: abre index.html (con --dev, dev.html) en Chromium con Playwright y, en
@@ -39,6 +39,13 @@
  *   8. Sin internet: tras la primera carga (en Clásico, con el service worker), se corta la red y se
  *      pasa a Dex: la letra está (document.fonts.check) y no se pide nada fuera de assets/fonts.
  *   9. Consola sin errores ni avisos (menos los del entorno de la prueba: ver AVISOS_ENTORNO).
+ *  10. HUD Dex en partida (lote 2), en escritorio, móvil y el Magic V6 (interior en horizontal y en vertical, exterior
+ *      en horizontal y la mitad de arriba en modo mesa, 784x362): con un jefe a la vista, su aviso, lluvia, mejoras, objeto
+ *      y cuatro ataques, la banda de arriba medida en píxeles (el HUD en un lienzo transparente aparte) es la de
+ *      G.HudDex.bandas() y la de check.js (≤ 20 % del alto en un móvil); pares Dex/Clásico; tocar la ranura 2 la activa y
+ *      la pausa responde (844x390, con el dedo); contraste de los textos en píxeles reales en bosque, cueva, volcán, arena
+ *      y lluvia (p10 ≥ 3:1, mediana ≥ 4,5:1); el HUD Dex cuesta de media como mucho 0,3 ms más que el de upstream en la misma escena (escritorio); capturas con 4 jugadores; y
+ *      con movimiento reducido no parpadea nada.
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
@@ -59,6 +66,7 @@ const PAGE = process.argv.includes('--dev') ? 'dev.html' : 'index.html';
 const BASE = `http://127.0.0.1:${PORT}/${PAGE}`;
 const HEADLESS = !process.argv.includes('--headed');
 const CAPTURAS = !process.argv.includes('--sin-capturas');
+const SOLO_HUD = process.argv.includes('--solo-hud');   // sólo el HUD Dex en partida (sección 10), para ir más rápido
 const ESTILOS = ['clasico', 'dex'];
 
 /** Avisos de la consola que son del entorno de la prueba, no del juego. */
@@ -521,6 +529,196 @@ async function tabula(page, n, sel) {
   return vistos;
 }
 
+// ---------------- HUD Dex en partida (lote 2) ----------------
+/** Escena de prueba en la partida real (sólo en la prueba): un jefe a la vista, su aviso, lluvia, mejoras, objeto,
+ *  cuatro ataques y, si se pide, tres compañeros simulados (cambiando G.Coop sólo mientras se pinta el HUD). */
+const ESCENA_HUD = op => {
+  const pl = G.Game.player, W = innerWidth, H = innerHeight, cam = G.Camera;
+  for (const x of document.querySelectorAll('.ach-pop, .toast')) x.remove();
+  if (op.jefe !== false && !G.EnemyMgr.all().some(e => e.boss && !e.dead)) {
+    // A la vista, en la zona libre (sin flecha): a la derecha y algo abajo de tu Pokémon.
+    const b = new G.Enemy({ dex: 983, hp: 5000, spd: 0, dmg: 0, xp: 0, behavior: 'melee' }, pl.x + (op.jefeX || 0.18) * W / cam.scale, pl.y + 0.12 * H / cam.scale, { hp: 1, spd: 1, dmg: 1 }, true);
+    b.hp = b.maxHp * 0.64; b.spd = 0; G.EnemyMgr.add(b);
+  }
+  if (op.lluvia !== false) G.Weather.onEvent(['w', 'rain', 90]);
+  pl.buffs.atk.n = 2; pl.buffs.spd.n = 1;
+  for (const id of Object.keys(G.Moves.BY_ID).filter(id => !pl.hasMove(id)).slice(0, Math.max(0, 4 - pl.slots.length))) pl.addMove(id);
+  pl.item = Object.keys(G.Items.BY)[0];
+  G.Coop.local && (G.Coop.local.hurt = function () {});
+  pl.hurt = function () {};
+  if (op.aviso !== false) G.Spawner.say('¡Kingambit salvaje apareció!', 600, true);
+  if (op.companeros && !window.__hudCoop) {
+    const mk = (name, color, dx, dy, dead) => ({ name, color, connected: true, pl: { x: pl.x + dx, y: pl.y + dy, hp: 50, maxHp: 80, dead: !!dead, bodyH: 30 } });
+    const mates = [mk('Ana', '#5FC8FF', -1800, 200, true), mk('Leo', '#7EE07A', 60, 40), mk('Sol', '#FF8AD8', 300, 2200)];
+    const orig = G.HUD.draw, C = G.Coop;
+    window.__hudCoop = { orig, mates };
+    G.HUD.draw = function (ctx, w, h, p, st) {
+      const dA = Object.getOwnPropertyDescriptor(C, 'active'), dM = Object.getOwnPropertyDescriptor(C, 'mates'), pP = C.players;
+      Object.defineProperty(C, 'active', { get: () => true, configurable: true });
+      Object.defineProperty(C, 'mates', { get: () => mates, configurable: true });
+      C.players = () => [p, ...mates.map(m => m.pl)];
+      try { return orig.call(this, ctx, w, h, p, st); } finally { Object.defineProperty(C, 'active', dA); Object.defineProperty(C, 'mates', dM); C.players = pP; }
+    };
+  }
+};
+/** El HUD Dex pintado en un lienzo transparente aparte (sin mundo, dpr 1): la fila opaca más baja de la mitad de arriba
+ *  (sin las columnas laterales) y las bandas que dice G.HudDex.bandas(). */
+const BANDA_PIXELES = async () => {
+  const W = innerWidth, H = innerHeight, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), pl = G.Game.player, st = { time: 100 };
+  G.HudDex.draw(ctx, W, H, pl, st);
+  await new Promise(r => setTimeout(r, 300));
+  ctx.clearRect(0, 0, W, H);
+  G.HudDex.draw(ctx, W, H, pl, st);
+  const B = G.HudDex.bandas(), d = ctx.getImageData(0, 0, W, H).data;
+  let fila = -1;
+  for (let y = Math.floor(H / 2) - 1; y >= 0 && fila < 0; y--) {
+    for (let x = Math.ceil(B.izq); x < W - B.der; x++) if (d[(y * W + x) * 4 + 3] > 8) { fila = y; break; }
+  }
+  return { sup: B.sup, inf: B.inf, izq: B.izq, der: B.der, variante: B.variante, escala: B.escala, filaOpaca: fila + 1, flechas: B.flechas.length };
+};
+/** Contraste de cada texto del HUD en los píxeles de verdad del lienzo del juego: color del texto frente a la mediana de
+ *  lo que hay en su caja y no es texto (el panel, o el contorno si va suelto). Devuelve las razones. */
+const CONTRASTE_PIXELES = async () => {
+  const cv = document.getElementById('game'), ctx = cv.getContext('2d'), textos = [];
+  const orig = G.HUD.draw;
+  G.HUD.draw = function (c, w, h, p, st) {
+    const ft = c.fillText;
+    c.fillText = function (t, x, y) {
+      const m = c.getTransform(), tam = +(/(\d+)px/.exec(c.font) || [0, 11])[1], wd = c.measureText(t).width;
+      const al = c.textAlign, x0 = al === 'center' ? x - wd / 2 : al === 'right' ? x - wd : x;
+      if (/\p{L}|\d/u.test(t) && c.globalAlpha > 0.95) textos.push({ t, col: String(c.fillStyle), x0: m.a * x0 + m.e, y0: m.d * (y - tam * 0.75) + m.f, x1: m.a * (x0 + wd) + m.e, y1: m.d * (y + tam * 0.1) + m.f });
+      return ft.call(this, t, x, y);
+    };
+    try { return orig.call(this, c, w, h, p, st); } finally { delete c.fillText; }
+  };
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  G.HUD.draw = orig;
+  const lum = c => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+  const rgb = s => { const p = document.createElement('canvas').getContext('2d'); p.fillStyle = s; const v = p.fillStyle; if (v[0] === '#') { const n = parseInt(v.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; } return (/\(([^)]+)\)/.exec(v) || [0, '0,0,0'])[1].split(',').slice(0, 3).map(Number); };
+  const out = [];
+  for (const T of textos) {
+    const x = Math.max(0, Math.floor(T.x0)), y = Math.max(0, Math.floor(T.y0)), w = Math.min(cv.width - x, Math.ceil(T.x1 - T.x0)), h = Math.min(cv.height - y, Math.ceil(T.y1 - T.y0));
+    if (w < 2 || h < 2) continue;
+    const d = ctx.getImageData(x, y, w, h).data, c = rgb(T.col), lc = lum(c), fondo = [];
+    for (let i = 0; i < d.length; i += 4) {
+      const dist = Math.abs(d[i] - c[0]) + Math.abs(d[i + 1] - c[1]) + Math.abs(d[i + 2] - c[2]);
+      if (dist > 90) fondo.push(lum([d[i], d[i + 1], d[i + 2]]));
+    }
+    if (fondo.length < 4) continue;
+    fondo.sort((a, b) => a - b);
+    const lf = fondo[Math.floor(fondo.length / 2)];
+    out.push({ t: T.t, r: +((Math.max(lc, lf) + 0.05) / (Math.min(lc, lf) + 0.05)).toFixed(2) });
+  }
+  return out;
+};
+const percentil = (v, p) => { const s = v.slice().sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : 0; };
+const VP_HUD = {
+  pc: VP.pc, movil: VP.movil, movilBajo: VP.movilBajo, pleg1: VP.pleg1, pleg2: VP.pleg2, exterior: VP.exterior,
+  mesa: { w: 784, h: 362, dpr: 3, tactil: true },      // el Magic V6 a medio plegar en modo mesa: la mitad de arriba
+  tab: VP.tab
+};
+
+async function pruebaHud(browser) {
+  for (const [clave, v] of Object.entries(VP_HUD)) {
+    const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: HUD: se entra a jugar`, false); await P.ctx.close(); continue; }
+    await page.evaluate(() => { G.Estilo.set('dex'); G.Flow.play(); });
+    await sleep(1200);
+    await page.evaluate(ESCENA_HUD, {});
+    await sleep(2200);    // que se vaya la píldora del ataque y se horneen los sprites
+    // La banda superior medida en píxeles (HUD sin mundo) es la que dice el HUD (y check.js).
+    const b = await page.evaluate(BANDA_PIXELES);
+    report.medidas['hud-' + nv] = b;
+    const compacto = b.variante === 'compacto';
+    check(`${nv}: HUD Dex (${b.variante}, ×${b.escala}): la banda de arriba medida en píxeles con el HUD en un lienzo aparte (${b.filaOpaca} px) es la de G.HudDex.bandas() (${b.sup})${compacto && v.h < 520 ? ', ≤ 20 % del alto (criterio de Nico)' : ''}`,
+      b.flechas === 0 && Math.abs(b.filaOpaca - b.sup) <= 1 && (!compacto || v.h >= 520 || (b.sup + b.inf) / v.h <= 0.2), b);
+    // Pares Dex/Clásico del mismo momento (bosque, jefe con su aviso y lluvia).
+    await captura(page, `hud-jefe-dex-${nv}`);
+    await estilo(page, 'clasico');
+    await sleep(250);
+    await captura(page, `hud-jefe-clasico-${nv}`);
+    await estilo(page, 'dex');
+    if (v.tactil && clave === 'movil') {
+      // Tocar la ranura 2 la activa; tocar la pausa pausa (con el dedo, por la interfaz real).
+      const antes = await page.evaluate(() => { G.Game.player.setActive(0); return G.Game.player.active; });
+      await sleep(100);
+      const r2 = await page.evaluate(() => { const R = G.HudDex.bandas().piezas.ranuras[1]; return { x: R.x + R.w / 2, y: R.y + R.h / 2, w: R.w }; });
+      await page.touchscreen.tap(r2.x, r2.y);
+      await sleep(150);
+      const despues = await page.evaluate(() => G.Game.player.active);
+      const pz = await page.evaluate(() => { const R = G.HudDex.bandas().piezas.pausa; return R && { x: R.x + R.w / 2, y: R.y + R.h / 2, w: R.w, h: R.h }; });
+      if (pz) await page.touchscreen.tap(pz.x, pz.y);
+      await sleep(250);
+      const estado = await page.evaluate(() => G.Game.state);
+      check(`${nv}: tocar la ranura 2 del HUD Dex la activa (columna a la derecha, ${r2.w} px) y el botón de pausa (${pz && pz.w}x${pz && pz.h}) pausa`,
+        antes === 0 && despues === 1 && pz && pz.w >= 44 && estado === 'paused', { antes, despues, pz, estado });
+      await page.evaluate(() => { if (G.Game.state === 'paused') G.Game.togglePause(); G.UI.hideAll(); });
+      await sleep(200);
+    }
+    if (clave === 'pc' || clave === 'movil') {
+      // Contraste en píxeles reales, en los tres biomas, una arena y con lluvia.
+      const res = {};
+      for (const [n, fn] of [['bosque', 'G.Weather.onEvent(["w"]); G.World.setBiome(0, true)'], ['cueva', 'G.World.setBiome(1, true)'], ['volcan', 'G.World.setBiome(2, true)'],
+        ['arena', 'G.World.setBiome(G.Tiles.arenaBiome("fire"), true)'], ['lluvia', 'G.World.setBiome(0, true); G.Weather.onEvent(["w", "rain", 90])']]) {
+        await page.evaluate(fn);
+        await sleep(n === 'lluvia' ? 3400 : 700);
+        const r = (await page.evaluate(CONTRASTE_PIXELES)).map(x => x.r);
+        res[n] = { textos: r.length, p10: percentil(r, 0.1), mediana: percentil(r, 0.5) };
+        if (n === 'lluvia' || n === 'volcan') await captura(page, `hud-${n}-dex-${nv}`);
+      }
+      report.medidas['hud-contraste-' + nv] = res;
+      check(`${nv}: contraste de los textos del HUD Dex en píxeles reales (bosque, cueva, volcán, arena y lluvia): p10 ≥ 3:1 y mediana ≥ 4,5:1`,
+        Object.values(res).every(x => x.textos >= 10 && x.p10 >= 3 && x.mediana >= 4.5), res);
+    }
+    if (clave === 'pc') {
+      // Rendimiento: G.HUD.draw, de media por fotograma, con el HUD Dex y con el de upstream (Clásico) en la misma escena.
+      // En este Chromium de la prueba (sin pantalla) el de upstream ya ronda los 0,3 ms: se exige que el Dex no cueste
+      // más de 0,3 ms por encima de él, y se apuntan los dos.
+      const mide = e => page.evaluate(async est => {
+        G.Estilo.set(est);
+        const orig = G.HUD.draw, t = [];
+        G.HUD.draw = function (...a) { const t0 = performance.now(); const r = orig.apply(this, a); t.push(performance.now() - t0); return r; };
+        await new Promise(r => setTimeout(r, 2500));
+        G.HUD.draw = orig;
+        t.sort((a, b) => a - b);
+        return { n: t.length, media: +(t.reduce((s, x) => s + x, 0) / t.length).toFixed(3), p95: +t[Math.floor(t.length * 0.95)].toFixed(3) };
+      }, e);
+      const msC = await mide('clasico'), ms = await mide('dex');
+      report.medidas['hud-ms-' + nv] = { dex: ms, clasico: msC };
+      check(`${nv}: el HUD Dex cuesta de media ${ms.media} ms por fotograma (p95 ${ms.p95}) y el de upstream ${msC.media} ms en la misma escena: como mucho 0,3 ms más`,
+        ms.n > 60 && msC.n > 60 && ms.media <= msC.media + 0.3, { dex: ms, clasico: msC });
+    }
+    if (clave === 'pc' || clave === 'movil' || clave === 'pleg2') {
+      // Cuatro jugadores (tres compañeros simulados en el HUD: uno caído y lejos, otro a la vista y otro lejos) y el jefe lejos.
+      await page.evaluate(() => { for (const e of G.EnemyMgr.all()) if (e.boss) { e.x += 3000; e.y -= 400; } });
+      await page.evaluate(ESCENA_HUD, { companeros: true, jefe: false, aviso: false });
+      await sleep(600);
+      await captura(page, `hud-4-jugadores-dex-${nv}`);
+      // Movimiento reducido: con PS bajos, un compañero caído, flechas y la grieta, dos fotogramas a 400 ms son iguales.
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.evaluate(() => { if (G.Game.state === 'playing') G.Game.togglePause(); });
+      const igual = await page.evaluate(async () => {
+        const pl = G.Game.player, W = innerWidth, H = innerHeight, st = G.Game.st;
+        pl.hp = pl.maxHp * 0.12;
+        const pinta = () => { const cv = document.createElement('canvas'); cv.width = W; cv.height = H; G.HUD.draw(cv.getContext('2d'), W, H, pl, st); return cv.getContext('2d').getImageData(0, 0, W, H).data; };
+        pinta(); await new Promise(r => setTimeout(r, 300));
+        const a = pinta(); await new Promise(r => setTimeout(r, 400));
+        const b = pinta();
+        let dif = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2] || a[i + 3] !== b[i + 3]) dif++;
+        return { dif, flechas: G.HudDex.bandas().flechas.map(f => f.tipo) };
+      });
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.evaluate(() => { if (G.Game.state === 'paused') G.Game.togglePause(); G.UI.hideAll(); });
+      check(`${nv}: con movimiento reducido nada parpadea ni late en el HUD Dex (PS bajos, compañero caído y flechas: dos fotogramas a 400 ms, idénticos)`,
+        igual.dif === 0 && igual.flechas.includes('caido'), igual);
+    }
+    check(`${nv}: HUD Dex: consola sin errores ni avisos`, !P.consola.length, P.consola.slice(0, 5));
+    await P.ctx.close();
+  }
+}
+
 // ---------------- hoja de contactos ----------------
 function hojaDeContactos() {
   const pares = {};
@@ -537,7 +735,7 @@ function hojaDeContactos() {
   const browser = await chromium.launch({ headless: HEADLESS });
   try {
     // 7. «Gira el móvil»: un móvil en vertical y el Magic V6 plegado en vertical, sí; los plegables abiertos, no (y entran a jugar más abajo).
-    for (const v of [{ w: 390, h: 844, dpr: 3, tactil: true }, { w: 360, h: 807, dpr: 3, tactil: true }]) {
+    for (const v of SOLO_HUD ? [] : [{ w: 390, h: 844, dpr: 3, tactil: true }, { w: 360, h: 807, dpr: 3, tactil: true }]) {
       const P = await nuevo(browser, v);
       await P.page.goto(BASE, { waitUntil: 'load' });
       await P.page.waitForFunction(() => document.getElementById('boot').classList.contains('hidden'), null, { timeout: 30000 });
@@ -547,7 +745,7 @@ function hojaDeContactos() {
       await P.ctx.close();
     }
 
-    for (const [clave, v] of Object.entries(VP)) {
+    for (const [clave, v] of SOLO_HUD ? [] : Object.entries(VP)) {
       const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v), t0 = Date.now();
       const dentro = await entrar(P);
       if (v.tactil && v.w / v.h > 0.75) check(`${nv}: juega sin «Gira el móvil»`, dentro);
@@ -752,8 +950,11 @@ function hojaDeContactos() {
       await P.ctx.close();
     }
 
+    // 10. HUD Dex en partida (lote 2).
+    await pruebaHud(browser);
+
     // 8. Sin internet: con el service worker y en Clásico, se cargan las fuentes en reposo; luego, sin red, a Dex.
-    {
+    if (!SOLO_HUD) {
       const P = await nuevo(browser, VP.pc, { sw: true }), { page, ctx } = P;
       await page.goto(BASE, { waitUntil: 'load' });
       await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 30000 }).catch(() => {});
