@@ -1,23 +1,51 @@
 /* ============ tools/nico/coop-e2e.js — E2E del cooperativo de nuestra versión ============
  *   cd tools/nico && npm install   (la primera vez)
  *   node coop-e2e.js [--dev] [--headed] [--grande 799] [--normal 25] [--puerto 8090]
+ *                    [--latencia 150] [--reutilizar-emulador]
  *
  * Qué hace, todo en este PC y sin tocar ningún servicio real:
  *   1. Arranca el emulador de Firebase (Auth 9099, Firestore 8080, RTDB 9000; proyecto
  *      demo-ps) con el JDK portable de ~/.cache/temurin-21 (sólo en el entorno del
- *      proceso, sin tocar el PATH del sistema). Si ya hay uno en marcha, lo reutiliza.
+ *      proceso, sin tocar el PATH del sistema). Si esos puertos ya están ocupados, para
+ *      con un mensaje claro; con --reutilizar-emulador usa el que haya (y no lo cierra).
  *   2. Sirve el repo en http://127.0.0.1:8090 y abre index.html?emu (el paquete
  *      js/app.min.js; con --dev, dev.html con los scripts sueltos).
  *   3. Dos jugadores en dos navegadores aislados (Playwright/Chromium): crean cuenta de
  *      prueba, hacen el test, A elige un Pokémon GRANDE (Guzzlord) y B uno normal
  *      (Pikachu), se hacen amigos, A invita, B entra y juegan una partida en grupo.
+ *      A es el anfitrión; B, el invitado (como jugará el amigo de Nico).
  *   4. Comprueba que cada uno ve al otro moverse, que el grande sale reducido en los dos
  *      clientes (misma escala, hitbox, alto y sprite) y el normal intacto.
- *   5. En el ANFITRIÓN (A) registra cada 100 ms cualquier subida de vida de un enemigo
- *      durante toda la partida. Mete una curandera forzada (Chansey 'healer') y hiere a
- *      los de alrededor: con el mod no debe subir ninguna vida; como control, activa un
- *      momento curacionEnemiga=true y exige que SÍ suba (la prueba sabe detectarlo).
- *   6. Falla si algún cliente habla con la infraestructura del juego original.
+ *   5. Transporte (obligatorio): los dos se ven por el canal directo (G.Net.mode 'direct'),
+ *      el par de candidatos elegido de WebRTC está conectado, no pasa por un TURN y lleva
+ *      datos, y durante la partida no se manda nada por el relé de la base de datos.
+ *   6. Vida de los enemigos, con una TRAMPA en el setter de `hp` de G.Enemy (cada
+ *      escritura, sin huecos de muestreo), en los dos clientes:
+ *      - Anfitrión: con el mod no sube nunca (curandera forzada incluida); como control,
+ *        activa un momento curacionEnemiga=true y exige que SÍ suba.
+ *      - Invitado: con latencia simulada en su canal (--latencia ms por sentido), golpes
+ *        suyos y escudos forzados, no puede verse ninguna subida que dure más de un
+ *        fotograma de red (150 ms) salvo la resincronización legítima tras la ventana
+ *        (ver CRITERIO abajo); con escudo no predice el golpe. Control: el invitado sin
+ *        el mod (curacionEnemiga=true en su cliente) SÍ ve subidas largas y predice con
+ *        escudo, así que la prueba sabe detectarlo.
+ *      - Vuelta de la grieta: el invitado borra sus copias y el anfitrión las vuelve a
+ *        anunciar ('ne'), como en rift.js; las copias nacen con la vida real.
+ *   7. Falla si algún cliente habla con la infraestructura del juego original, si hay
+ *      errores de JavaScript o si el aviso legal no lleva el contacto del fork.
+ *
+ * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
+ * desde el último golpe que el propio invitado predijo en ella (lo mide la trampa):
+ *   - 'dentro-ventana': menos de G.MODS.ventanaVidaMs (600 ms). Es el rebote que se veía
+ *     antes; con el mod no puede pasar: debe haber 0.
+ *   - 'resincronizacion': pasada la ventana. El anfitrión manda y su vida es la buena (el
+ *     golpe no llegó a contar, p. ej. por un escudo): legítima.
+ *   - 'sin-golpe': sin golpe predicho en esa copia. Sólo puede ser una curación real o un
+ *     dato viejo: falla si dura más de 150 ms.
+ * La duración va desde la subida hasta que la vida vuelve a estar a su nivel anterior (o
+ * la copia desaparece). Las fases en las que el anfitrión cura a propósito (su control)
+ * no cuentan para el invitado.
+ *
  * Resultado en tools/nico/out/: informe.json, capturas, consolas y log del emulador.
  * Código de salida 0 = todo bien.
  */
@@ -35,12 +63,17 @@ const PAGE = process.argv.includes('--dev') ? 'dev.html' : 'index.html';
 const BASE = `http://127.0.0.1:${PORT}/${PAGE}?emu`;
 const BIG = +arg('--grande', 799), NORMAL = +arg('--normal', 25);
 const HEADLESS = !process.argv.includes('--headed');
+const REUSE = process.argv.includes('--reutilizar-emulador');
+const LAT = +arg('--latencia', 150);          // ms por sentido en el canal del invitado durante su prueba
+const VISIBLE_MS = 150;                       // una subida que dura más que esto se ve (un fotograma de red)
 const EMU_PORTS = [9099, 8080, 9000];
+const FORK_ISSUES = 'https://github.com/nicooliver123-cell/pokesurvivor/issues';
+const FORK_REPO = 'https://github.com/nicooliver123-cell/pokesurvivor';
 
 fs.rmSync(SHOTS, { recursive: true, force: true });
 fs.mkdirSync(SHOTS, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const report = { inicio: new Date().toISOString(), url: BASE, grande: BIG, normal: NORMAL, pasos: [], comprobaciones: [], red: {} };
+const report = { inicio: new Date().toISOString(), url: BASE, grande: BIG, normal: NORMAL, latenciaInvitadoMs: LAT, pasos: [], comprobaciones: [], red: {} };
 const save = () => fs.writeFileSync(path.join(OUT, 'informe.json'), JSON.stringify(report, null, 2));
 function step(name, result) { report.pasos.push({ paso: name, resultado: result }); console.log(`[PASO] ${name} -> ${result}`); save(); }
 function check(name, okv, detail) {
@@ -73,8 +106,15 @@ const portOpen = port => new Promise(res => {
 });
 async function startEmulator() {
   const open = await Promise.all(EMU_PORTS.map(portOpen));
-  if (open.every(Boolean)) { step('Emulador', 'ya había uno en marcha en 9099/8080/9000: se reutiliza'); return null; }
-  if (open.some(Boolean)) throw new Error('Algún puerto del emulador está ocupado por otra cosa: ' + EMU_PORTS.filter((p, i) => open[i]).join(', '));
+  const busy = EMU_PORTS.filter((p, i) => open[i]);
+  if (busy.length) {
+    if (!REUSE) throw new Error(`Puertos del emulador ocupados: ${busy.join(', ')}. Cierra lo que los usa (¿otro emulador de Firebase en marcha?) ` +
+      'o, si es un emulador del proyecto demo-ps que quieres aprovechar, repite con --reutilizar-emulador.');
+    if (busy.length < EMU_PORTS.length) throw new Error(`--reutilizar-emulador necesita un emulador con los tres puertos (${EMU_PORTS.join(', ')}); ` +
+      `sólo están ocupados ${busy.join(', ')}, así que es otra cosa. Ciérrala y repite.`);
+    step('Emulador', 'se reutiliza el que ya estaba en marcha en 9099/8080/9000 (--reutilizar-emulador; no se cierra al terminar)');
+    return null;
+  }
   const jdk = findJdk();
   const env = Object.assign({}, process.env, { JAVA_HOME: jdk, PATH: path.join(jdk, 'bin') + path.delimiter + process.env.PATH });
   const cli = require.resolve('firebase-tools/lib/bin/firebase.js');
@@ -109,10 +149,83 @@ function stopEmulator(child) {
 // Patrones de la infraestructura del original: ningún cliente debe tocarlos.
 const PROD = [/pokesurvivor-jpter/i, /pokesurvivor\.com/i, /firebaseio\.com/i, /firebasedatabase\.app/i,
   /^https?:\/\/(firestore|identitytoolkit|securetoken|firebaseinstallations|firebase)\.googleapis\.com/i];
-// Guarda las RTCPeerConnection para leer el tipo de conexión (no cambia el juego).
-const INIT = `(() => { const O = window.RTCPeerConnection; if (!O) return; window.__pcs = [];
+// Antes que el juego: guarda las RTCPeerConnection (para leer el par de candidatos elegido) y
+// permite simular latencia en el canal directo (window.__lat ms por sentido, 0 = nada). La
+// latencia retrasa lo que se manda y lo que llega sin desordenarlo. No cambia nada más del juego.
+const INIT = `(() => {
+  const O = window.RTCPeerConnection; if (!O) return; window.__pcs = [];
   window.RTCPeerConnection = function (...a) { const pc = new O(...a); window.__pcs.push(pc); return pc; };
-  window.RTCPeerConnection.prototype = O.prototype; Object.setPrototypeOf(window.RTCPeerConnection, O); })();`;
+  window.RTCPeerConnection.prototype = O.prototype; Object.setPrototypeOf(window.RTCPeerConnection, O);
+  window.__lat = 0;
+  const D = window.RTCDataChannel && RTCDataChannel.prototype; if (!D) return;
+  const send = D.send, onm = Object.getOwnPropertyDescriptor(D, 'onmessage');
+  const later = (ch, k, fn) => {
+    const now = performance.now();
+    if (!window.__lat && !(ch[k] > now)) return fn();
+    const due = Math.max(now + window.__lat, ch[k] || 0); ch[k] = due;
+    setTimeout(fn, due - now);
+  };
+  D.send = function (d) { const ch = this; return later(ch, '__dueOut', () => { if (ch.readyState === 'open' || !(ch.__dueOut > 0)) send.call(ch, d); }); };
+  if (onm && onm.set) Object.defineProperty(D, 'onmessage', { configurable: true, enumerable: onm.enumerable,
+    get() { return onm.get.call(this); },
+    set(fn) { const ch = this; onm.set.call(this, typeof fn === 'function' ? function (ev) { later(ch, '__dueIn', () => fn.call(ch, ev)); } : fn); } });
+})();`;
+
+/** Trampa en el setter de la vida de los enemigos (G.Enemy.prototype.hp): ve CADA escritura.
+ *  Sólo cuenta enemigos ya registrados (G.EnemyMgr.get(id) === e): lo que pasa al crearlos
+ *  (shiny, élite, vida inicial de una copia) no es una subida. Se instala antes de la partida. */
+const TRAP = `(() => {
+  if (window.__hpTrap) return 'ya estaba';
+  const K = Symbol('hp'), P = G.Enemy.prototype;
+  const T = window.__hpTrap = { fase: 'menu', ventanaRef: +G.MODS.ventanaVidaMs || 600, subidas: [], abiertas: new Map(),
+    golpeT: new WeakMap(), c: {}, enGolpe: null, enGolpeEscudo: false };
+  const cnt = () => T.c[T.fase] || (T.c[T.fase] = { escrituras: 0, golpes: 0, golpesConEscudo: 0, predichas: 0, predichasConEscudo: 0 });
+  const vigilado = e => G.EnemyMgr.get(e.id) === e && !e.dead;
+  Object.defineProperty(P, 'hp', { configurable: true,
+    get() { return this[K]; },
+    set(v) {
+      const old = this[K];
+      this[K] = v;
+      if (old === undefined || !vigilado(this)) return;
+      const c = cnt(), now = performance.now();
+      c.escrituras++;
+      if (T.enGolpe === this) {                       // golpe predicho por el invitado (hurt de la copia)
+        c.predichas++; if (T.enGolpeEscudo) c.predichasConEscudo++;
+        T.enGolpe = null;
+        T.golpeT.set(this, now);
+      } else if (v > old + 1e-6) {
+        const g = T.golpeT.get(this), ms = g === undefined ? null : now - g;
+        const rec = { fase: T.fase, id: this.id, nombre: this.name, de: Math.round(old * 10) / 10, a: Math.round(v * 10) / 10,
+          max: Math.round(this.maxHp), t: Math.round(now), msDesdeGolpe: ms === null ? null : Math.round(ms), dura: null,
+          clase: !this.remote ? 'anfitrion' : ms === null ? 'sin-golpe' : ms < T.ventanaRef ? 'dentro-ventana' : 'resincronizacion' };
+        T.subidas.push(rec);
+        const prev = T.abiertas.get(this);
+        if (prev) { prev.rec.dura = Math.round(now - prev.rec.t); prev.rec.cierre = 'otra subida'; }
+        T.abiertas.set(this, { rec, base: old });
+      }
+      const ab = T.abiertas.get(this);
+      if (ab && v <= ab.base + 1e-6) { ab.rec.dura = Math.round(now - ab.rec.t); T.abiertas.delete(this); }
+    } });
+  // G.Coop.hit va justo antes de restar en la copia la vida predicha (enemy.js, hurt).
+  const hit = G.Coop.hit;
+  G.Coop.hit = function (e, ...a) {
+    const c = cnt(); c.golpes++;
+    const esc = !!(e.net && (e.net.st & 4)); if (esc) c.golpesConEscudo++;
+    T.enGolpe = e; T.enGolpeEscudo = esc;
+    queueMicrotask(() => { if (T.enGolpe === e) T.enGolpe = null; });
+    return hit.call(this, e, ...a);
+  };
+  T.timer = setInterval(() => {
+    const now = performance.now();
+    for (const [e, ab] of T.abiertas) if (!vigilado(e)) { ab.rec.dura = Math.round(now - ab.rec.t); ab.rec.cierre = 'desaparece'; T.abiertas.delete(e); }
+  }, 50);
+  T.cerrar = () => {
+    const now = performance.now();
+    for (const [, ab] of T.abiertas) { ab.rec.dura = Math.round(now - ab.rec.t); ab.rec.cierre = 'abierta al final'; }
+    T.abiertas.clear(); clearInterval(T.timer);
+  };
+  return 'instalada';
+})();`;
 
 async function newPlayer(browser, tag) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block', locale: 'es-ES' });
@@ -140,6 +253,28 @@ async function boot(P) {
   const m = await page.evaluate(() => ({ mode: G.DB.mode, emulator: !!(G.FIREBASE_CONFIG || {}).emulator, project: (G.FIREBASE_CONFIG || {}).projectId }));
   step(`${tag}: arranque`, `modo ${m.mode}, emulador=${m.emulator}, proyecto=${m.project}`);
   if (m.mode !== 'cloud' || !m.emulator || m.project !== 'demo-ps') throw new Error(tag + ': no está en modo nube contra el emulador (¿falta ?emu o el interruptor?)');
+  step(`${tag}: trampa de vida`, await page.evaluate(TRAP));
+}
+
+/** Aviso legal: contacto y código del fork, sin correo ni donaciones. */
+async function legalNotice(P) {
+  const { page } = P;
+  await page.click('#scr-login [data-legal]');
+  await waitVisible(page, '#scr-legal');
+  await sleep(900);   // que termine la transición, para la captura
+  const r = await page.evaluate(() => {
+    const m = document.getElementById('legal-mail'), rp = document.getElementById('legal-repo'), box = document.getElementById('scr-legal');
+    return { contacto: m.href, textoContacto: m.textContent, abreAparte: m.target === '_blank', repo: rp.href,
+      correo: /mailto:|@gmail\.com/i.test(box.innerHTML), donaciones: /donaciones voluntarias/i.test(box.textContent),
+      atribucion: !!box.querySelector('a[href="https://github.com/JPTER78/pokesurvivor"]'),
+      rechazaOriginal: G.FIREBASE_PERMITIDA({ projectId: 'pokesurvivor-jpter' }) === false };
+  });
+  report.capturaAvisoLegal = await shot(page, P.tag + '_aviso_legal');
+  await page.click('#legal-close');
+  await waitVisible(page, '#scr-login');
+  check('Aviso legal: contacto = avisos del fork, código = repo del fork, original sólo como atribución, sin correo ni donaciones',
+    r.contacto === FORK_ISSUES && r.abreAparte && r.repo === FORK_REPO && !r.correo && !r.donaciones && r.atribucion, r);
+  check('En la página, G.FIREBASE_PERMITIDA rechaza el proyecto del original', r.rechazaOriginal);
 }
 
 async function register(P, name, pass) {
@@ -209,24 +344,6 @@ const UNBLOCK = `window.__unblock = setInterval(() => {
   } catch (e) { /* nada */ }
 }, 400);`;
 
-/** Anfitrión: muestrea la vida de todos los enemigos cada 100 ms y apunta cualquier subida. */
-const SAMPLER = `(() => {
-  window.__heal = { phase: 'partida', samples: 0, ups: [], last: new Map(), maxSeen: 0 };
-  window.__healT = setInterval(() => {
-    const H = window.__heal, seen = new Map();
-    H.samples++;
-    for (const e of G.EnemyMgr.all()) {
-      if (e.dead) continue;
-      const prev = H.last.get(e.id);
-      if (prev !== undefined && e.hp > prev + 1e-6)
-        H.ups.push({ fase: H.phase, id: e.id, dex: e.dex, nombre: e.name, comportamiento: e.behavior, de: Math.round(prev), a: Math.round(e.hp), max: Math.round(e.maxHp) });
-      seen.set(e.id, e.hp);
-    }
-    H.maxSeen = Math.max(H.maxSeen, seen.size);
-    H.last = seen;
-  }, 100);
-})();`;
-
 async function sizes(P) {
   return P.page.evaluate(() => {
     const info = p => ({ dex: p.dex, nombre: p.mon.name, escala: +((p.scale === undefined ? 1 : p.scale)).toFixed(4),
@@ -251,9 +368,40 @@ async function shotPlayers(P, label) {
   return shot(P.page, label, { clip: box });
 }
 
+/** Transporte: modo de G.Net y par de candidatos elegido por WebRTC (getStats). */
+async function transport(P, peer) {
+  return P.page.evaluate(async u => {
+    const pares = [];
+    for (const pc of window.__pcs || []) {
+      if (pc.connectionState !== 'connected') continue;
+      const st = await pc.getStats();
+      let pair = null;
+      st.forEach(s => { if (s.type === 'transport' && s.selectedCandidatePairId) pair = st.get(s.selectedCandidatePairId); });
+      if (!pair) st.forEach(s => { if (s.type === 'candidate-pair' && s.nominated && s.state === 'succeeded') pair = s; });
+      if (!pair) continue;
+      const l = st.get(pair.localCandidateId) || {}, r = st.get(pair.remoteCandidateId) || {};
+      pares.push({ estado: pair.state, local: l.candidateType, remoto: r.candidateType, protocolo: l.protocol,
+        bytesEnviados: pair.bytesSent, bytesRecibidos: pair.bytesReceived, rttMs: pair.currentRoundTripTime != null ? Math.round(pair.currentRoundTripTime * 1000) : null });
+    }
+    return { modo: G.Net.mode(u), viaTurn: G.Net.viaTurn(u), pares, rele: G.Net.stats.relaySent, enviados: G.Net.stats.sent };
+  }, peer);
+}
+const directOk = t => t.modo === 'direct' && !t.viaTurn && t.pares.length > 0 &&
+  t.pares.every(p => p.estado === 'succeeded' && p.local && p.remoto && p.local !== 'relay' && p.remoto !== 'relay' && p.bytesEnviados > 0 && p.bytesRecibidos > 0);
+
+/** Resumen de la trampa de vida de un cliente. */
+async function trapSummary(P) {
+  return P.page.evaluate(() => {
+    const T = window.__hpTrap;
+    T.cerrar();
+    return { contadores: T.c, ventanaRefMs: T.ventanaRef, subidas: T.subidas };
+  });
+}
+
 (async () => {
   let emu = null, srv = null, browser = null, A = null, B = null, code = 0;
   try {
+    if (await portOpen(PORT)) throw new Error(`El puerto ${PORT} (la web de la prueba) está ocupado: ciérralo o usa --puerto <otro>.`);
     emu = await startEmulator();
     srv = await startServer(ROOT, PORT);
     step('Servidor', `${ROOT} en http://127.0.0.1:${PORT}/ (página ${PAGE})`);
@@ -263,6 +411,7 @@ async function shotPlayers(P, label) {
     B = await newPlayer(browser, 'B');
     // De uno en uno: así no se juntan cientos de peticiones de sprites a la vez.
     await boot(A); await boot(B);
+    await legalNotice(A);
     const tag = crypto.randomBytes(3).toString('hex'), pw = () => crypto.randomBytes(12).toString('base64url');
     const cred = { A: { nombre: 'e2eA_' + tag, pass: pw() }, B: { nombre: 'e2eB_' + tag, pass: pw() } };  // sólo existen en el emulador
     await register(A, cred.A.nombre, cred.A.pass);
@@ -311,15 +460,25 @@ async function shotPlayers(P, label) {
     const uidA = await A.page.evaluate(() => G.DB.fb.uid), uidB = await B.page.evaluate(() => G.DB.fb.uid);
     await A.page.click('#lobby-start');
     await Promise.all([A, B].map(P => P.page.waitForFunction(() => G.Coop.active && G.Game.state !== 'ui', null, { timeout: 25000 })));
-    // Instrumentación de prueba: cartas automáticas, sin morir (la prueba no va de esquivar), y en el anfitrión el muestreo de vida.
-    for (const P of [A, B]) await P.page.evaluate(`${UNBLOCK}; G.Coop.local.hurt = function () {};`);
-    await A.page.evaluate(SAMPLER);
+    // Instrumentación de prueba: cartas automáticas y sin morir (la prueba no va de esquivar).
+    for (const P of [A, B]) await P.page.evaluate(`${UNBLOCK}; G.Coop.local.hurt = function () {}; window.__hpTrap.fase = 'partida';`);
+    // Contadores de golpes del invitado: los que B manda ('h') y los que le llegan a A.
+    await B.page.evaluate(() => {
+      window.__hEnv = 0;
+      const th = G.Net.toHost;
+      G.Net.toHost = function (msg) { for (const ev of (msg && msg.ev) || []) if (ev[0] === 'h') window.__hEnv++; return th.call(this, msg); };
+    });
+    await A.page.evaluate(() => {
+      window.__hRec = 0;
+      G.Net.on((from, msg) => { if (msg && msg.k === 'f') for (const ev of msg.ev || []) if (ev[0] === 'h') window.__hRec++; });
+    });
     const host = await A.page.evaluate(() => G.Coop.isHost);
     check('A es el anfitrión (quien decide la vida de los enemigos)', host === true, host);
     step('Partida en grupo', 'G.Coop.active en los dos clientes');
     await sleep(3500);   // que carguen los sprites y se coloquen
+    const rele0 = { A: (await transport(A, uidB)).rele, B: (await transport(B, uidA)).rele };
 
-    // (c) tamaños, en cruz
+    // Tamaños, en cruz
     const sA = await sizes(A), sB = await sizes(B);
     report.tamanos = { A: sA, B: sB };
     const big = sA.esperado[BIG], mateA = sB.companeros.find(m => m.uid === uidA), mateB = sA.companeros.find(m => m.uid === uidB);
@@ -332,7 +491,7 @@ async function shotPlayers(P, label) {
     check('B (normal) queda intacto en su cliente y en el de A', sB.local.escala === 1 && mateB && same(mateB, sB.local) && sB.local.r === sB.esperado[NORMAL].rOriginal,
       mateB ? `${sB.local.nombre}: escala ${sB.local.escala} / en A ${mateB.escala}, hitbox ${sB.local.r} / en A ${mateB.r}` : 'A no tiene a B como compañero');
 
-    // (c) se ven y se mueven
+    // Se ven y se mueven
     const pos = (P, u) => P.page.evaluate(u => { const m = G.Coop.mate(u); return m ? { x: Math.round(m.pl.x), y: Math.round(m.pl.y), conectado: m.connected } : null; }, u);
     const before = { AveB: await pos(A, uidB), BveA: await pos(B, uidA) };
     await Promise.all([
@@ -352,10 +511,14 @@ async function shotPlayers(P, label) {
     await sleep(1200);
     report.capturas = [await shot(A.page, 'A_partida_juntos'), await shot(B.page, 'B_partida_juntos'),
       await shotPlayers(A, 'A_recorte_jugadores'), await shotPlayers(B, 'B_recorte_jugadores')];
-    const tr = await A.page.evaluate(() => G.Net.peers().map(u => ({ uid: u, modo: G.Net.mode(u) })));
-    step('Transporte', JSON.stringify(tr));
 
-    // (d) curación en el anfitrión
+    // Transporte (obligatorio)
+    const trA = await transport(A, uidB), trB = await transport(B, uidA);
+    report.transporte = { A: trA, B: trB };
+    check('Transporte: A y B se hablan por el canal directo de WebRTC (sin TURN) y el par elegido lleva datos', directOk(trA) && directOk(trB),
+      { A: { modo: trA.modo, pares: trA.pares }, B: { modo: trB.modo, pares: trB.pares } });
+
+    // ---- Vida en el ANFITRIÓN: curandera forzada, y control con la curación activada ----
     const healer = await A.page.evaluate(() => {
       const pl = G.Coop.local;
       const def = { dex: 113, name: 'Chansey', hp: 1e6, spd: 0, dmg: 1, xp: 0, behavior: 'healer', shotCd: 0.5, range: 9999 };
@@ -366,35 +529,147 @@ async function shotPlayers(P, label) {
       window.__woundT = setInterval(() => {
         for (const e of G.EnemyMgr.queryCircle(h.x, h.y, 170)) if (!e.dead && e.hp > 2) e.hp = Math.max(1, e.hp * 0.6);
       }, 1000);
-      window.__heal.phase = 'mod';
+      window.__hpTrap.fase = 'mod';
       return { id: h.id, comportamiento: h.behavior, curacionEnemiga: G.MODS.curacionEnemiga };
     });
     step('Curandera forzada en el anfitrión', JSON.stringify(healer));
     await sleep(8000);
-    await A.page.evaluate(() => { G.MODS.curacionEnemiga = true; window.__heal.phase = 'control'; });
+    // Control del anfitrión: el invitado verá curaciones reales, que no cuentan para él.
+    await B.page.evaluate(() => { window.__hpTrap.fase = 'control-anfitrion'; });
+    await A.page.evaluate(() => { G.MODS.curacionEnemiga = true; window.__hpTrap.fase = 'control'; });
     await sleep(5000);
-    await A.page.evaluate(() => { G.MODS.curacionEnemiga = false; window.__heal.phase = 'mod-otra-vez'; });
-    await sleep(4000);
-    const heal = await A.page.evaluate(() => {
-      clearInterval(window.__healT); clearInterval(window.__woundT);
-      const H = window.__heal, by = f => H.ups.filter(u => u.fase === f);
-      return { muestras: H.samples, maxEnemigos: H.maxSeen, curanderaViva: !window.__healer.dead,
-        subidas: { partida: by('partida'), mod: by('mod'), control: by('control').length, modOtraVez: by('mod-otra-vez') },
-        ejemploControl: by('control').slice(0, 3) };
+    await A.page.evaluate(() => { G.MODS.curacionEnemiga = false; window.__hpTrap.fase = 'mod-otra-vez'; });
+    await sleep(1500);
+    await B.page.evaluate(() => { window.__hpTrap.fase = 'partida'; });
+    await sleep(2500);
+    const healerAlive = await A.page.evaluate(() => { clearInterval(window.__woundT); return !window.__healer.dead; });
+
+    // ---- Vida en el INVITADO: latencia, golpes suyos y escudos forzados ----
+    // Dos dianas de mucha vida al lado de B (una con escudo permanente) y escudos en la mitad de
+    // los enemigos de su alrededor, desde el anfitrión, que es quien los decide.
+    const dianas = await A.page.evaluate(() => {
+      const b = G.Coop.mates[0].pl;
+      const mk = (dex, dx) => { const e = new G.Enemy({ dex, hp: 1e6, spd: 0, dmg: 0, xp: 0, behavior: 'healer', shotCd: 99, range: 0 }, b.x + dx, b.y - 60, { hp: 1, spd: 1, dmg: 1 }); G.EnemyMgr.add(e); return e; };
+      const libre = mk(143, -70), conEscudo = mk(242, 70);
+      window.__escudoT = setInterval(() => {
+        conEscudo.shield = conEscudo.maxHp; conEscudo.shieldT = 8;
+        for (const e of G.EnemyMgr.queryCircle(b.x, b.y, 420)) if (!e.dead && e !== libre && e.id % 2 === 0) { e.shield = Math.max(e.shield, e.maxHp * 0.35); e.shieldT = 8; }
+      }, 300);
+      window.__hpTrap.fase = 'invitado';
+      return { libre: libre.id, conEscudo: conEscudo.id };
     });
-    report.curacion = heal;
-    check('Anfitrión: ninguna subida de vida de enemigos con el mod (toda la partida)',
-      heal.subidas.partida.length === 0 && heal.subidas.mod.length === 0 && heal.subidas.modOtraVez.length === 0,
-      `${heal.muestras} muestras cada 100 ms (hasta ${heal.maxEnemigos} enemigos a la vez); subidas: partida ${heal.subidas.partida.length}, con curandera ${heal.subidas.mod.length}, tras el control ${heal.subidas.modOtraVez.length}`);
-    check('Control: con curacionEnemiga=true la misma curandera SÍ cura (la prueba lo detecta)', heal.subidas.control > 0 && heal.curanderaViva,
-      `${heal.subidas.control} subidas en 5 s; p. ej. ${JSON.stringify(heal.ejemploControl[0] || null)}`);
+    await sleep(800);   // que lleguen las copias y el bit de escudo
+    // Golpes del invitado cada 400 ms por el camino de un ataque (hurt de la copia): a las dianas y a
+    // los 6 enemigos más cercanos con vida. (Además ataca solo, como siempre.)
+    await B.page.evaluate(({ d, lat }) => {
+      window.__lat = lat;
+      window.__golpesT = setInterval(() => {
+        const me = G.Coop.local;
+        const near = G.EnemyMgr.all().filter(e => e.remote && !e.dead && e.hp > 5 && e.id !== d.libre && e.id !== d.conEscudo)
+          .sort((a, b) => G.U.dist2(a.x, a.y, me.x, me.y) - G.U.dist2(b.x, b.y, me.x, me.y)).slice(0, 6);
+        for (const e of [G.EnemyMgr.get(d.libre), G.EnemyMgr.get(d.conEscudo), ...near]) if (e && !e.dead) e.hurt(3, '#fff');
+      }, 400);
+      window.__hpTrap.fase = 'B-mod';
+    }, { d: dianas, lat: LAT });
+    await sleep(8000);
+    // Control del invitado: su cliente como el original (curacionEnemiga=true sólo en B: no cambia
+    // nada del anfitrión). Debe ver el rebote que la prueba tiene que saber detectar.
+    await B.page.evaluate(() => { G.MODS.curacionEnemiga = true; window.__hpTrap.fase = 'B-original'; });
+    await sleep(6000);
+    await B.page.evaluate(() => { G.MODS.curacionEnemiga = false; clearInterval(window.__golpesT); window.__lat = 0; window.__hpTrap.fase = 'final'; });
+    await sleep(2000);
+    await A.page.evaluate(() => { clearInterval(window.__escudoT); });
+
+    // ---- Vuelta de la grieta: el invitado borra sus copias y el anfitrión las anuncia de nuevo ----
+    await B.page.evaluate(() => {
+      window.__hpTrap.fase = 'grieta';
+      window.__ne = [];
+      const ar = G.EnemyMgr.addRemote;
+      G.EnemyMgr.addRemote = function (o) { const had = G.EnemyMgr.get(o.id); const e = ar.call(this, o); if (!had) window.__ne.push({ id: o.id, max: o.hp, vida: o.vida, nace: e.hp }); return e; };
+      G.EnemyMgr.clearRemote();                       // como rift.js en el invitado
+    });
+    const grietaA = await A.page.evaluate(() => {
+      const heridos = {}; let n = 0;
+      for (const e of G.EnemyMgr.all()) {
+        if (e.dead) continue;
+        if (e.hp < e.maxHp - 1) heridos[e.id] = Math.ceil(e.hp);
+        G.Coop.enemyAdded(e); n++;                    // lo mismo que hace restore() -> add() al volver
+      }
+      window.__hpTrap.fase = 'grieta';
+      return { anunciados: n, heridos };
+    });
+    await sleep(1200);
+    const grietaB = await B.page.evaluate(() => {
+      const compat = G.EnemyMgr.addRemote({ id: 987654321, dex: 25, x: 0, y: 0, boss: false, shiny: false, hp: 50, dmg: 1, beh: 'remote' });
+      const sinDato = compat.hp; G.EnemyMgr.removeRemote(987654321, false);
+      return { recreadas: window.__ne, sinDato };
+    });
+    const heridosIds = Object.keys(grietaA.heridos).map(Number);
+    const nace = new Map(grietaB.recreadas.map(r => [r.id, r]));
+    const bien = heridosIds.filter(id => nace.has(id) && nace.get(id).nace === grietaA.heridos[id]);
+    report.grieta = { anfitrion: grietaA, invitado: grietaB.recreadas.length, bien: bien.length };
+    check("Vuelta de la grieta: las copias heridas nacen en el invitado con la vida real ('ne'), no con la máxima",
+      heridosIds.length > 0 && bien.length === heridosIds.length,
+      `${grietaA.anunciados} anunciadas, ${grietaB.recreadas.length} recreadas en B; heridas ${heridosIds.length}, con su vida ${bien.length}` +
+      (bien.length < heridosIds.length ? '; mal: ' + JSON.stringify(heridosIds.filter(id => !bien.includes(id)).slice(0, 5).map(id => ({ id, anfitrion: grietaA.heridos[id], invitado: nace.get(id) || null }))) : ''));
+    check("Compatibilidad: un 'ne' sin la vida real crea la copia con la máxima, como antes", grietaB.sinDato === 50, grietaB.sinDato);
+
+    // ---- Resultados de las trampas ----
+    const hA = await trapSummary(A), hB = await trapSummary(B);
+    report.vidaAnfitrion = { contadores: hA.contadores, subidas: hA.subidas.slice(0, 50), totalSubidas: hA.subidas.length };
+    const upsA = hA.subidas.filter(s => s.fase !== 'control');
+    const ctlA = hA.subidas.filter(s => s.fase === 'control');
+    const escA = Object.values(hA.contadores).reduce((a, c) => a + c.escrituras, 0);
+    check('Anfitrión: ninguna subida de vida de enemigos con el mod (trampa en el setter, toda la partida)', upsA.length === 0,
+      `${escA} escrituras de vida vigiladas; subidas fuera del control: ${upsA.length}${upsA.length ? ' p. ej. ' + JSON.stringify(upsA.slice(0, 3)) : ''}`);
+    check('Control del anfitrión: con curacionEnemiga=true la misma curandera SÍ cura (la prueba lo detecta)', ctlA.length > 0 && healerAlive,
+      `${ctlA.length} subidas en 5 s; p. ej. ${JSON.stringify(ctlA[0] || null)}`);
+
+    const VALEN = ['partida', 'invitado', 'B-mod', 'final', 'grieta'];       // fases en las que cuenta el criterio del invitado
+    const ups = hB.subidas.filter(s => VALEN.includes(s.fase));
+    const byClass = k => ups.filter(s => s.clase === k);
+    const visibles = ups.filter(s => s.clase !== 'resincronizacion' && (s.dura === null || s.dura > VISIBLE_MS));
+    const dentro = byClass('dentro-ventana');
+    const cB = hB.contadores, cMod = cB['B-mod'] || {}, cOrig = cB['B-original'] || {};
+    report.vidaInvitado = { criterio: `fallo = subida 'dentro-ventana' o subida de más de ${VISIBLE_MS} ms que no sea 'resincronizacion'`,
+      ventanaRefMs: hB.ventanaRefMs, contadores: cB, totalSubidas: hB.subidas.length,
+      porFase: Object.fromEntries([...new Set(hB.subidas.map(s => s.fase))].map(f => [f, hB.subidas.filter(s => s.fase === f).length])),
+      visibles: visibles.slice(0, 20), resincronizaciones: byClass('resincronizacion').slice(0, 10),
+      control: hB.subidas.filter(s => s.fase === 'B-original').slice(0, 20) };
+    const maxDur = ups.filter(s => s.clase !== 'resincronizacion').reduce((m, s) => Math.max(m, s.dura || 0), 0);
+    check(`Invitado: ninguna subida de vida de enemigos de más de ${VISIBLE_MS} ms fuera de la resincronización tras la ventana (latencia ${LAT} ms por sentido, golpes y escudos)`,
+      visibles.length === 0 && dentro.length === 0,
+      `${ups.length} subidas en las fases que cuentan: dentro de la ventana ${dentro.length}, sin golpe ${byClass('sin-golpe').length} (la más larga ${maxDur} ms), ` +
+      `resincronización legítima ${byClass('resincronizacion').length}; visibles ${visibles.length}${visibles.length ? ' p. ej. ' + JSON.stringify(visibles.slice(0, 3)) : ''}`);
+    check('Invitado: la prueba ejercita la predicción (golpes suyos en copias, con y sin escudo)',
+      (cMod.golpes || 0) >= 50 && (cMod.predichas || 0) >= 15 && (cMod.golpesConEscudo || 0) >= 10,
+      { golpes: cMod.golpes, predichas: cMod.predichas, golpesConEscudo: cMod.golpesConEscudo });
+    check('Invitado: con escudo activo no predice el golpe', (cMod.golpesConEscudo || 0) > 0 && (cMod.predichasConEscudo || 0) === 0,
+      { golpesConEscudo: cMod.golpesConEscudo, predichasConEscudo: cMod.predichasConEscudo });
+    const ctlB = hB.subidas.filter(s => s.fase === 'B-original' && s.clase === 'dentro-ventana' && s.dura > VISIBLE_MS);
+    check(`Control del invitado: sin el mod SÍ se ven rebotes de más de ${VISIBLE_MS} ms y predice con escudo (la prueba lo detecta)`,
+      ctlB.length > 0 && (cOrig.predichasConEscudo || 0) > 0,
+      `${ctlB.length} rebotes visibles en 6 s (p. ej. ${JSON.stringify(ctlB[0] || null)}); predichas con escudo ${cOrig.predichasConEscudo || 0}`);
+
+    // Ningún golpe del invitado se pierde por el camino (tampoco con la latencia simulada).
+    const env1 = await B.page.evaluate(() => window.__hEnv);
+    await sleep(600);
+    const rec = await A.page.evaluate(() => window.__hRec), env2 = await B.page.evaluate(() => window.__hEnv);
+    check('Todos los golpes que manda el invitado le llegan al anfitrión', env1 > 0 && rec >= env1 && rec <= env2,
+      { enviadosAntes: env1, recibidos: rec, enviadosDespues: env2 });
+
+    // Relé: nada por la base de datos durante la partida.
+    const rele1 = { A: (await transport(A, uidB)).rele, B: (await transport(B, uidA)).rele };
+    check('Transporte: durante la partida no se manda nada por el relé de la Realtime Database', rele1.A === rele0.A && rele1.B === rele0.B,
+      { A: rele1.A - rele0.A, B: rele1.B - rele0.B });
+
     const st = { A: await A.page.evaluate(() => G.Game.state), B: await B.page.evaluate(() => G.Game.state) };
     check('La partida sigue viva en los dos clientes al terminar', st.A !== 'ui' && st.B !== 'ui' && st.A !== 'over' && st.B !== 'over', st);
     report.capturasFinal = [await shot(A.page, 'A_final'), await shot(B.page, 'B_final')];
   } catch (e) {
     code = 1;
     report.error = String(e && e.stack || e);
-    console.error('[ERROR]', e);
+    console.error('[ERROR]', e && e.message || e);
     try { if (A) await shot(A.page, 'A_error'); if (B) await shot(B.page, 'B_error'); } catch (e2) { /* nada */ }
   } finally {
     for (const P of [A, B].filter(Boolean)) {

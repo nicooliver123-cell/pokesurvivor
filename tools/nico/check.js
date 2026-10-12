@@ -130,6 +130,9 @@ const DEAD = /href="(\.\.\/|\.\/|\/)?(en|guia|pokedex|legendarios|shinies|tipos|
 const deadIn = ['index.html', 'dev.html', '404.html', 'contacto/index.html'].filter(f => DEAD.test(rd(f)));
 if (deadIn.length) bad('enlaces a páginas que el fork borró en: ' + deadIn.join(', '));
 else ok('ninguna página enlaza a las que borró el fork (guia/, pokedex/, en/, apoyar/...)');
+const domIn = ['index.html', 'dev.html', '404.html', 'contacto/index.html'].filter(f => /pokesurvivor\.com/i.test(rd(f)));
+if (domIn.length) bad('el dominio del original aparece en páginas publicadas: ' + domIn.join(', '));
+else ok('ninguna página HTML publicada menciona el dominio del original');
 const min =fs.readFileSync(path.join(ROOT, 'js/app.min.js'));
 const hash = crypto.createHash('sha1').update(min).digest('hex').slice(0, 10);
 if (idx.includes(`js/app.min.js?v=${hash}`)) ok('index.html carga js/app.min.js?v=' + hash); else bad('index.html no apunta a la huella actual de js/app.min.js');
