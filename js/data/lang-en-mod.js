@@ -93,5 +93,7 @@ G.I18n.add({
   '{x} datos no reconocidos se han descartado.': '{x} unrecognised entries were discarded.',
   '{x} números fuera de rango se han ajustado.': '{x} out-of-range numbers were adjusted.',
   'La partida es de una versión más nueva del juego oficial: se trae lo que esta versión reconoce.':
-    'The save is from a newer version of the official game: whatever this version recognises is brought over.'
+    'The save is from a newer version of the official game: whatever this version recognises is brought over.',
+  // Tickets ganados ×ticketsMult (js/core/mods.js, textoTicket): lo que flota al coger uno. '+2 tickets' es igual.
+  '¡{x} tickets ×10!': '{x} ×10 tickets!'
 });

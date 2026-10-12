@@ -173,7 +173,7 @@ G.Game = (() => {
     sv.tickets = sv.tickets || { t1: 0, t10: 0 };
     const d1 = Math.max(0, pl.t1 - banked.t1), d10 = Math.max(0, pl.t10 - banked.t10);
     if (!d1 && !d10) return;
-    sv.tickets.t1 += d1; sv.tickets.t10 += d10;
+    sv.tickets.t1 += G.MODS && G.MODS.tickets ? G.MODS.tickets(d1) : d1; sv.tickets.t10 += G.MODS && G.MODS.tickets ? G.MODS.tickets(d10) : d10;   // MOD nico: tickets ganados ×ticketsMult
     banked = { t1: pl.t1, t10: pl.t10 };
     if (save_) G.DB.commit();
   }
@@ -297,7 +297,8 @@ G.Game = (() => {
     else if (wasHost) G.Ranking.submitGroup(Object.assign(mark, { members: team }));
 
     G.RunUI.showOver({
-      dead, time, level: pl.level, kills: pl.kills, bosses: pl.bosses, coins, record, t1: pl.t1, t10: pl.t10,
+      dead, time, level: pl.level, kills: pl.kills, bosses: pl.bosses, coins, record,
+      t1: G.MODS && G.MODS.tickets ? G.MODS.tickets(pl.t1) : pl.t1, t10: G.MODS && G.MODS.tickets ? G.MODS.tickets(pl.t10) : pl.t10,   // MOD nico: los que se apuntaron
       moves: pl.moves, caught,
       breakdown: Object.entries(parts).filter(([, v]) => v).map(([k, v]) => `${k} ${v}`).join(' · ') +
                  (mul > 1 ? ` · ×${mul.toFixed(2)} Fortuna` : '')
@@ -407,7 +408,7 @@ G.Game = (() => {
     if (p.kind === 'ticket' || p.kind === 'ticket10') {
       if (p.kind === 'ticket') pl.t1++; else pl.t10++;
       bankTickets();
-      G.FX.dmgText(who.x, who.y - who.bodyH - 8, p.kind === 'ticket' ? '+1 ticket' : '¡Ticket ×10!', p.kind === 'ticket' ? '#ffd23f' : '#d9a6ff', true);
+      G.FX.dmgText(who.x, who.y - who.bodyH - 8, G.MODS && G.MODS.textoTicket ? G.MODS.textoTicket(p.kind) : p.kind === 'ticket' ? '+1 ticket' : '¡Ticket ×10!', p.kind === 'ticket' ? '#ffd23f' : '#d9a6ff', true);   // MOD nico: +2 tickets
       G.FX.ring(who.x, who.y, 6, 50, p.kind === 'ticket' ? '#ffd23f' : '#c47bff', 0.4, 3);
       return;
     }

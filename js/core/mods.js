@@ -5,8 +5,8 @@
  *
  * Se carga justo después de util.js (dev.html), antes de cualquiera que lo use.
  * Si tras un merge faltara este fichero, los ganchos se comportan de forma
- * segura: los enemigos siguen sin curarse, el tamaño queda como el original y
- * no hay grieta garantizada.
+ * segura: los enemigos siguen sin curarse, el tamaño queda como el original,
+ * no hay grieta garantizada y los tickets y el gacha son los del original.
  *
  * COOPERATIVO: los dos jugadores tienen que usar la MISMA versión (mismos
  * valores). El anfitrión decide los enemigos (curación) y cada cliente calcula
@@ -82,6 +82,45 @@ G.MODS = {
    * 4.200 y 7.600). Las grietas naturales no cambian. En grupo lo decide el
    * anfitrión y el invitado recibe su vida. 1 = sin rebaja. */
   grietaGarantizadaVida: 0.6,
+
+  /* Tickets del gacha GANADOS (decisión de Nico): cada uno cuenta por ticketsMult.
+   *   - En partida: los objetos ticket y ticket ×10 que se recogen. El contador de la
+   *     partida (pl.t1/pl.t10, lo que viaja por la red) sigue contando 1 por objeto; al
+   *     apuntarlos en tu partida guardada (game.js, bankTickets) se multiplican. En grupo,
+   *     cada jugador multiplica con SU ajuste los del equipo.
+   *   - Fuera de partida: los premios de misiones y logros (progress.js, grant). Las
+   *     Pokémonedas de esos premios no cambian.
+   *   - No es ganar (no cambia): gastarlos en el gacha, traer la partida oficial (suma lo
+   *     que tenía allí, una vez) ni juntar partidas de la nube.
+   * Entero. 1 = como el original. */
+  ticketsMult: 2,
+
+  /** Multiplicador de tickets saneado: entero ≥ 1 (cualquier otro valor, 1). */
+  multTickets() {
+    const m = Math.floor(+this.ticketsMult);
+    return m >= 1 && isFinite(m) ? m : 1;
+  },
+
+  /** game.js, bankTickets() y pantalla final: `n` tickets de la partida -> los que van a tu partida guardada. */
+  tickets(n) { return n * this.multTickets(); },
+
+  /** progress.js, grant() y rewardText(): el premio de una misión o un logro con sus tickets
+   *  multiplicados. Devuelve una COPIA (no toca G.MissionDefs ni G.AchDefs); las monedas, igual. */
+  premio(r) {
+    const m = this.multTickets();
+    if (!r || typeof r !== 'object' || m === 1) return r;
+    const c = Object.assign({}, r);
+    if (c.t1) c.t1 *= m;
+    if (c.t10) c.t10 *= m;
+    return c;
+  },
+
+  /** game.js, onCollect(): el texto que flota al coger un ticket (con 1, el del original). */
+  textoTicket(kind) {
+    const m = this.multTickets();
+    if (kind === 'ticket') return m === 1 ? '+1 ticket' : '+' + m + ' tickets';
+    return m === 1 ? '¡Ticket ×10!' : '¡' + m + ' tickets ×10!';
+  },
 
   /** Estado de la grieta garantizada de cada partida. La clave es el jugador local,
    *  que es nuevo en cada startRun: { hora, hecha, intentoT, grieta, usada, cierreT }. */

@@ -29,6 +29,9 @@
  *   9. Grieta garantizada: la lógica de js/core/mods.js (hora, una por partida, reintentos, jefe,
  *      quién manda) y js/systems/rift.js real con el juego simulado, en solitario y en grupo
  *      (anfitrión e invitado): el legendario de esa grieta con el 60 % y las naturales intactas.
+ *  10. Gacha y tickets: tickets ganados ×2 (bankTickets, syncTeam y la recogida de game.js, los
+ *      premios de progress.js; sin cobro doble, sin restas, sin tocar las definiciones ni traer dos
+ *      veces la partida oficial).
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -169,7 +172,7 @@ if (!process.argv.includes('--sin-paquete')) {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 const minS = min.toString('utf8');
-if (minS.includes('curacionEnemiga') && minS.includes('anchoMaxJugador') && minS.includes('grietaGarantizadaAntesDe')) ok('el paquete incluye js/core/mods.js');
+if (['curacionEnemiga', 'anchoMaxJugador', 'grietaGarantizadaAntesDe', 'ticketsMult'].every(k => minS.includes(k))) ok('el paquete incluye js/core/mods.js');
 else bad('el paquete no incluye js/core/mods.js (o una versión vieja)');
 if (minS.includes('pokesurvivor-partida') && minS.includes('imp-box')) ok('el paquete incluye el importador (js/core/importar.js y js/ui/importar-ui.js)');
 else bad('el paquete no incluye js/core/importar.js o js/ui/importar-ui.js');
@@ -207,7 +210,16 @@ const HOOKS = [
   ['js/systems/rift.js', /\};\r?\n\s*if \(G\.MODS && G\.MODS\.arenaGarantizada\) cfg\.forzada = G\.MODS\.arenaGarantizada\(G\.Game\.player, rift, G\.Game\.st\.time\);\s*\/\/ MOD nico[^\n]*\r?\n\s*if \(G\.Coop\.isHost\) G\.Coop\.broadcast\(\['arena', cfg\]\);/,
     'grieta garantizada: start() marca su arena antes de anunciarla'],
   ['js/systems/rift.js', /const e = new G\.Enemy\(def, [^\n]*\r?\n\s*if \(G\.MODS && G\.MODS\.vidaLegendario\) G\.MODS\.vidaLegendario\(e, arena\);\s*\/\/ MOD nico/,
-    'grieta garantizada: spawnLegend() rebaja la vida de su legendario']
+    'grieta garantizada: spawnLegend() rebaja la vida de su legendario'],
+  ['js/game.js', /sv\.tickets\.t1 \+= G\.MODS && G\.MODS\.tickets \? G\.MODS\.tickets\(d1\) : d1; sv\.tickets\.t10 \+= G\.MODS && G\.MODS\.tickets \? G\.MODS\.tickets\(d10\) : d10;\s*\/\/ MOD nico/,
+    'tickets ×2: bankTickets() apunta en la partida guardada los nuevos multiplicados'],
+  ['js/game.js', /if \(p\.kind === 'ticket'\) pl\.t1\+\+; else pl\.t10\+\+;\r?\n\s*bankTickets\(\);/, 'tickets ×2: la recogida sigue contando 1 por objeto (pl.t1++, lo que viaja por la red)'],
+  ['js/game.js', /t1: G\.MODS && G\.MODS\.tickets \? G\.MODS\.tickets\(pl\.t1\) : pl\.t1, t10: G\.MODS && G\.MODS\.tickets \? G\.MODS\.tickets\(pl\.t10\) : pl\.t10,\s*\/\/ MOD nico/,
+    'tickets ×2: la pantalla final enseña los que se apuntaron'],
+  ['js/game.js', /G\.MODS && G\.MODS\.textoTicket \? G\.MODS\.textoTicket\(p\.kind\) : p\.kind === 'ticket' \? '\+1 ticket' : '¡Ticket ×10!'/, 'tickets ×2: el texto que flota al coger uno'],
+  ['js/systems/progress.js', /function grant\(r\) \{\r?\n\s*const s = G\.DB\.save;\r?\n\s*if \(!r\) return;\r?\n\s*if \(G\.MODS && G\.MODS\.premio\) r = G\.MODS\.premio\(r\);\s*\/\/ MOD nico/,
+    'tickets ×2: premios de misiones y logros (grant)'],
+  ['js/systems/progress.js', /function rewardText\(r\) \{\r?\n\s*if \(G\.MODS && G\.MODS\.premio\) r = G\.MODS\.premio\(r\);\s*\/\/ MOD nico/, 'tickets ×2: el premio que se enseña (rewardText)']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -1023,8 +1035,165 @@ function grietaChecks() {
   for (const [name, , detail] of failed) bad(`grieta: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 10. gacha y tickets ----------------
+// Con el código real en node:vm: js/core/mods.js, trozos de js/game.js (bankTickets, syncTeam y la recogida de
+// tickets, tal cual), js/systems/progress.js con las misiones y los logros reales, y el importador.
+function gachaChecks() {
+  console.log('10. Gacha y tickets (js/core/mods.js con el código real)');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const nuevoMods = () => { const c = { console }; vm.createContext(c); c.G = {}; vm.runInContext(rd('js/core/mods.js'), c, { filename: 'js/core/mods.js' }); return c; };
+  /** G.I18n.t real en inglés (i18n.js con lang-en.js y lang-en-mod.js), con un navegador mínimo. */
+  function traductorIngles() {
+    const c = { console, navigator: { language: 'en-US', languages: ['en-US'] }, location: { pathname: '/' },
+      localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} }, confirm: () => true, alert() {} };
+    c.CanvasRenderingContext2D = function () {};
+    c.CanvasRenderingContext2D.prototype = { fillText() {}, strokeText() {}, measureText() {} };
+    c.window = c; c.G = {};
+    vm.createContext(c);
+    for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
+    if (c.G.I18n.lang !== 'en') throw new Error('i18n.js no ha elegido inglés');
+    return c.G.I18n.t;
+  }
+  const EN = traductorIngles();
+
+  // ---- A. Tickets ganados ×ticketsMult ----
+  {
+    const M = nuevoMods().G.MODS;
+    t('tickets: por defecto ×2 (entero)', M.ticketsMult === 2 && M.multTickets() === 2 && M.tickets(3) === 6 && M.tickets(0) === 0);
+    const raros = [0, -2, NaN, 'x', Infinity, 0.5, 2.7].map(v => { M.ticketsMult = v; return M.multTickets(); });
+    M.ticketsMult = 2;
+    t('tickets: un ajuste no válido (0, negativo, NaN, texto, infinito, <1) vale 1; con decimales, la parte entera', raros.join() === '1,1,1,1,1,1,2', raros);
+    const def = { t1: 3, t10: 1, coins: 150 }, antes = JSON.stringify(def), p = M.premio(def);
+    t('premio(): una copia con los tickets ×2, las Pokémonedas igual y la definición intacta', p !== def && p.t1 === 6 && p.t10 === 2 && p.coins === 150 &&
+      JSON.stringify(def) === antes, p);
+    const soloMonedas = M.premio({ coins: 100 });
+    t('premio(): sin tickets no inventa ninguno; null y undefined pasan', soloMonedas.coins === 100 && !('t1' in soloMonedas) && !('t10' in soloMonedas) &&
+      M.premio(null) === null && M.premio(undefined) === undefined);
+    M.ticketsMult = 1;
+    t('premio() y textos con ticketsMult = 1: como el original', M.premio(def) === def && M.textoTicket('ticket') === '+1 ticket' && M.textoTicket('ticket10') === '¡Ticket ×10!');
+    M.ticketsMult = 2;
+    t('texto que flota con ×2: «+2 tickets» y «¡2 tickets ×10!»', M.textoTicket('ticket') === '+2 tickets' && M.textoTicket('ticket10') === '¡2 tickets ×10!');
+    const en = ['+2 tickets', '¡2 tickets ×10!', '+1 ticket', '¡Ticket ×10!'].map(EN);
+    t('texto que flota, en inglés (i18n.js real): «+2 tickets», «2 ×10 tickets!» y los del original', en.join('|') === '+2 tickets|2 ×10 tickets!|+1 ticket|Ticket ×10!', en);
+  }
+
+  // Trozos de js/game.js, tal cual: si upstream los cambia, esto falla y hay que revisarlo.
+  const gsrc = rd('js/game.js');
+  const trozo = (re, que) => { const m = gsrc.match(re); if (!m) throw new Error('no encuentro en js/game.js: ' + que); return m[0]; };
+  const fBank = trozo(/  let banked = \{ t1: 0, t10: 0 \};\r?\n  function bankTickets\(save_ = true\) \{[\s\S]*?\r?\n  \}\r?\n/, 'bankTickets');
+  const fSync = trozo(/    syncTeam\(t\) \{[\s\S]*?\r?\n    \},\r?\n/, 'coopApi.syncTeam');
+  const fTicket = trozo(/    if \(p\.kind === 'ticket' \|\| p\.kind === 'ticket10'\) \{[\s\S]*?\r?\n      return;\r?\n    \}\r?\n/, 'la recogida de tickets (onCollect)');
+  const fOver = trozo(/t1: G\.MODS && G\.MODS\.tickets \? G\.MODS\.tickets\(pl\.t1\) : pl\.t1, t10: G\.MODS && G\.MODS\.tickets \? G\.MODS\.tickets\(pl\.t10\) : pl\.t10,/, 'la pantalla final');
+  /** Una partida con la partida guardada `t1`/`t10` y el ajuste `mult`. nueva() = startRun; final() = endRun. */
+  function partida({ mult = 2, t1 = 10, t10 = 1 } = {}) {
+    const c = nuevoMods(), G = c.G, S = { commits: 0, textos: [], sfx: [] };
+    G.MODS.ticketsMult = mult;
+    G.DB = { save: { tickets: { t1, t10 } }, commit: () => { S.commits++; } };
+    G.Audio = { sfx: k => S.sfx.push(k) };
+    G.FX = { dmgText: (x, y, txt) => S.textos.push(txt), ring() {} };
+    vm.runInContext(`var __J = (() => {
+      let pl = null, time = 0;
+${fBank}
+      const coopApi = {
+${fSync}      };
+      function recoge(p, who = pl) {
+${fTicket}      }
+      function final() { bankTickets(false); return { ${fOver} }; }
+      return { nueva(p) { pl = p; banked = { t1: 0, t10: 0 }; }, bankTickets, coopApi, recoge, final, get pl() { return pl; } };
+    })();`, c, { filename: 'js/game.js (trozos)' });
+    const J = c.__J, sv = G.DB.save.tickets;
+    const jugador = () => ({ t1: 0, t10: 0, x: 0, y: 0, bodyH: 30, level: 1, xp: 0, xpNext: 10, kills: 0, bosses: 0, coins: 0 });
+    return { J, S, sv, G, jugador, equipo: tk => ({ time: 1, level: 1, xp: 0, xpNext: 10, kills: 0, bosses: 0, coins: 0, t1: tk[0], t10: tk[1] }) };
+  }
+  try {
+    // Solitario o anfitrión.
+    const P = partida();
+    P.J.nueva(P.jugador());
+    P.J.recoge({ kind: 'ticket' });
+    const uno = { pl: P.J.pl.t1, sv: P.sv.t1, commits: P.S.commits };
+    P.J.recoge({ kind: 'ticket' }); P.J.recoge({ kind: 'ticket10' });
+    t('recogida: cada objeto sigue sumando 1 al contador de la partida (pl.t1++, lo que viaja por la red)', uno.pl === 1 && P.J.pl.t1 === 2 && P.J.pl.t10 === 1, P.J.pl);
+    t('bankTickets: +2 en la partida guardada por cada ticket (y por cada ticket ×10), guardando al momento', uno.sv === 12 && uno.commits === 1 && P.sv.t1 === 14 && P.sv.t10 === 3,
+      { primero: uno, t1: P.sv.t1, t10: P.sv.t10 });
+    t('recogida: el texto que flota dice «+2 tickets» y «¡2 tickets ×10!»', P.S.textos.join('|') === '+2 tickets|+2 tickets|¡2 tickets ×10!', P.S.textos);
+    const otra = P.J.bankTickets(), fin = P.J.final();
+    t('al terminar no se cobra otra vez (bankTickets sin nada nuevo y endRun) y la pantalla final dice lo apuntado (+4 y +2 ×10)',
+      P.sv.t1 === 14 && P.sv.t10 === 3 && fin.t1 === 4 && fin.t10 === 2 && otra === undefined, { t1: P.sv.t1, t10: P.sv.t10, fin });
+    // Otra partida: el contador vuelve a 0 y no se apunta nada al empezar.
+    P.J.nueva(P.jugador()); P.J.bankTickets();
+    t('otra partida empieza sin apuntar nada', P.sv.t1 === 14 && P.sv.t10 === 3);
+    // Invitado: el anfitrión manda el contador del equipo (tk) y cada uno lo apunta con SU ajuste.
+    const B = partida({ mult: 2, t1: 0, t10: 0 }), B1 = partida({ mult: 1, t1: 0, t10: 0 });
+    for (const X of [B, B1]) X.J.nueva(X.jugador());
+    const pasos = [[1, 0], [1, 0], [3, 1], [2, 1], [4, 1]];   // [t1, t10] del equipo; el 4.º baja (no debería pasar)
+    const visto = pasos.map(tk => { for (const X of [B, B1]) X.J.coopApi.syncTeam(X.equipo(tk)); return [B.sv.t1, B.sv.t10, B1.sv.t1, B1.sv.t10].join(','); });
+    t('invitado (syncTeam): con ×2 apunta +2 por ticket del equipo; un dato repetido no suma y uno menor no resta', visto.join(' ') === '2,0,1,0 2,0,1,0 6,2,3,1 6,2,3,1 8,2,4,1', visto);
+    const finB = B.J.final(), finB1 = B1.J.final();
+    t('invitado: al terminar no se cobra otra vez; la pantalla final dice lo apuntado (×2: +8 y +2 ×10; ×1: +4 y +1)',
+      B.sv.t1 === 8 && B.sv.t10 === 2 && finB.t1 === 8 && finB.t10 === 2 && B1.sv.t1 === 4 && finB1.t1 === 4 && finB1.t10 === 1, { finB, finB1 });
+    // Con ticketsMult = 1: el original.
+    const O = partida({ mult: 1 });
+    O.J.nueva(O.jugador()); O.J.recoge({ kind: 'ticket' }); O.J.recoge({ kind: 'ticket10' });
+    t('con ticketsMult = 1, como el original: +1 por ticket y los textos de siempre', O.sv.t1 === 11 && O.sv.t10 === 2 && O.S.textos.join('|') === '+1 ticket|¡Ticket ×10!', O.S.textos);
+  } catch (e) { t('trozos de js/game.js en node:vm', false, String(e && e.stack || e)); }
+
+  // Premios de misiones y logros: js/systems/progress.js con las definiciones reales.
+  try {
+    const c = { console, setTimeout: () => 0, clearTimeout() {}, performance: { now: () => 0 } };
+    vm.createContext(c);
+    c.window = c; c.G = {};
+    c.document = { getElementById: () => null, createElement: () => ({ classList: { add() {}, remove() {} }, prepend() {} }), body: { appendChild() {} } };
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/moves.js', 'js/data/types.js',
+      'js/data/missions.js', 'js/data/achievements.js', 'js/systems/progress.js']) vm.runInContext(rd(f), c, { filename: f });
+    const G = c.G;
+    Object.assign(G, { Ranking: { periodIds: () => ({ d: 'd1', w: 'w1' }) }, Icons: { html: k => `[${k}]` }, Audio: { sfx() {} } });
+    const defs = JSON.stringify([G.MissionDefs.daily, G.MissionDefs.weekly, G.AchDefs.LIST].map(l => l.map(d => d.reward)));
+    const s = { coins: 0, tickets: { t1: 0, t10: 0 }, stats: {}, owned: {}, shiny: {}, created: 1 };
+    s.ach = Object.fromEntries(G.AchDefs.LIST.map(a => [a.id, 1]));   // todos ya conseguidos: sólo cuenta lo que se prueba
+    G.DB = { save: s, commit() {} };
+    const surv = G.MissionDefs.BY.survive.reward;
+    const m = { id: 'survive', goal: 5, param: null, prog: 5, claimed: false, told: true };
+    const okClaim = G.Progress.claim(m);
+    const tras = { t1: s.tickets.t1, t10: s.tickets.t10, coins: s.coins };
+    t(`misión (premio ${JSON.stringify(surv)}): se recoge con los tickets ×2 y las Pokémonedas igual`, okClaim && tras.t1 === surv.t1 * 2 && tras.coins === surv.coins && tras.t10 === 0, tras);
+    t('misión: recogerla otra vez no da nada', G.Progress.claim(m) === false && s.tickets.t1 === tras.t1 && s.coins === tras.coins);
+    const A = id => G.AchDefs.LIST.find(a => a.id === id);
+    delete s.ach.evo1; delete s.ach.evo25; delete s.ach.own1;
+    s.stats.evolutions = 25; s.owned[1] = { at: 1, from: 'gacha' };
+    G.Progress.checkAch();
+    const logro = { t1: s.tickets.t1 - tras.t1, t10: s.tickets.t10 - tras.t10, coins: s.coins - tras.coins };
+    const esperado = { t1: (A('evo1').reward.t1 || 0) * 2, t10: (A('evo25').reward.t10 || 0) * 2, coins: A('own1').reward.coins || 0 };
+    t('logros (evo1, evo25 y own1): tickets y tickets ×10 ×2; las Pokémonedas igual', logro.t1 === esperado.t1 && logro.t10 === esperado.t10 && logro.coins === esperado.coins &&
+      esperado.t1 > 0 && esperado.t10 > 0 && esperado.coins > 0, { logro, esperado });
+    G.Progress.checkAch();
+    t('logros: no se dan dos veces', s.tickets.t1 - tras.t1 === logro.t1 && s.tickets.t10 - tras.t10 === logro.t10);
+    const txt = G.Progress.rewardText(surv), txt10 = G.Progress.rewardText(A('evo25').reward);
+    t('rewardText enseña lo que se da (×2) y las monedas igual', txt === `[ticket] ${surv.t1 * 2} &nbsp;<span class="coin"></span> ${surv.coins}` && txt10 === `[ticket10] ${A('evo25').reward.t10 * 2} ×10`, [txt, txt10]);
+    t('las definiciones de misiones y logros no cambian', JSON.stringify([G.MissionDefs.daily, G.MissionDefs.weekly, G.AchDefs.LIST].map(l => l.map(d => d.reward))) === defs);
+  } catch (e) { t('js/systems/progress.js en node:vm', false, String(e && e.stack || e)); }
+
+  // Traer la partida oficial no es ganar: suma lo que tenía allí una vez, sin multiplicar, y la segunda vez nada.
+  try {
+    const c = loadImporter();
+    vm.runInContext(rd('js/core/mods.js'), c, { filename: 'js/core/mods.js' });
+    const G = c.G, AHORA = Date.UTC(2026, 9, 12);
+    const mia = G.DB.newSave('Nico'); mia.created = Date.UTC(2026, 8, 1); mia.tickets = { t1: 5, t10: 0 };
+    const of = G.DB.newSave('Oficial'); of.created = Date.UTC(2026, 3, 1); of.tickets = { t1: 9, t10: 2 };
+    const x = G.Importar.analizar(JSON.stringify({ tipo: G.Importar.TIPO, version: 1, origen: 'pruebas', exportado: AHORA, save: of }), AHORA);
+    const r1 = G.Importar.fusionar(mia, x.save, AHORA), r2 = G.Importar.fusionar(r1, x.save, AHORA);
+    t('traer la partida oficial (con ticketsMult = 2): +9 y +2 ×10 una vez, sin multiplicar; la segunda vez, nada',
+      x.ok && G.MODS.ticketsMult === 2 && r1.tickets.t1 === 14 && r1.tickets.t10 === 2 && r2.tickets.t1 === 14 && r2.tickets.t10 === 2, { r1: r1.tickets, r2: r2.tickets });
+  } catch (e) { t('importador con mods.js', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`gacha y tickets: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`gacha: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
+  try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

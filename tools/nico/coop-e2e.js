@@ -46,6 +46,10 @@
  *      usa); B la recibe en las mismas x e y y no abre ninguna por su cuenta aunque también le
  *      toque; B entra, los dos acaban en la arena, el legendario tiene el 60 % de la vida que
  *      tendría sin el mod y, al vencerlo, los dos tienen un vínculo (bonds === 1).
+ *  10. Tickets ganados ×2 (G.MODS.ticketsMult), en plena partida: A (anfitrión) suelta a sus
+ *      pies un ticket y un ticket ×10 y los recoge; el contador de la partida sube 1 (es lo que
+ *      viaja por la red) y cada uno apunta +2 en su partida guardada. Después, con
+ *      ticketsMult = 1 sólo en B, otro ticket: A +2 y B +1.
  *
  * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
  * desde el último golpe que el propio invitado predijo en ella (lo mide la trampa):
@@ -540,6 +544,50 @@ async function trapSummary(P) {
  * prueba) y tiene que abrirla al llegar a ella. B entra en la que recibe; el legendario sale con el 60 % de
  * la vida; al vencerlo, un vínculo cada uno.
  */
+/** Tickets ganados ×ticketsMult en grupo. Por si cae algún otro ticket o salta un logro durante la prueba, se
+ *  compara cada partida guardada con SU contador de la partida y los logros nuevos (lo que daría grant()). */
+async function ticketsCoop(A, B) {
+  const leer = P => P.page.evaluate(() => {
+    const s = G.DB.save, p = G.Game.player;
+    return { pl: [p.t1, p.t10], sv: [s.tickets.t1, s.tickets.t10], ach: Object.keys(s.ach || {}), mult: G.MODS.multTickets() };
+  });
+  // Tickets que han dado los logros conseguidos desde `antes` (con el premio de G.MODS, como grant()).
+  const deLogros = (P, antes) => P.page.evaluate(ids => G.AchDefs.LIST.filter(a => G.DB.save.ach[a.id] && !ids.includes(a.id))
+    .map(a => G.MODS.premio(a.reward) || {}).reduce((x, r) => [x[0] + (r.t1 || 0), x[1] + (r.t10 || 0)], [0, 0]), antes.ach);
+  const igualados = async () => {
+    const a = await leer(A);
+    await B.page.waitForFunction(tk => G.Game.player.t1 >= tk[0] && G.Game.player.t10 >= tk[1], a.pl, { timeout: 8000 });
+  };
+  /** A suelta `kinds` a sus pies; espera a recogerlos y a que B reciba el contador. Devuelve lo que cambió en cada uno. */
+  async function ronda(kinds) {
+    await igualados();
+    const a0 = await leer(A), b0 = await leer(B);
+    await A.page.evaluate(ks => { const p = G.Game.player; for (const k of ks) G.Pickups.drop(k, p.x, p.y, 1); }, kinds);
+    const n1 = kinds.filter(k => k === 'ticket').length, n10 = kinds.length - n1;
+    await A.page.waitForFunction(([t1, t10]) => G.Game.player.t1 >= t1 && G.Game.player.t10 >= t10, [a0.pl[0] + n1, a0.pl[1] + n10], { timeout: 8000 });
+    await sleep(400);
+    await igualados();
+    await sleep(300);
+    const a1 = await leer(A), b1 = await leer(B);
+    const cambio = async (P, x0, x1) => {
+      const lg = await deLogros(P, x0);
+      return { mult: x1.mult, partida: [x1.pl[0] - x0.pl[0], x1.pl[1] - x0.pl[1]], guardada: [x1.sv[0] - x0.sv[0], x1.sv[1] - x0.sv[1]], logros: lg };
+    };
+    return { A: await cambio(A, a0, a1), B: await cambio(B, b0, b1) };
+  }
+  const cuadra = c => c.guardada[0] === c.partida[0] * c.mult + c.logros[0] && c.guardada[1] === c.partida[1] * c.mult + c.logros[1];
+  const r1 = await ronda(['ticket', 'ticket10']);
+  check('Tickets ×2: A (anfitrión) recoge un ticket y un ticket ×10; el contador de la partida (lo que viaja por la red) sube 1 por objeto, igual en A y B, y los dos apuntan el doble en su partida guardada',
+    r1.A.mult === 2 && r1.B.mult === 2 && r1.A.partida[0] >= 1 && r1.A.partida[1] >= 1 && r1.B.partida[0] === r1.A.partida[0] && r1.B.partida[1] === r1.A.partida[1] &&
+    cuadra(r1.A) && cuadra(r1.B), r1);
+  await B.page.evaluate(() => { G.MODS.ticketsMult = 1; });
+  const r2 = await ronda(['ticket']);
+  await B.page.evaluate(() => { G.MODS.ticketsMult = 2; });
+  check('Tickets: con ticketsMult = 1 sólo en B, otro ticket: A apunta +2 y B +1',
+    r2.A.mult === 2 && r2.B.mult === 1 && r2.A.partida[0] >= 1 && r2.B.partida[0] === r2.A.partida[0] && cuadra(r2.A) && cuadra(r2.B), r2);
+  report.tickets = { r1, r2 };
+}
+
 async function guaranteedRift(A, B) {
   const LIM = 120, TTL = 45;
   // Lo que ve cada cliente: las grietas que aparecen, las veces que G.MODS pide abrir una y, en el anfitrión,
@@ -746,6 +794,9 @@ async function guaranteedRift(A, B) {
     report.transporte = { A: trA, B: trB };
     check('Transporte: A y B se hablan por el canal directo de WebRTC: par elegido conectado, sin TURN, y el canal del juego abierto con mensajes en los dos sentidos', directOk(trA) && directOk(trB),
       { A: { modo: trA.modo, pares: trA.pares }, B: { modo: trB.modo, pares: trB.pares } });
+
+    // ---- Tickets ganados ×2, en los dos clientes ----
+    await ticketsCoop(A, B);
 
     // ---- Vida en el ANFITRIÓN: curandera forzada, y control con la curación activada ----
     const healer = await A.page.evaluate(() => {

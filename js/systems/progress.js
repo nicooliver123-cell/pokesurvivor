@@ -109,6 +109,7 @@ G.Progress = (() => {
   function grant(r) {
     const s = G.DB.save;
     if (!r) return;
+    if (G.MODS && G.MODS.premio) r = G.MODS.premio(r);   // MOD nico: tickets ganados ×ticketsMult (una copia)
     s.tickets = s.tickets || { t1: 0, t10: 0 };
     if (r.coins) s.coins += r.coins;
     if (r.t1) s.tickets.t1 += r.t1;
@@ -117,6 +118,7 @@ G.Progress = (() => {
   }
 
   function rewardText(r) {
+    if (G.MODS && G.MODS.premio) r = G.MODS.premio(r);   // MOD nico: se enseña lo que se da
     const p = [];
     if (r.t10) p.push(G.Icons.html('ticket10', 12) + ' ' + r.t10 + ' ×10');
     if (r.t1) p.push(G.Icons.html('ticket', 12) + ' ' + r.t1);
