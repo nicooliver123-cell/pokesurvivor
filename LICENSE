@@ -1,7 +1,8 @@
-PokéSurvivor — licencias
+PokéSwarm — licencias
 
-1) CÓDIGO (todo lo que hay en js/, css/, index.html, tools/ y la música de
-   js/data/music.js): licencia MIT.
+1) CÓDIGO (todo lo que hay en js/, css/, los .html, tools/ y la música de
+   js/data/music.js), con los cambios de PokéSwarm: licencia MIT. El aviso de
+   abajo se conserva tal cual, como pide la propia licencia.
 
 MIT License
 
@@ -30,11 +31,12 @@ SOFTWARE.
 - assets/pokemon/: sprites de SpriteCollab (https://github.com/PMDCollab/SpriteCollab),
   licencia CC BY-NC 4.0. Uso NO comercial y con atribución; los autores están
   en CREDITS.md.
-- assets/fonts/: Pixelify Sans, SIL Open Font License 1.1 (assets/fonts/OFL.txt).
+- assets/fonts/: Pixelify Sans (assets/fonts/OFL.txt) y M PLUS Rounded 1c
+  (assets/fonts/OFL-MPLUSRounded1c.txt), SIL Open Font License 1.1.
 - js/data/pokedex.js: datos obtenidos de PokeAPI (https://pokeapi.co/).
 
 3) MARCAS
 
 Pokémon y todos los nombres y personajes relacionados son marcas y propiedad
-de Nintendo, Creatures Inc., GAME FREAK y The Pokémon Company. Este es un
-proyecto de fan sin ánimo de lucro, no afiliado ni aprobado por ellos.
+de Nintendo, Creatures Inc., GAME FREAK y The Pokémon Company. PokéSwarm es un
+proyecto de fans sin ánimo de lucro, no afiliado ni aprobado por ellos.

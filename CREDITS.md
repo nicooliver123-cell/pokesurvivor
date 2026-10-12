@@ -1,4 +1,6 @@
-# Créditos
+# Créditos de PokéSwarm
+
+Lo que PokéSwarm usa de otros, con sus licencias. El código y su licencia, en [LICENSE](LICENSE).
 
 ## Sprites
 
@@ -136,8 +138,8 @@ redistribuir con el juego, pero no venderse solas.
 
 | Fuente | Autores | Uso | Licencia |
 |---|---|---|---|
-| Pixelify Sans | Copyright 2021 The Pixelify Sans Project Authors | Estilo «Clásico» (el del original) y el logotipo | `assets/fonts/OFL.txt` |
-| M PLUS Rounded 1c | Copyright 2016 The Rounded M+ Project Authors | Estilo «Dex» de esta versión: HUD, menús y números | `assets/fonts/OFL-MPLUSRounded1c.txt` |
+| Pixelify Sans | Copyright 2021 The Pixelify Sans Project Authors | Estilo «Clásico» y su logotipo | `assets/fonts/OFL.txt` |
+| M PLUS Rounded 1c | Copyright 2016 The Rounded M+ Project Authors | Estilo «Dex»: HUD, menús, números y el nombre del juego | `assets/fonts/OFL-MPLUSRounded1c.txt` |
 
 De M PLUS Rounded 1c se usa el subconjunto latino en woff2 (versión 1.059, 230 glifos), pesos
 500 y 800: `assets/fonts/MPLUSRounded1c-500-latin.woff2` y `-800-latin.woff2`. Vienen de Google Fonts,
@@ -149,5 +151,6 @@ Name*): el copyright y la licencia van en la tabla `name` de los propios fichero
 
 ## Marca
 
-Pokémon es propiedad de Nintendo, Creatures Inc. y GAME FREAK.
-Este es un proyecto de fan sin ánimo de lucro.
+Pokémon y todos los nombres y personajes relacionados son marcas y propiedad de Nintendo,
+Creatures Inc., GAME FREAK y The Pokémon Company. PokéSwarm es un proyecto de fans sin ánimo
+de lucro, no afiliado, patrocinado ni aprobado por ellos.
