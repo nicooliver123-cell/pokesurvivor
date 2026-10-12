@@ -164,6 +164,13 @@ G.MODS = {
    * congelado mientras eliges la fusión (y en cualquier pausa). true = se apaga a su ritmo. */
   destelloSinCongelar: true,
 
+  /* Avisos de logro y resultado del gacha: nada encima del resultado. Los logros de una tirada
+   * (salen al tirar) esperan a que lo cierres con «Continuar», y un aviso que ya estaba en pantalla
+   * al tirar se esconde mientras tanto (si le queda tiempo, vuelve al cerrarlo; regla de
+   * css/style.css). Encima del resultado tapaban las cartas (en un móvil en horizontal, y en una
+   * ×10 también en un portátil de 1280x720) o «Continuar». false = como el original. */
+  avisosTrasGacha: true,
+
   /** game.js, update(): el bioma del mapa para el tramo `b` (= minutos / 4). Con biomasEnCiclo,
    *  siempre uno normal (0..G.Tiles.NORMAL-1); las arenas sólo las pone rift.js. */
   biomaNormal(b) {
@@ -233,6 +240,25 @@ G.MODS = {
     let h = html.replace('<span>1%</span>', '<span>' + pct + '</span>');
     if (this.repetidoDaEvolucion && G.EVO) h = h.replace('· Los repetidos dan Pokémonedas (los shiny repetidos, el triple).', this.NOTA_REPETIDOS);
     return h;
+  },
+
+  /** progress.js, showNext(): ¿espera el aviso de logro? (`seguir`: showNext, que se vuelve a llamar).
+   *  Con el resultado del gacha abierto, sí. pull() de gacha-ui.js comprueba los logros (y avisa)
+   *  justo ANTES de abrir el resultado, así que en la pantalla del gacha la primera vez se vuelve a
+   *  mirar en el turno siguiente. Fuera del gacha no cambia nada. Además pone en <html> la clase
+   *  mod-avisos-tras-gacha con el ajuste: con ella, css/style.css esconde mientras está abierto el
+   *  resultado un aviso que ya estaba en pantalla al tirar (vuelve al cerrarlo si le queda tiempo). */
+  _avisoMirado: false,
+  avisoEnEspera(seguir) {
+    if (typeof document === 'undefined' || typeof seguir !== 'function') return false;
+    const raiz = document.documentElement;
+    if (raiz && raiz.classList) raiz.classList.toggle('mod-avisos-tras-gacha', !!this.avisosTrasGacha);
+    if (!this.avisosTrasGacha) return false;
+    const fx = document.getElementById('pull-fx'), gacha = document.getElementById('scr-gacha');
+    if (fx && !fx.classList.contains('hidden')) { this._avisoMirado = true; setTimeout(seguir, 200); return true; }
+    if (!this._avisoMirado && gacha && !gacha.classList.contains('hidden')) { this._avisoMirado = true; setTimeout(seguir, 0); return true; }
+    this._avisoMirado = false;
+    return false;
   },
 
   /** Multiplicador de tickets saneado: entero ≥ 1 (cualquier otro valor, 1). */

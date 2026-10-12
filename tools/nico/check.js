@@ -274,7 +274,9 @@ const HOOKS = [
   // Arreglos de upstream
   ['js/game.js', /G\.World\.setBiome\(G\.MODS && G\.MODS\.biomaNormal \? G\.MODS\.biomaNormal\(b\) : b\);\s*\/\/ MOD nico/, 'biomas: desde el minuto 12, el mapa sigue en sus biomas normales'],
   ['js/game.js', /if \(state !== 'playing' && flashT > 0 && G\.MODS && G\.MODS\.destelloSinCongelar\) flashT -= dt;\s*\/\/ MOD nico/, 'fogonazo de la grieta: se apaga también al elegir fusión'],
-  ['css/style.css', /body:has\(#pull-fx:not\(\.hidden\)\) \.ach-pop \{ top: 8px; bottom: auto; \}/, 'gacha en móvil: el aviso de logro no tapa «Continuar»']
+  ['js/systems/progress.js', /function showNext\(\) \{\r?\n\s*const n = toastQ\[0\];\r?\n\s*if \(!n\) return;\r?\n\s*if \(G\.MODS && G\.MODS\.avisoEnEspera && G\.MODS\.avisoEnEspera\(showNext\)\) return;\s*\/\/ MOD nico/,
+    'gacha: los avisos de logro de una tirada esperan a «Continuar» (showNext)'],
+  ['css/style.css', /\.mod-avisos-tras-gacha body:has\(#pull-fx:not\(\.hidden\)\) \.ach-pop \{ visibility: hidden; \}/, 'gacha: un aviso que ya estaba en pantalla al tirar no se ve encima del resultado']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -1423,6 +1425,61 @@ ${fTicket}      }
     t('rewardText enseña lo que se da (×2) y las monedas igual', txt === `[ticket] ${surv.t1 * 2} &nbsp;<span class="coin"></span> ${surv.coins}` && txt10 === `[ticket10] ${A('evo25').reward.t10 * 2} ×10`, [txt, txt10]);
     t('las definiciones de misiones y logros no cambian', JSON.stringify([G.MissionDefs.daily, G.MissionDefs.weekly, G.AchDefs.LIST].map(l => l.map(d => d.reward))) === defs);
   } catch (e) { t('js/systems/progress.js en node:vm', false, String(e && e.stack || e)); }
+
+  // Avisos de logro y el resultado del gacha: progress.js real (notify/showNext) con un DOM y un reloj de mentira.
+  // pull() de gacha-ui.js llama a checkAch() y, en el mismo turno, abre el resultado (#pull-fx).
+  try {
+    const aviso = ({ mods = {} } = {}) => {
+      const reloj = { t: 0, q: [] };
+      const els = {};
+      const elemento = (id, oculto) => { const cl = new Set(oculto ? ['hidden'] : []); return { id, className: '', innerHTML: '', classList: { add: k => cl.add(k), remove: k => cl.delete(k), contains: k => cl.has(k) }, prepend() {} }; };
+      els['pull-fx'] = elemento('pull-fx', true); els['scr-gacha'] = elemento('scr-gacha', true);
+      const c = { console, performance: { now: () => reloj.t }, clearTimeout() {},
+        setTimeout: (f, ms) => { reloj.q.push({ f, at: reloj.t + (ms || 0) }); return reloj.q.length; } };
+      const raiz = elemento('html', false);
+      raiz.classList.toggle = (k, si) => (si ? raiz.classList.add(k) : raiz.classList.remove(k));
+      c.document = { documentElement: raiz, getElementById: id => els[id] || null, createElement: () => elemento('', false), body: { appendChild: e => { els[e.id] = e; } } };
+      vm.createContext(c);
+      c.window = c; c.G = {};
+      for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/moves.js', 'js/data/types.js',
+        'js/data/missions.js', 'js/data/achievements.js', 'js/systems/progress.js']) vm.runInContext(rd(f), c, { filename: f });
+      const G = c.G;
+      Object.assign(G.MODS, mods);
+      Object.assign(G, { Ranking: { periodIds: () => ({ d: 'd1', w: 'w1' }) }, Icons: { html: k => `[${k}]` }, Audio: { sfx() {} }, UI: { spriteCanvas: () => ({}) } });
+      const s = { coins: 0, tickets: { t1: 0, t10: 0 }, stats: {}, owned: {}, shiny: {}, created: 1 };
+      s.ach = Object.fromEntries(G.AchDefs.LIST.map(a => [a.id, 1]));
+      G.DB = { save: s, commit() {} };
+      const avanzar = ms => { const fin = reloj.t + ms; for (;;) { reloj.q.sort((a, b) => a.at - b.at); const x = reloj.q[0]; if (!x || x.at > fin) break; reloj.q.shift(); reloj.t = x.at; x.f(); } reloj.t = fin; };
+      const visible = () => !!els['ach-pop'] && !els['ach-pop'].classList.contains('hidden');
+      const logro = () => { delete s.ach.own1; s.owned[1] = { at: 1, from: 'gacha' }; G.Progress.checkAch(); };
+      return { els, avanzar, visible, logro, G, clase: () => raiz.classList.contains('mod-avisos-tras-gacha') };
+    };
+    // Tirada en la pantalla del gacha: el logro sale con el resultado abierto y espera a «Continuar».
+    const A = aviso();
+    A.els['scr-gacha'].classList.remove('hidden');
+    A.logro(); A.els['pull-fx'].classList.remove('hidden');   // lo que hace pull(): checkAch() y abrir el resultado
+    const alTirar = A.visible();
+    A.avanzar(6000);
+    const conResultado = A.visible();
+    A.els['pull-fx'].classList.add('hidden');                  // «Continuar»
+    A.avanzar(300);
+    const trasContinuar = A.visible();
+    A.avanzar(3000);
+    const seVa = A.visible();
+    // Fuera del gacha (en partida o en el menú), al momento, como el original.
+    const B = aviso();
+    B.logro();
+    const enMenu = B.visible();
+    // avisosTrasGacha = false: como el original, también con el resultado abierto.
+    const O = aviso({ mods: { avisosTrasGacha: false } });
+    O.els['scr-gacha'].classList.remove('hidden');
+    O.logro(); O.els['pull-fx'].classList.remove('hidden');
+    const original = O.visible();
+    t('avisos de logro: los de una tirada esperan a que cierres el resultado del gacha (después salen sus 2,8 s); fuera del gacha y con avisosTrasGacha = false, al momento',
+      !alTirar && !conResultado && trasContinuar && !seVa && enMenu && original, { alTirar, conResultado, trasContinuar, seVa, enMenu, original });
+    // La clase de <html> con la que style.css esconde, con el resultado abierto, un aviso que ya estaba en pantalla.
+    t('avisos de logro: <html> lleva mod-avisos-tras-gacha con el ajuste (y no con avisosTrasGacha = false)', A.clase() && B.clase() && !O.clase(), { A: A.clase(), B: B.clase(), O: O.clase() });
+  } catch (e) { t('avisos de logro y el gacha', false, String(e && e.stack || e)); }
 
   // Traer la partida oficial no es ganar: suma lo que tenía allí una vez, sin multiplicar, y la segunda vez nada.
   try {

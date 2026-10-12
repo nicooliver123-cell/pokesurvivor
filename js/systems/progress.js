@@ -206,6 +206,7 @@ G.Progress = (() => {
   function showNext() {
     const n = toastQ[0];
     if (!n) return;
+    if (G.MODS && G.MODS.avisoEnEspera && G.MODS.avisoEnEspera(showNext)) return;   // MOD nico: con el resultado del gacha abierto, el aviso espera a «Continuar» (js/core/mods.js)
     let el = document.getElementById('ach-pop');
     if (!el) { el = document.createElement('div'); el.id = 'ach-pop'; el.className = 'box ach-pop'; document.body.appendChild(el); }
     const icon = n.ach ? (n.ach.dex ? '' : G.Icons.html('medal' + n.ach.tier, 24)) : G.Icons.html('medal2', 24);
