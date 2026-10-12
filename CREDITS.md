@@ -140,7 +140,10 @@ redistribuir con el juego, pero no venderse solas.
 | M PLUS Rounded 1c | Copyright 2016 The Rounded M+ Project Authors | Estilo «Dex» de esta versión: HUD, menús y números | `assets/fonts/OFL-MPLUSRounded1c.txt` |
 
 De M PLUS Rounded 1c se usa el subconjunto latino en woff2 (versión 1.059, 230 glifos), pesos
-500 y 800: `assets/fonts/MPLUSRounded1c-500-latin.woff2` y `-800-latin.woff2`. Un subconjunto ya es una
+500 y 800: `assets/fonts/MPLUSRounded1c-500-latin.woff2` y `-800-latin.woff2`. Vienen de Google Fonts,
+que la distribuye con esta licencia: su tabla `name` lo dice («1.059.20150529g;GoogleFonts;…») y traen su
+subconjunto «latin» (latín básico, Latin-1 y la puntuación general; sin las flechas → ←, que pinta la letra
+de reserva). Un subconjunto ya es una
 modificación de la fuente; la OFL lo permite. No declara ningún nombre reservado (*Reserved Font
 Name*): el copyright y la licencia van en la tabla `name` de los propios ficheros.
 
