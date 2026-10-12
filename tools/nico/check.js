@@ -37,6 +37,10 @@
  *      del legendario de rift.js tal cual, y el cartel del gacha con el refresh() real de gacha-ui.js) y
  *      repetido -> su evolución (js/data/evolutions.js sin ciclos y sólo con especies del juego; pull() real
  *      con las tiradas guionizadas: Bulbasaur, Eevee, shiny, ×10 en orden, ramas; la carta y el inglés).
+ *      La grieta: también la primera natural antes del límite lleva el 60 % (las posteriores, enteras).
+ *  12. Arreglos de upstream: el bioma a los 0-120 min con world.js y tiles.js reales (nombre, líquido y daño de
+ *      los charcos; control: upstream da «Grieta · …» a los 12 min y se rompe a los 84) y el fogonazo de la
+ *      grieta, que se apaga también al elegir fusión (frame() de game.js tal cual).
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -243,7 +247,10 @@ const HOOKS = [
   ['js/systems/gacha.js', /else refund = REFUND\[rarity\];\r?\n\s*\}\r?\n\s*const evo = !isNew && G\.MODS && G\.MODS\.evolucionDeRepetido \? G\.MODS\.evolucionDeRepetido\(save, mon\.dex, shiny\) : 0; if \(evo\) refund = 0;\s*\/\/ MOD nico[^\n]*\n\s*save\.coins \+= refund;\r?\n\s*out\.push\(\{ dex: mon\.dex, rarity, shiny, isNew, refund \}\);\r?\n\s*if \(evo\) out\[out\.length - 1\]\.evo = evo;\s*\/\/ MOD nico/,
     'repetidos: pull() pregunta por la evolución antes de dar las monedas y la apunta en el resultado'],
   ['js/ui/gacha-ui.js', /<div class="tag">\$\{tag\}<\/div>`\);\r?\n\s*if \(r\.evo && G\.MODS && G\.MODS\.marcarEvolucion\) G\.MODS\.marcarEvolucion\(c, r\);\s*\/\/ MOD nico/, 'repetidos: la carta enseña la evolución desbloqueada'],
-  ['js/ui/gacha-ui.js', /· Los repetidos dan Pokémonedas \(los shiny repetidos, el triple\)\.<br>/, 'repetidos: la nota de upstream que cambia notasGacha() sigue ahí']
+  ['js/ui/gacha-ui.js', /· Los repetidos dan Pokémonedas \(los shiny repetidos, el triple\)\.<br>/, 'repetidos: la nota de upstream que cambia notasGacha() sigue ahí'],
+  // Arreglos de upstream
+  ['js/game.js', /G\.World\.setBiome\(G\.MODS && G\.MODS\.biomaNormal \? G\.MODS\.biomaNormal\(b\) : b\);\s*\/\/ MOD nico/, 'biomas: desde el minuto 12, el mapa sigue en sus biomas normales'],
+  ['js/game.js', /if \(state !== 'playing' && flashT > 0 && G\.MODS && G\.MODS\.destelloSinCongelar\) flashT -= dt;\s*\/\/ MOD nico/, 'fogonazo de la grieta: se apaga también al elegir fusión'],
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -1634,9 +1641,89 @@ ${fTicket}      }
   for (const [name, , detail] of failed) bad(`gacha: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 12. arreglos de upstream: biomas desde el minuto 12 y el fogonazo de la grieta ----------------
+function arreglosChecks() {
+  console.log('12. Arreglos de upstream: biomas desde el minuto 12 (world.js y tiles.js reales) y el fogonazo de la grieta');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const gsrc = rd('js/game.js');
+  const trozo = (re, que) => { const m = gsrc.match(re); if (!m) throw new Error('no encuentro en js/game.js: ' + que); return m[0]; };
+  let resumen = '';
+  // El cambio de bioma de update(), tal cual, con world.js y tiles.js reales.
+  function partida(biomasEnCiclo = true) {
+    const c = { console };
+    vm.createContext(c);
+    c.window = c; c.G = {};
+    for (const f of ['js/core/util.js', 'js/core/mods.js']) vm.runInContext(rd(f), c, { filename: f });
+    c.G.Sprites = { PX: 2 };
+    for (const f of ['js/world/tiles.js', 'js/world/world.js']) vm.runInContext(rd(f), c, { filename: f });
+    const G = c.G, avisos = [];
+    G.MODS.biomasEnCiclo = biomasEnCiclo;
+    Object.assign(G, { Rift: { inArena: false }, Audio: { sfx() {} }, Spawner: { say: s => avisos.push(s) }, FX: { ring() {} }, Camera: { outerRadius: () => 500 } });
+    const cambio = trozo(/    const b = Math\.floor\(time \/ 240\);\r?\n    if \(b !== biome && !G\.Rift\.inArena\) \{[\s\S]*?\r?\n    \}\r?\n/, 'el cambio de bioma de update()');
+    vm.runInContext(`var __P = (() => { let biome = 0, time = 0; const pl = { x: 0, y: 0 };
+      G.World.reset(1234); G.World.setBiome(0, true);
+      return { a(tt) { time = tt;
+${cambio}      } }; })();`, c, { filename: 'js/game.js (cambio de bioma)' });
+    let roto = null;
+    const ver = min => {
+      for (let s = 0; s <= min * 60; s += 5) { try { c.__P.a(s); } catch (e) { roto = roto || e.message; } }   // en el juego, el bucle lo atrapa y lo repite cada fotograma
+      let nombre; try { nombre = roto ? 'ERROR: ' + roto : G.World.biomeName(); } catch (e) { nombre = 'ERROR: ' + e.message; }
+      return { min, i: G.World.biome, nombre, liquido: G.World.biome < G.Tiles.BIOMES.length ? G.World.liquidKind() : null,
+               danio: G.World.biome < G.Tiles.BIOMES.length ? !!G.World.liquidEffect(['normal']).dmg : null };
+    };
+    return { G, ver, avisos };
+  }
+  try {
+    const P = partida(true), N = P.G.Tiles.NORMAL, B = P.G.Tiles.BIOMES;
+    const fila = [0, 4, 8, 12, 16, 24, 60, 84, 120].map(P.ver);
+    const esperado = fila.map(f => Math.floor(f.min / 4) % N);
+    resumen = fila.map(f => `${f.min}′ ${f.i} ${f.nombre}`).join(', ');
+    t('con el arreglo: a los 0, 4, 8, 12, 16, 24, 60, 84 y 120 min, el bioma normal que toca (cada 4 min, en ciclo de 3)',
+      fila.every((f, k) => f.i === esperado[k] && f.nombre === B[esperado[k]].name), fila.map(f => `${f.min}: ${f.i} ${f.nombre}`));
+    t('con el arreglo: el líquido y el daño de los charcos, los del bioma normal (sólo el volcán quema)',
+      fila.every(f => f.liquido === B[f.i].liquid && f.danio === (f.liquido === 'lava')) && fila[4].liquido === 'water' && !fila[4].danio,
+      fila.map(f => `${f.min}: ${f.liquido}${f.danio ? ' (quema)' : ''}`));
+    t('con el arreglo: el aviso de bioma nunca dice «Grieta»', P.avisos.length > 0 && !P.avisos.some(s => /Grieta/.test(s)), P.avisos.slice(0, 6));
+    const O = partida(false);
+    const ctl = [12, 16, 84].map(O.ver);
+    t('control (biomasEnCiclo = false, como upstream): a los 12 min «Grieta · …», a los 16 lava que quema y a los 84 se rompe (la prueba lo detecta)',
+      /^Grieta · /.test(ctl[0].nombre) && ctl[1].liquido === 'lava' && ctl[1].danio && /^ERROR/.test(ctl[2].nombre), ctl.map(f => `${f.min}: ${f.i} ${f.nombre}`));
+    const M = P.G.MODS;
+    t('biomaNormal(): entero en [0, 3) también con negativos o decimales; con el ajuste en false, tal cual', M.biomaNormal(3) === 0 && M.biomaNormal(-1) === 2 &&
+      M.biomaNormal(7.9) === 1 && (M.biomasEnCiclo = false, M.biomaNormal(5) === 5));
+  } catch (e) { t('biomas', false, String(e && e.stack || e)); }
+
+  // El fogonazo de la grieta en el estado 'choice' (elegir fusión): frame() de game.js, tal cual.
+  try {
+    const fFlash = trozo(/  let flashT = 0, flashDur = 1, flashCol = '#fff';\r?\n  function flash\(col, dur\) \{[^\n]*\}\r?\n/, 'flash()');
+    const fFrame = trozo(/  function frame\(ts\) \{[\s\S]*?\r?\n  \}\r?\n/, 'frame()');
+    const fogonazo = (activo, estado) => {
+      const c = { console };
+      vm.createContext(c);
+      c.G = { MODS: { destelloSinCongelar: activo }, Settings: { sample() {} }, FX: { update() {} }, Coop: { active: false }, UI: { tick() {} }, Input: { endFrame() {} } };
+      vm.runInContext(`var __F = (() => { let state = '${estado}', pl = { anim: { update() {} } }, last = 0, speedK = 1, frameDt = 0, fpsAcc = 0, fpsN = 0, fpsShown = 60;
+        const w = 1, h = 1, dpr = 1, ctx = null; function handleKeys() {} function update() {} function render() {} const Backdrop = { render() {} };
+${fFlash}${fFrame}        return { flash, frame, get flashT() { return flashT; } }; })();`, c, { filename: 'js/game.js (frame)' });
+      const F = c.__F;
+      F.flash('#c9a6ff', 0.8);
+      for (let k = 1; k <= 45; k++) F.frame(k * 1000 / 60);   // 0,75 s
+      return F.flashT;
+    };
+    const eleccion = fogonazo(true, 'choice'), espera = fogonazo(true, 'held'), ctl = fogonazo(false, 'choice');
+    t("el fogonazo de la vuelta de la grieta se apaga también eligiendo la fusión ('choice') o esperando al otro ('held'); control como upstream: congelado",
+      eleccion <= 0.06 && espera <= 0.06 && ctl === 0.8, { eleccion, espera, control: ctl });
+  } catch (e) { t('fogonazo de la grieta', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`arreglos de upstream: ${r.length} casos bien (biomas: ${resumen})`);
+  for (const [name, , detail] of failed) bad(`arreglos: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
+  try { arreglosChecks(); } catch (e) { bad('no se pudo probar los arreglos de upstream: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

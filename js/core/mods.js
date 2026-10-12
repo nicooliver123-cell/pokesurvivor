@@ -119,6 +119,25 @@ G.MODS = {
    * false = como el original. */
   repetidoDaEvolucion: true,
 
+  /* Arreglo de un fallo de upstream (desde «Arenas de grieta por tipo», 3f85b87): a partir del
+   * minuto 12 el mapa normal se volvía una arena de la grieta («Grieta · …», con su líquido y su
+   * daño; y en el 84 se rompía). true = el mapa rota entre sus 3 biomas normales cada 4 min.
+   * false = como upstream. */
+  biomasEnCiclo: true,
+
+  /* Arreglo de un fallo de upstream: el fogonazo del viaje de vuelta de la grieta se quedaba
+   * congelado mientras eliges la fusión (y en cualquier pausa). true = se apaga a su ritmo. */
+  destelloSinCongelar: true,
+
+  /** game.js, update(): el bioma del mapa para el tramo `b` (= minutos / 4). Con biomasEnCiclo,
+   *  siempre uno normal (0..G.Tiles.NORMAL-1); las arenas sólo las pone rift.js. */
+  biomaNormal(b) {
+    const n = (G.Tiles && G.Tiles.NORMAL) | 0;
+    if (!this.biomasEnCiclo || !(n > 0) || !isFinite(b)) return b;
+    b = Math.floor(b);
+    return ((b % n) + n) % n;
+  },
+
   /** spawner.js, rift.js y gacha.js: la probabilidad de shiny `p` con el ajuste (como mucho 1). */
   probShiny(p) {
     const k = +this.shinyMult;

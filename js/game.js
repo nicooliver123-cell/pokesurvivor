@@ -503,6 +503,7 @@ G.Game = (() => {
 
     if (state === 'playing') update(dt);
     else if (pl && state !== 'ui') { G.FX.update(dt * 0.25); pl.anim.update(dt * 0.25); }
+    if (state !== 'playing' && flashT > 0 && G.MODS && G.MODS.destelloSinCongelar) flashT -= dt;   // MOD nico: el fogonazo de la grieta no se congela al elegir fusión (sólo bajaba en update())
     // La red se atiende siempre (también con las cartas de nivel abiertas).
     if (G.Coop.active && pl && state !== 'ui' && state !== 'over') G.Coop.tick(dt);
 
@@ -532,7 +533,7 @@ G.Game = (() => {
     const b = Math.floor(time / 240);
     if (b !== biome && !G.Rift.inArena) {
       biome = b;
-      G.World.setBiome(b);
+      G.World.setBiome(G.MODS && G.MODS.biomaNormal ? G.MODS.biomaNormal(b) : b);   // MOD nico: desde el minuto 12 el mapa seguía con las arenas de la grieta (js/core/mods.js)
       G.Audio.sfx('biome');
       G.Spawner.say('— ' + G.World.biomeName() + ' —', 3);
       G.FX.ring(pl.x, pl.y, 10, G.Camera.outerRadius(), '#ffffff', 0.7, 6);
