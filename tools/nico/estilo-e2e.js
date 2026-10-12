@@ -76,6 +76,7 @@ const BASE = `http://127.0.0.1:${PORT}/${PAGE}`;
 const HEADLESS = !process.argv.includes('--headed');
 const CAPTURAS = !process.argv.includes('--sin-capturas');
 const SOLO_HUD = process.argv.includes('--solo-hud');   // sólo el HUD Dex en partida (sección 10), para ir más rápido
+const SOLO_PORTADA = process.argv.includes('--solo-portada');   // sólo la portada «Tarjeta de entrenador» (sección 12)
 const ESTILOS = ['clasico', 'dex'];
 
 /** Avisos de la consola que son del entorno de la prueba, no del juego. */
@@ -275,8 +276,10 @@ const MEDIR_MENU = () => {
     }
     return false;
   }).map(it => it.dataset.go);
-  const scr = document.getElementById('scr-menu'), tb = document.getElementById('topbar'), cl = document.getElementById('credits-line'), logo = document.querySelector('#scr-menu .logo');
-  const cajas = [...document.querySelectorAll('#scr-menu .menu-right > .box')].filter(visible), mr = document.querySelector('#scr-menu .menu-right');
+  const scr = document.getElementById('scr-menu'), tb = document.getElementById('topbar'), cl = document.getElementById('credits-line');
+  // El logotipo que se ve: con Dex, el de la «Tarjeta de entrenador» (css/portada.css); con Clásico, el del proyecto base.
+  const logo = [document.querySelector('#tc-card .tc-title'), document.querySelector('#scr-menu .logo')].find(el => el && el.getClientRects().length > 0);
+  const cajas = [...document.querySelectorAll('#scr-menu .menu-right > .box, #tc-card')].filter(visible), mr = document.querySelector('#scr-menu .menu-right');
   return { opciones: items.length, mal, desplazada: scr.scrollTop + mr.scrollTop, sobra: Math.max(scr.scrollHeight - scr.clientHeight, mr.scrollHeight - mr.clientHeight),
     logoTapado: visible(tb) && cruza(rr(tb), rr(logo)), creditosPisan: visible(cl) && cajas.some(b => cruza(visto(b), rr(cl))),
     logo: [Math.round(rr(logo).top), Math.round(rr(logo).bottom)], barra: visible(tb) ? [Math.round(rr(tb).top), Math.round(rr(tb).bottom)] : null };
@@ -888,7 +891,9 @@ const VP_BARRA = {
 };
 /** La barra superior: dentro de la ventana, sin partirse en dos filas (con 480 px de ancho o más) y sin tapar el logotipo. */
 const MEDIR_BARRA = () => {
-  const tb = document.getElementById('topbar'), q = tb.getBoundingClientRect(), logo = document.querySelector('#scr-menu .logo').getBoundingClientRect();
+  const ve = el => !!el && el.getClientRects().length > 0;
+  const tb = document.getElementById('topbar'), q = tb.getBoundingClientRect();
+  const logo = [document.querySelector('#tc-card .tc-title'), document.querySelector('#scr-menu .logo')].find(ve).getBoundingClientRect();
   const hijos = [...tb.children].filter(c => c.offsetParent !== null).map(c => c.getBoundingClientRect());
   const filas = [];
   for (const r of hijos) { const c = (r.top + r.bottom) / 2; if (!filas.some(f => Math.abs(f - c) < 12)) filas.push(c); }
@@ -1103,6 +1108,193 @@ async function pruebaArreglos(browser) {
   }
 }
 
+// ---------------- 12. Portada «Tarjeta de entrenador» (PokéSwarm, 12-10-2026) ----------------
+/** Fracción de la pantalla opaca, medida como en la maqueta de la variante C: la interfaz sin el mundo, sobre negro y
+ *  sobre blanco; por píxel a = 1 - (blanco - negro) / 255 (media de los canales) y opaco si a ≥ 0,6. */
+async function opaco(page) {
+  const fotos = [];
+  for (const c of ['#000', '#fff']) {
+    await page.evaluate(c => {
+      let s = document.getElementById('__medir');
+      if (!s) { s = document.createElement('style'); s.id = '__medir'; document.head.appendChild(s); }
+      s.textContent = `#game{visibility:hidden!important} html,body{background:${c}!important} .ach-pop,.toast{display:none!important}`;
+    }, c);
+    await sleep(150);
+    fotos.push((await page.screenshot({ scale: 'css' })).toString('base64'));
+  }
+  await page.evaluate(() => document.getElementById('__medir').remove());
+  return page.evaluate(async ([n, b]) => {
+    const px = async s => {
+      const im = await createImageBitmap(await (await fetch('data:image/png;base64,' + s)).blob());
+      const c = new OffscreenCanvas(im.width, im.height), x = c.getContext('2d');
+      x.drawImage(im, 0, 0);
+      return x.getImageData(0, 0, im.width, im.height).data;
+    };
+    const N = await px(n), B = await px(b);
+    let op = 0;
+    for (let i = 0; i < N.length; i += 4) if (1 - ((B[i] - N[i]) + (B[i + 1] - N[i + 1]) + (B[i + 2] - N[i + 2])) / 765 >= 0.6) op++;
+    return Math.round(op / (N.length / 4) * 1000) / 10;
+  }, fotos);
+}
+
+/** Cómo está la cara de la tarjeta que se ve: dentro de la ventana, sin desplazar, con el Rotom-Dex delante del nombre
+ *  y sin la lengüeta roja de los paneles del Dex. */
+const CARA = ([selCaja, selNombre]) => {
+  const caja = document.querySelector(selCaja), nombre = document.querySelector(selNombre);
+  const r = caja.getBoundingClientRect(), W = innerWidth, H = innerHeight;
+  const antes = el => el ? getComputedStyle(el, '::before') : null;
+  return {
+    dentro: r.left >= -0.5 && r.top >= -0.5 && r.right <= W + 0.5 && r.bottom <= H + 0.5 && r.width > 0,
+    desplaza: Math.max(0, caja.scrollHeight - caja.clientHeight),
+    rotom: !!nombre && /url\("data:image\/svg/.test(antes(nombre).backgroundImage) && nombre.textContent.trim() === 'PokéSwarm',
+    lengueta: antes(caja).display !== 'none' && antes(caja).content !== 'none' && /D7263D|215, 38, 61/i.test(antes(caja).backgroundColor),
+    pagina: document.documentElement.scrollWidth - document.documentElement.clientWidth
+  };
+};
+
+async function pruebaPortada(browser) {
+  // Los tamaños que pidió Nico: escritorio, el móvil, el Magic V6 (abierto, en las dos posturas, con la barra del
+  // navegador, plegado en horizontal y la mitad de arriba en modo mesa).
+  const VPS = [
+    { w: 1440, h: 900 }, { w: 1920, h: 1080 }, { w: 1024, h: 768 }, { w: 844, h: 390, dpr: 3, tactil: true },
+    { w: 807, h: 360, dpr: 3, tactil: true }, { w: 784, h: 362, dpr: 3, tactil: true, pantalla: [784, 724] },
+    { w: 724, h: 784, dpr: 3, tactil: true }, { w: 784, h: 724, dpr: 3, tactil: true },
+    { w: 724, h: 700, dpr: 3, tactil: true, pantalla: [724, 784] }, { w: 784, h: 640, dpr: 3, tactil: true, pantalla: [784, 724] }
+  ];
+  for (const v of VPS) {
+    const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    const movil = v.h < 520, plegable = !movil && v.w <= 920;
+    // Como en una primera visita de verdad, el sonido espera al primer gesto: así sale «Pulsa para empezar».
+    await page.addInitScript(() => {
+      try { localStorage.setItem('ps.settings', JSON.stringify({ estilo: 'dex' })); } catch (e) {}
+      let gesto = false;
+      addEventListener('pointerdown', () => { gesto = true; }, true);
+      addEventListener('keydown', () => { gesto = true; }, true);
+      document.addEventListener('DOMContentLoaded', () => { if (window.G && G.Audio) { const o = G.Audio.canPlay.bind(G.Audio); G.Audio.canPlay = () => gesto && o(); } });
+    });
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => document.getElementById('boot').classList.contains('hidden'), null, { timeout: 30000 });
+    await sleep(500);
+    const estiloInicial = await page.evaluate(() => G.Estilo.actual);
+    // «Pulsa para empezar»: el dorso de la tarjeta, sin velo.
+    const pulsa = await page.locator('#tap-start').isVisible();
+    if (pulsa) {
+      const c = await page.evaluate(CARA, ['#tap-start .boot-in', '#tap-start h1']);
+      const velo = await page.evaluate(() => getComputedStyle(document.getElementById('tap-start')).backgroundImage);
+      await captura(page, `portada-pulsa-dex-${nv}`);
+      check(`${nv} Dex: «Pulsa para empezar», la tarjeta entera dentro de la ventana con el Rotom-Dex delante de «PokéSwarm» y sin velo sobre el mundo`,
+        estiloInicial === 'dex' && c.dentro && c.rotom && !c.lengueta && velo === 'none' && c.pagina <= 0, { c, velo, estiloInicial });
+      if (v.tactil) await page.tap('#tap-start'); else await page.click('#tap-start');
+    } else check(`${nv}: sale «Pulsa para empezar» (el sonido espera al primer gesto)`, false);
+    // Inicio de sesión: la cara del formulario; las dos pestañas con Tab y elegibles con Intro.
+    await page.locator('#scr-login').waitFor({ state: 'visible' });
+    await sleep(300);
+    const lg = await page.evaluate(CARA, ['#scr-login > .box', '#scr-login .logo .t1']);
+    const tabs = await page.evaluate(() => [...document.querySelectorAll('#scr-login .tab')].map(t => ({ rol: t.getAttribute('role'), tab: t.tabIndex, sel: t.getAttribute('aria-selected') })));
+    await page.focus('#scr-login .tab[data-tab="login"]');
+    await page.keyboard.press('Tab');
+    const segunda = await page.evaluate(() => document.activeElement && document.activeElement.dataset.tab);
+    await page.keyboard.press('Enter');
+    const registro = await page.evaluate(() => document.querySelector('#scr-login .tab[data-tab="register"]').classList.contains('on') && document.querySelector('#scr-login .tab[data-tab="register"]').getAttribute('aria-selected') === 'true');
+    await captura(page, `portada-login-foco-dex-${nv}`);
+    await page.keyboard.press('ArrowLeft');
+    const vuelta = await page.evaluate(() => document.querySelector('#scr-login .tab[data-tab="login"]').classList.contains('on') && document.activeElement.dataset.tab === 'login');
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
+    await captura(page, `portada-login-dex-${nv}`);
+    const pLogin = movil ? await opaco(page) : null;
+    check(`${nv} Dex: inicio de sesión entero sin desplazar, con el Rotom-Dex delante del nombre y sin lengüeta; las pestañas Entrar y Crear cuenta se alcanzan con Tab, Intro elige y las flechas cambian${movil ? ` (${pLogin} % opaco)` : ''}`,
+      lg.dentro && lg.desplaza <= 1 && lg.rotom && !lg.lengueta && lg.pagina <= 0 && tabs.length === 2 && tabs.every(t => t.rol === 'tab' && t.tab === 0) &&
+      segunda === 'register' && registro && vuelta, { lg, tabs, segunda, registro, vuelta, pLogin });
+    // Test y resultado: la misma tarjeta, sin oscurecido (retoque d).
+    await page.click('#btn-guest');
+    await page.locator('#scr-test').waitFor({ state: 'visible' });
+    await sleep(300);
+    const te = await page.evaluate(CARA, ['#scr-test .test-box', '#nada']);
+    const dim = await page.evaluate(() => { const cs = getComputedStyle(document.getElementById('scr-test')); return cs.backgroundImage === 'none' && /rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor); });
+    const respuestas = await page.evaluate(() => [...document.querySelectorAll('#test-a .answer')].map(b => Math.round(b.getBoundingClientRect().height)));
+    await captura(page, `portada-test-dex-${nv}`);
+    check(`${nv} Dex: test sin oscurecido, la tarjeta dentro de la ventana y sin lengüeta, respuestas de 44 px o más`,
+      dim && te.dentro && te.desplaza <= 1 && !te.lengueta && respuestas.length === 4 && respuestas.every(h => h >= 44), { te, dim, respuestas });
+    for (let n = 0; n < 40 && await page.locator('#scr-test').isVisible(); n++) { await page.locator('#test-a .answer').first().click(); await sleep(40); }
+    await page.locator('#scr-result').waitFor({ state: 'visible' });
+    await sleep(600);
+    const re = await page.evaluate(CARA, ['#scr-result .result', '#nada']);
+    const dimR = await page.evaluate(() => getComputedStyle(document.getElementById('scr-result')).backgroundImage === 'none');
+    await captura(page, `portada-resultado-dex-${nv}`);
+    check(`${nv} Dex: resultado del test sin oscurecido, entero y sin lengüeta`, dimR && re.dentro && re.desplaza <= 1 && !re.lengueta, { re, dimR });
+    await page.click('#res-ok');
+    await page.locator('#scr-menu').waitFor({ state: 'visible' });
+    // Menú: el anverso. Una partida con récord para que la tarjeta tenga sus cifras.
+    const menu = async dex => {
+      await page.evaluate(d => {
+        Object.assign(G.DB.save.stats, { runs: 14, bestTime: 754, bestLevel: 31 });
+        if (d) { G.DB.save.partner = d; G.DB.save.owned[d] = G.DB.save.owned[d] || 1; }
+        G.MenuUI.open();
+        for (const x of document.querySelectorAll('.ach-pop, .toast')) x.classList.add('hidden');
+      }, dex);
+      await page.waitForFunction(() => document.getElementById('tc-card').classList.contains('tc-listo'), null, { timeout: 15000 }).catch(() => {});
+      await sleep(400);
+      return page.evaluate(() => {
+        const W = innerWidth, H = innerHeight, r = el => el.getBoundingClientRect();
+        const dentro = b => b.left >= -0.5 && b.top >= -0.5 && b.right <= W + 0.5 && b.bottom <= H + 0.5 && b.width > 0;
+        const card = document.getElementById('tc-card'), botones = [...document.querySelectorAll('#scr-menu .menu-item')];
+        const cv = document.getElementById('tc-partner'), c = G.Estilo.colocacion(cv);
+        const tb = [...document.querySelectorAll('#topbar > *')].filter(e => e.getClientRects().length).map(r);
+        const cruza = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+        return {
+          tarjeta: dentro(r(card)), izquierda: getComputedStyle(document.querySelector('#scr-menu > .menu-left')).display,
+          rotom: /url\("data:image\/svg/.test(getComputedStyle(document.querySelector('#tc-card .tc-title'), '::before').backgroundImage),
+          lengueta: getComputedStyle(card, '::before').display !== 'none',
+          botones: botones.length, fuera: botones.filter(b => !dentro(r(b))).map(b => b.dataset.go), bajos: botones.filter(b => r(b).height < 44 - 0.5).map(b => b.dataset.go),
+          cortados: botones.filter(b => b.scrollWidth > b.clientWidth + 1).map(b => b.dataset.go),
+          pisaBarra: tb.some(t => cruza(t, r(card)) || botones.some(b => cruza(t, r(b)))),
+          escala: c && c.k, escalaMax: +getComputedStyle(card).getPropertyValue('--tc-escala'), dex: c && c.dex,
+          renglones: (() => {   // renglones de la tarjeta: los centros de sus piezas, agrupados con 8 px de tolerancia
+            const cs = [...card.querySelectorAll('.tc-title, .tc-mon, .tc-stats, .tc-user')].filter(e => e.getClientRects().length).map(e => (r(e).top + r(e).bottom) / 2).sort((a, b) => a - b);
+            return cs.reduce((n, y, i) => n + (i && y - cs[i - 1] <= 8 ? 0 : 1), 0);
+          })(),
+          pagina: document.documentElement.scrollWidth - document.documentElement.clientWidth
+        };
+      });
+    };
+    const m = await menu(null);
+    await captura(page, `portada-menu-dex-${nv}`);
+    const pMenu = await opaco(page);
+    report.medidas[`portada-opaco-${nv}`] = { menu: pMenu, login: pLogin };
+    check(`${nv} Dex: menú «Tarjeta de entrenador»: la tarjeta y los 8 botones dentro de la ventana, de 44 px o más, sin textos cortados ni la barra superior encima; el Rotom-Dex delante del nombre, sin lengüeta; el compañero a ×${m.escalaMax}${movil ? ' (retoque a: ×4)' : ''}; ${pMenu} % de pantalla opaca${movil || plegable ? ' (≤ 25 %)' : ''}`,
+      m.tarjeta && m.izquierda === 'none' && m.rotom && !m.lengueta && m.botones === 8 && !m.fuera.length && !m.bajos.length && !m.cortados.length && !m.pisaBarra &&
+      m.escala === m.escalaMax && (!movil || m.escala === 4) && (!(movil || plegable) || pMenu <= 25) && m.pagina <= 0, { m, pMenu });
+    if (movil) {
+      // El peor caso: un compañero grande (Dragonite) a ×4 y un nombre largo con dos tipos (Crabominable, tan ancho que va a
+      // ×3, como los gigantes: el 8 % de la Pokédex baja de ×4 para no cortarse).
+      for (const dex of [149, 740]) {
+        const g = await menu(dex);
+        const pg = await opaco(page);
+        report.medidas[`portada-opaco-${nv}-${dex}`] = pg;
+        if (dex === 149) await captura(page, `portada-menu-grande-dex-${nv}`);
+        check(`${nv} Dex: menú con ${dex === 149 ? 'Dragonite (grande), a ×4' : 'Crabominable (nombre largo, dos tipos; ancho: ×3)'}, dos renglones en la tarjeta, ${pg} % opaco (≤ 25 %)`,
+          g.escala === (dex === 149 ? 4 : 3) && g.renglones === 2 && pg <= 25 && !g.fuera.length && !g.cortados.length, { g, pg });
+      }
+    }
+    // Clásico: la composición del proyecto base, con el nombre y el lema.
+    if (v.w === 1440 || v.w === 844 || (v.w === 724 && v.h === 784)) {
+      await estilo(page, 'clasico');
+      await page.evaluate(() => { G.MenuUI.open(); for (const x of document.querySelectorAll('.ach-pop, .toast')) x.classList.add('hidden'); });
+      await sleep(300);
+      const k = await page.evaluate(() => ({
+        tarjeta: getComputedStyle(document.getElementById('tc-card')).display, izquierda: getComputedStyle(document.querySelector('#scr-menu > .menu-left')).display,
+        nombre: document.querySelector('#scr-menu .logo .t1').textContent.trim(), lema: document.querySelector('#scr-menu .logo .t2').textContent.trim(),
+        letra: getComputedStyle(document.querySelector('#scr-menu .logo .t1')).fontFamily
+      }));
+      await captura(page, `portada-menu-clasico-${nv}`);
+      check(`${nv} Clásico: el menú del proyecto base (sin tarjeta) con «PokéSwarm» y el lema`,
+        k.tarjeta === 'none' && k.izquierda !== 'none' && k.nombre === 'PokéSwarm' && k.lema === 'Roguelite de hordas Pokémon' && /Pixelify/.test(k.letra), k);
+    }
+    check(`${nv}: consola sin errores ni avisos (portada)`, !P.consola.length && !P.fuera.length, { consola: P.consola.slice(0, 5), fuera: P.fuera.slice(0, 5) });
+    await P.ctx.close();
+  }
+}
+
 // ---------------- hoja de contactos ----------------
 function hojaDeContactos() {
   const pares = {};
@@ -1119,7 +1311,7 @@ function hojaDeContactos() {
   const browser = await chromium.launch({ headless: HEADLESS });
   try {
     // 7. «Gira el móvil»: un móvil en vertical y el Magic V6 plegado en vertical, sí; los plegables abiertos, no (y entran a jugar más abajo).
-    for (const v of SOLO_HUD ? [] : [{ w: 390, h: 844, dpr: 3, tactil: true }, { w: 360, h: 807, dpr: 3, tactil: true }]) {
+    for (const v of SOLO_HUD || SOLO_PORTADA ? [] : [{ w: 390, h: 844, dpr: 3, tactil: true }, { w: 360, h: 807, dpr: 3, tactil: true }]) {
       const P = await nuevo(browser, v);
       await P.page.goto(BASE, { waitUntil: 'load' });
       await P.page.waitForFunction(() => document.getElementById('boot').classList.contains('hidden'), null, { timeout: 30000 });
@@ -1129,7 +1321,7 @@ function hojaDeContactos() {
       await P.ctx.close();
     }
 
-    for (const [clave, v] of SOLO_HUD ? [] : Object.entries(VP)) {
+    for (const [clave, v] of SOLO_HUD || SOLO_PORTADA ? [] : Object.entries(VP)) {
       const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v), t0 = Date.now();
       const dentro = await entrar(P);
       if (v.tactil && v.w / v.h > 0.75) check(`${nv}: juega sin «Gira el móvil»`, dentro);
@@ -1319,9 +1511,9 @@ function hojaDeContactos() {
         const res = [];
         for (const dex of comp) {
           await page.evaluate(d => { G.DB.save.partner = d; G.DB.save.partnerShiny = false; G.MenuUI.open(); }, dex);
-          res.push(...await page.evaluate(BORDES, '#menu-partner'));
+          res.push(...await page.evaluate(BORDES, '#tc-partner'));   // con Dex, el de la «Tarjeta de entrenador»
         }
-        const vivoComp = await page.evaluate(BORDES_VIVOS, '#menu-partner');
+        const vivoComp = await page.evaluate(BORDES_VIVOS, '#tc-partner');
         const malComp = res.filter(x => x.sinColocar || x.toca);
         check(`${nv}: compañero del menú (${res[0] && res[0].lienzo}): ningún fotograma de ${comp.length} Pokémon (iniciales y gigantes) toca el borde; la escala, entera hasta ×6`,
           !malComp.length && vivoComp.every(x => !x.toca) && res.every(x => x.k >= 1 && x.k <= 6), malComp.length ? malComp : vivoComp);
@@ -1335,14 +1527,17 @@ function hojaDeContactos() {
     }
 
     // 10. HUD Dex en partida (lote 2).
-    await pruebaHud(browser);
+    if (!SOLO_PORTADA) await pruebaHud(browser);
 
     // 11. Arreglos de la verificación de los lotes 1 y 2 (barra del navegador, móviles pequeños, barra superior estrecha,
     //     el aviso flotante al empezar, «…» y zonas seguras simuladas).
-    if (!SOLO_HUD) await pruebaArreglos(browser);
+    if (!SOLO_HUD && !SOLO_PORTADA) await pruebaArreglos(browser);
+
+    // 12. Portada «Tarjeta de entrenador» (Dex) y el menú del proyecto base con el nombre nuevo (Clásico).
+    if (!SOLO_HUD) await pruebaPortada(browser);
 
     // 8. Sin internet: con el service worker y en Clásico, se cargan las fuentes en reposo; luego, sin red, a Dex.
-    if (!SOLO_HUD) {
+    if (!SOLO_HUD && !SOLO_PORTADA) {
       const P = await nuevo(browser, VP.pc, { sw: true }), { page, ctx } = P;
       await page.goto(BASE, { waitUntil: 'load' });
       await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 30000 }).catch(() => {});

@@ -2775,6 +2775,12 @@ function identidadChecks() {
     };
     const siempre = reglas(css.slice(0, corte)), dex = reglas(css.slice(corte));
     const malSiempre = siempre.filter(s => /estilo-dex/.test(s)), malDex = dex.filter(s => !s.startsWith('html.estilo-dex'));
+    // css/portada.css (la «Tarjeta de entrenador», PokéSwarm): todo con Dex, salvo esconder la tarjeta en Clásico.
+    const pc = rd('css/portada.css').replace(/\/\*[\s\S]*?\*\//g, ''), rp = reglas(pc);
+    const malPortada = rp.filter(s => s !== '#tc-card' && !s.startsWith('html.estilo-dex'));
+    t('css/portada.css: la portada «Tarjeta de entrenador» sólo con Dex (en Clásico, sólo #tc-card { display: none }); el Rotom-Dex delante del nombre sale de --marca-rotom (css/tokens-dex.css)',
+      rp.length > 80 && !malPortada.length && /#tc-card \{ display: none; \}/.test(pc) && /--marca-rotom: url\("data:image\/svg\+xml/.test(rd('css/tokens-dex.css')) &&
+      /background: var\(--marca-rotom\)/.test(pc), malPortada.slice(0, 5));
     t('css/nico.css: el bloque «siempre» (arreglos de los dos estilos) no depende del estilo y toda la piel Dex va bajo html.estilo-dex (Clásico = upstream + arreglos)',
       corte > 0 && siempre.length > 20 && dex.length > 150 && !malSiempre.length && !malDex.length, { malSiempre, malDex: malDex.slice(0, 5) });
     t('css/nico.css: el menú principal se oculta con cualquier .scr.dim abierta, en los dos estilos',
@@ -2813,9 +2819,11 @@ function identidadChecks() {
   try {
     const ficheros = ['dev.html', 'css/style.css', 'css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/settings-ui.js', 'js/ui/run-ui.js',
       'js/ui/menu.js', 'js/ui/gacha-ui.js', 'js/game.js', 'js/core/mods.js', 'js/data/lang-en-mod.js', 'js/entities/claridad.js', 'CREDITS.md', 'assets/fonts/OFL-MPLUSRounded1c.txt',
-      'tools/nico/check.js', 'js/ui/hud.js', 'js/ui/hud-dex.js', 'js/systems/events.js', 'tools/nico/coop-e2e.js'].concat(ex('tools/nico/estilo-e2e.js') ? ['tools/nico/estilo-e2e.js'] : []);
+      'tools/nico/check.js', 'js/ui/hud.js', 'js/ui/hud-dex.js', 'js/systems/events.js', 'tools/nico/coop-e2e.js', 'css/portada.css', 'js/ui/portada.js',
+      'tools/nico/iconos.py', 'js/main.js', 'js/core/importar.js', 'js/ui/importar-ui.js', 'js/ui/ui.js', '404.html', 'contacto/index.html', 'manifest.webmanifest'].concat(ex('tools/nico/estilo-e2e.js') ? ['tools/nico/estilo-e2e.js'] : []);
     const mezcla = ficheros.filter(f => { const s = rd(f), crlf = (s.match(/\r\n/g) || []).length, lf = (s.match(/\n/g) || []).length; return crlf && crlf !== lf; });
-    const nuevosCRLF = ['css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/hud-dex.js', 'assets/fonts/OFL-MPLUSRounded1c.txt'].filter(f => /\r/.test(rd(f)));
+    const nuevosCRLF = ['css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/hud-dex.js', 'assets/fonts/OFL-MPLUSRounded1c.txt',
+      'css/portada.css', 'js/ui/portada.js', 'tools/nico/iconos.py'].filter(f => /\r/.test(rd(f)));
     t('finales de línea: ningún fichero tocado mezcla CRLF y LF, y los nuevos van en LF', !mezcla.length && !nuevosCRLF.length, { mezcla, nuevosCRLF });
   } catch (e) { t('finales de línea', false, String(e && e.stack || e)); }
   try {

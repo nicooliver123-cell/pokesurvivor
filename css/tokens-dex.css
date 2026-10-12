@@ -55,6 +55,10 @@
   --color-lente-brillo: #CFE8FF;
   --color-aro-lente: #F4F8FA;
 
+  /* ---------- marca de PokéSwarm: el Rotom-Dex mínimo (delante del nombre; el icono es su versión en píxeles,
+     tools/nico/iconos.py): cuadrado redondeado de carcasa con su canto, contorno y dos ojos cian con su brillo ---------- */
+  --marca-rotom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='2' y='2' width='36' height='36' rx='11' fill='%238C1328'/%3E%3Crect x='2' y='2' width='36' height='31.5' rx='11' fill='%23D7263D'/%3E%3Crect x='2' y='2' width='36' height='36' rx='11' fill='none' stroke='%23071318' stroke-width='3.5'/%3E%3Cg stroke='%23071318' stroke-width='2.2' fill='%2362E3DD'%3E%3Cellipse cx='14' cy='17' rx='4.4' ry='6.3' transform='rotate(10 14 17)'/%3E%3Cellipse cx='26' cy='17' rx='4.4' ry='6.3' transform='rotate(-10 26 17)'/%3E%3C/g%3E%3Ccircle cx='13.4' cy='13.8' r='1.7' fill='%23fff'/%3E%3Ccircle cx='25.4' cy='13.8' r='1.7' fill='%23fff'/%3E%3C/svg%3E");
+
   /* ---------- datos de los juegos ---------- */
   --color-ps-alto: #58D873;
   --color-ps-medio: #FFCB3D;

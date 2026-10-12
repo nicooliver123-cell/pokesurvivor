@@ -1,0 +1,374 @@
+/* ============ portada.css — portada y menú «Tarjeta de entrenador» del estilo Dex (MOD nico) ============
+ * Variante C de la portada, elegida por Nico el 12-10-2026, con los cuatro retoques del jurado:
+ *   (a) en un móvil (alto < 520), como mucho un 25 % de la pantalla opaca en el menú, el compañero a ×4 y botones
+ *       de 44 px; (b) sin la lengüeta roja: el Rotom-Dex mínimo (--marca-rotom de css/tokens-dex.css) delante del
+ *       nombre; (c) «…» con la letra de reserva (el unicode-range de tokens-dex.css); (d) el test sin oscurecido.
+ * Una sola tarjeta de cristal que cambia de cara en la entrada: el dorso en la pantalla de carga y «Pulsa para
+ * empezar» (sin velo: el mundo se ve entero), la cara del formulario en el inicio de sesión, el test y su resultado,
+ * y el anverso en el menú principal (tu compañero asomando por encima del borde, sobre su peana del color de su tipo,
+ * con tu récord y tu colección) y debajo una fila de botones con «Jugar» en el rojo de la carcasa.
+ *
+ * Sólo con html.estilo-dex. En Clásico la tarjeta (#tc-card, en dev.html) no se ve y todo queda como el proyecto
+ * base. El marcado del menú no se mueve: la fila de botones es la lista de upstream (.menu-list) recolocada aquí,
+ * con sus manejadores. js/ui/portada.js rellena la tarjeta y anima el compañero (G.Estilo.animar, sin cortes).
+ * Sólo consume variables de css/tokens-dex.css; las medidas propias de la tarjeta van en --tc-*.
+ * Pantallas bajas = alto < 520 px CSS (un móvil en horizontal), como style.css y tokens-dex.css.
+ */
+
+/* Clásico: sin tarjeta (el menú del proyecto base). */
+#tc-card { display: none; }
+
+/* ---------------- 0. Medidas de la tarjeta ----------------
+ * El lienzo del compañero (--tc-lienzo-*) y su escala máxima (--tc-escala) los lee js/ui/portada.js: el lienzo
+ * mide lo que se ve, sin escalar por CSS (píxel nítido). Escritorio ×6; un plegable abierto o una tableta, ×5; un
+ * móvil en horizontal o una ventana estrecha, ×4 (retoque a). */
+html.estilo-dex {
+  --tc-ancho: 616px;
+  --tc-pad-x: var(--space-5);
+  --tc-pad-y: var(--space-3);
+  --tc-lienzo-w: 264px;
+  --tc-lienzo-h: 264px;
+  --tc-escala: 6;
+  --tc-vuelo: var(--space-4);                                /* el lienzo sobresale por la izquierda */
+  --tc-zona: calc(var(--tc-lienzo-w) - 2 * var(--tc-vuelo)); /* columna del compañero: el texto empieza después */
+  --tc-baja: var(--space-1);                                 /* el lienzo acaba 4 px por encima del borde de abajo */
+  --tc-boton-h: 64px;
+  --tc-dock: 912px;
+  --tc-hueco: var(--space-3);
+  --tc-abajo: var(--space-4);
+}
+/* Plegable abierto (724x784, 784x724) y tabletas: la tarjeta, más estrecha y más baja, con el compañero a ×5 (sin pasar
+   del 25 % de pantalla opaca, como en el móvil: es el teléfono de Nico). */
+@media (max-width: 920px) and (min-height: 520px) {
+  html.estilo-dex { --tc-ancho: 560px; --tc-pad-y: var(--space-2); --tc-lienzo-w: 216px; --tc-lienzo-h: 232px; --tc-escala: 5; --tc-boton-h: 48px; --tc-dock: 720px; }
+}
+/* Ventana estrecha y alta (menos de 560 de ancho): ×4, y los botones en dos filas (sección 4). */
+@media (max-width: 559.98px) and (min-height: 520px) {
+  html.estilo-dex { --tc-pad-x: var(--space-4); --tc-lienzo-w: 168px; --tc-lienzo-h: 200px; --tc-escala: 4; --tc-vuelo: var(--space-2); --tc-boton-h: 48px; }
+}
+/* Móvil en horizontal (retoque a): ×4, botones de 44, tarjeta de dos renglones. */
+@media (max-height: 519.98px) {
+  html.estilo-dex {
+    --tc-ancho: 480px; --tc-pad-x: var(--space-3); --tc-pad-y: var(--space-1);
+    --tc-lienzo-w: 152px; --tc-lienzo-h: 184px; --tc-escala: 4; --tc-vuelo: var(--space-2);
+    --tc-boton-h: 44px; --tc-dock: 640px; --tc-hueco: var(--space-2); --tc-abajo: var(--space-2);
+  }
+}
+
+/* ---------------- 1. La tarjeta (común a todas las caras) ---------------- */
+html.estilo-dex :is(#tc-card, #scr-login > .box, #tap-start .boot-in, #boot .boot-in, #scr-test .test-box, #scr-result .result) {
+  position: relative; box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(19, 47, 58, .96), rgba(15, 38, 48, .95));
+  border: 1px solid var(--color-bisel); border-radius: var(--radius-3);
+  box-shadow: var(--shadow-panel), var(--shadow-panel-brillo);
+  color: var(--color-tinta); font-family: var(--font-datos); text-shadow: none; text-align: left;
+  animation: tc-entra var(--dur-entrada) var(--curva);
+}
+/* Retoque b: sin la lengüeta roja de los paneles del Dex; la marca es el Rotom-Dex delante del nombre. */
+html.estilo-dex :is(#tc-card, #scr-login > .box, #scr-test .test-box, #scr-result .result)::before { display: none; }
+@keyframes tc-entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* El nombre: M PLUS 800 con el Rotom-Dex mínimo delante (también en Ajustes > Acerca de). */
+html.estilo-dex :is(.tc-title, #scr-login .logo .t1, #tap-start .boot-in h1, #boot .boot-in h1, .about-logo) {
+  display: inline-flex; align-items: center; gap: .2em; margin: 0;
+  font-family: var(--font-datos); font-weight: var(--font-peso-fuerte); line-height: var(--lh-titulo);
+  letter-spacing: var(--tracking-display); color: var(--color-tinta); text-shadow: none; white-space: nowrap;
+}
+html.estilo-dex :is(.tc-title, #scr-login .logo .t1, #tap-start .boot-in h1, #boot .boot-in h1, .about-logo)::before {
+  content: ''; flex: none; width: .8em; height: .8em; background: var(--marca-rotom) no-repeat center / contain;
+}
+html.estilo-dex #set-body .about-logo { display: flex; justify-content: center; font-size: var(--fs-5); margin-top: var(--space-1); }   /* #set-body: más que el :is() de arriba, que cuenta como un id */
+
+/* ---------------- 2. Dorso: pantalla de carga y «Pulsa para empezar» ---------------- */
+html.estilo-dex #boot { background: var(--color-fondo); }
+html.estilo-dex .tapstart { background: none; }   /* sin velo: el mundo, entero */
+html.estilo-dex :is(#tap-start, #boot) .boot-in {
+  width: min(400px, calc(100vw - 2 * var(--space-4))); max-width: none; margin-top: -6vh;
+  padding: var(--space-5) var(--tc-pad-x) var(--space-4);
+}
+html.estilo-dex :is(#tap-start, #boot) .boot-in h1 { font-size: var(--fs-6); margin-bottom: var(--space-2); }
+html.estilo-dex :is(#tap-start, #boot) .boot-in p { margin: 0; font-size: var(--fs-2); line-height: var(--lh-cuerpo); color: var(--color-tinta-2); text-shadow: none; text-wrap: balance; }
+html.estilo-dex #boot .boot-in .boot-ld { margin-top: var(--space-4) !important; color: var(--color-tinta); font-weight: var(--font-peso-fuerte); }
+html.estilo-dex #tap-start .tap-blink {
+  display: inline-flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4) !important;
+  min-height: var(--tap-min); padding: 0 var(--space-4) 0 var(--space-3); border-radius: var(--radius-pildora);
+  background: var(--color-cristal-2); border: 1px solid var(--color-borde-control); box-shadow: var(--shadow-boton);
+  font-size: var(--fs-2); font-weight: var(--font-peso-fuerte); color: var(--color-tinta) !important; animation: none;
+}
+/* El punto del sensor late (en lugar del parpadeo del texto). */
+html.estilo-dex #tap-start .tap-blink::before {
+  content: ''; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--color-pantalla);
+  box-shadow: 0 0 0 3px rgba(98, 227, 221, .22); animation: tc-latido 1.4s ease-in-out infinite;
+}
+@keyframes tc-latido { 50% { box-shadow: 0 0 0 7px rgba(98, 227, 221, 0); opacity: .55; } }
+
+/* ---------------- 3. Cara del formulario: inicio de sesión ----------------
+ * El marcado de upstream, en una rejilla de 6 columnas: el nombre y las pestañas arriba, los dos campos en una
+ * fila y los botones en otra. form y .row se «disuelven» (display: contents) para colocar sus hijos; el formulario
+ * sigue enviándose con Intro. */
+html.estilo-dex #scr-login {
+  padding: max(var(--space-2), env(safe-area-inset-top)) max(var(--space-2), env(safe-area-inset-right))
+           max(var(--space-2), env(safe-area-inset-bottom)) max(var(--space-2), env(safe-area-inset-left));
+}
+html.estilo-dex #scr-login > .box {
+  width: min(600px, 100%) !important;   /* upstream lo fija en línea a 420 */
+  max-height: 100%; overflow: auto;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: var(--space-3); align-items: start;
+  padding: var(--space-5) var(--tc-pad-x) var(--space-4);
+}
+html.estilo-dex #scr-login > .box :is(#login-form, .row) { display: contents; }
+html.estilo-dex #scr-login .logo { grid-column: 1 / 4; grid-row: 1; align-self: center; margin: 0 0 var(--space-4); text-align: left; min-width: 0; }
+html.estilo-dex #scr-login .logo .t1 { font-size: var(--fs-5); }
+html.estilo-dex #scr-login :is(.logo .t2, .login-tag) { display: none; }
+html.estilo-dex #scr-login .tabs {
+  grid-column: 4 / 7; grid-row: 1; justify-self: end; align-self: center; margin: 0 0 var(--space-4);
+  display: flex; gap: 0; padding: 2px; background: rgba(2, 8, 11, .35);
+  border: 1px solid var(--color-borde-control); border-radius: var(--radius-2);
+}
+html.estilo-dex #scr-login .tab {
+  flex: none; min-height: 38px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-1);
+  background: none; color: var(--color-tinta-2); font-size: var(--fs-1); font-weight: var(--font-peso-fuerte); cursor: pointer;
+  transition: background var(--dur-micro) var(--curva), color var(--dur-micro) var(--curva);
+}
+html.estilo-dex body.touch #scr-login .tab { min-height: var(--tap-min); }
+@media (hover: hover) { html.estilo-dex #scr-login .tab:hover { color: var(--color-tinta); background: none; } }
+html.estilo-dex #scr-login .tab.on { background: var(--color-cristal-3); color: var(--color-tinta); box-shadow: inset 0 -3px 0 var(--color-rojo); }
+html.estilo-dex #scr-login #signup-closed { grid-column: 1 / -1; grid-row: 2; margin: 0 0 var(--space-3); text-align: left; }
+html.estilo-dex #scr-login label { margin: 0 0 var(--space-1); grid-row: 3; }
+html.estilo-dex #scr-login label[for="f-user"], html.estilo-dex #f-user { grid-column: 1 / 4; }
+html.estilo-dex #scr-login label[for="f-pass"], html.estilo-dex #f-pass { grid-column: 4 / 7; }
+html.estilo-dex #scr-login .field { grid-row: 4; height: var(--tap-min); padding: 0 var(--space-3); }
+/* El texto de ayuda de los campos (portada.js) sólo se ve en un móvil, donde las etiquetas no se ven. */
+html.estilo-dex #scr-login .field::placeholder { color: transparent; }
+html.estilo-dex #login-err { grid-column: 1 / -1; grid-row: 5; margin: var(--space-2) 0 0; min-height: 0; }
+html.estilo-dex #login-err:empty { display: none; }
+html.estilo-dex #scr-login .btn { grid-row: 6; margin-top: var(--space-4); min-width: 0; padding: 0 var(--space-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.estilo-dex #btn-auth { grid-column: 1 / 4; }
+html.estilo-dex #btn-guest { grid-column: 4 / 7; }
+html.estilo-dex #scr-login .box:has(#btn-google:not(.hidden)) #btn-auth { grid-column: 1 / 3; }
+html.estilo-dex #btn-google { grid-column: 3 / 5; }
+html.estilo-dex #scr-login .box:has(#btn-google:not(.hidden)) #btn-guest { grid-column: 5 / 7; }
+html.estilo-dex #scr-login .note { grid-row: 7; margin: var(--space-3) 0 0; text-align: left; }
+html.estilo-dex #login-mode { grid-column: 1 / 5; max-width: 65ch; text-wrap: pretty; }
+html.estilo-dex #login-mode:empty { display: none; }
+html.estilo-dex #scr-login .note:has(> .legal-link) { grid-column: 5 / 7; justify-self: end; text-align: right; }
+html.estilo-dex #scr-login .legal-link { color: var(--color-tinta); text-underline-offset: 3px; }
+
+/* ---------------- 4. Anverso: el menú principal ---------------- */
+html.estilo-dex #scr-menu {
+  flex-direction: column; justify-content: flex-end; align-items: center; gap: var(--tc-hueco); overflow: visible;
+  padding: 0 max(var(--space-2), env(safe-area-inset-right)) max(var(--tc-abajo), env(safe-area-inset-bottom)) max(var(--space-2), env(safe-area-inset-left));
+}
+html.estilo-dex #scr-menu > .menu-left { display: none; }
+html.estilo-dex #scr-menu > #tc-card {
+  display: block; flex: none; width: min(var(--tc-ancho), 100%); margin: 0; max-height: none;
+  overflow: visible;   /* .box de upstream desplaza su contenido: aquí el compañero asoma por encima */
+  padding: var(--tc-pad-y) var(--tc-pad-x) var(--tc-pad-y) calc(var(--tc-zona) + var(--tc-vuelo));
+}
+/* El compañero asoma por encima del borde: el lienzo (pintado por G.Estilo.animar, sin cortes) mide lo que se ve. */
+html.estilo-dex #tc-partner {
+  position: absolute; left: calc(-1 * var(--tc-vuelo)); bottom: var(--tc-baja);
+  width: auto; height: auto; pointer-events: none;
+}
+/* Peana de combate bajo los pies, del color de su tipo; portada.js pone dónde están los pies (--tc-pies-*) y la escala. */
+html.estilo-dex .tc-peana {
+  position: absolute; pointer-events: none; display: none;
+  width: calc(22px * var(--tc-k, 6)); height: calc(6.4px * var(--tc-k, 6)); border-radius: 50%;
+  left: calc(var(--tc-pies-x, 0px) - var(--tc-vuelo) - 11px * var(--tc-k, 6));
+  bottom: calc(var(--tc-pies-b, 0px) + var(--tc-baja) - 3.2px * var(--tc-k, 6));
+  background: color-mix(in srgb, var(--tc-tipo, var(--color-pantalla)) 24%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--tc-tipo, var(--color-pantalla)) 80%, transparent);
+}
+html.estilo-dex #tc-card.tc-listo .tc-peana { display: block; }
+html.estilo-dex .tc-body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+html.estilo-dex .tc-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; margin-bottom: var(--space-1); }
+html.estilo-dex .tc-title { font-size: var(--fs-5); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 920px) and (min-height: 520px) { html.estilo-dex .tc-title { font-size: var(--fs-4); } }
+/* El plegable con la barra del navegador (724x700, 784x640): sin la nota de invitado (el botón de la cuenta ya dice
+   «Invitado»), para no pasar del 25 % de pantalla opaca. */
+@media (max-width: 920px) and (min-height: 520px) and (max-height: 759.98px) { html.estilo-dex .tc-guest { display: none; } }
+html.estilo-dex .tc-user {
+  position: relative; display: inline-flex; align-items: center; gap: var(--space-1); flex: 0 1 auto; min-width: 0; max-width: 50%;
+  min-height: 32px; padding: 0 var(--space-3) 0 var(--space-2); border-radius: var(--radius-pildora); cursor: pointer;
+  background: rgba(2, 8, 11, .3); border: 1px solid var(--color-borde-control); color: var(--color-tinta);
+  font: var(--font-peso-fuerte) var(--fs-1) / 1 var(--font-datos);
+  transition: background var(--dur-micro) var(--curva), border-color var(--dur-micro) var(--curva);
+}
+html.estilo-dex .tc-user::after { content: ''; position: absolute; inset: -6px -2px; }   /* toque de 44 */
+html.estilo-dex .tc-user span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.estilo-dex .tc-user img { flex: none; }
+@media (hover: hover) { html.estilo-dex .tc-user:hover { background: var(--color-cristal-3); border-color: var(--color-pantalla); } }
+html.estilo-dex .tc-user:focus-visible { outline: var(--focus-anillo); outline-offset: var(--focus-separacion); }
+html.estilo-dex .tc-mon { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1) var(--space-2); min-width: 0; }
+html.estilo-dex .tc-name { font-size: var(--fs-3); font-weight: var(--font-peso-fuerte); line-height: var(--lh-titulo); overflow-wrap: anywhere; }
+html.estilo-dex .tc-mon .type + .type { margin-left: calc(-1 * var(--space-1)); }
+html.estilo-dex .tc-no { font-size: var(--fs-1); font-weight: var(--font-peso-fuerte); color: var(--color-pantalla); }
+html.estilo-dex .tc-stats { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-5); font-size: var(--fs-1); color: var(--color-tinta-2); line-height: var(--lh-titulo); }
+html.estilo-dex .tc-stat { display: inline-flex; align-items: baseline; gap: var(--space-1); white-space: nowrap; }
+html.estilo-dex .tc-stat img { align-self: center; }
+html.estilo-dex .tc-stats b { font-size: var(--fs-3); font-weight: var(--font-peso-fuerte); color: var(--color-tinta); }
+html.estilo-dex .tc-corto { display: none; }
+html.estilo-dex .tc-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+html.estilo-dex .tc-guest { margin: 0; font-size: var(--fs-1); color: var(--color-peligro-texto); }
+html.estilo-dex .tc-guest:empty { display: none; }
+
+/* La fila de botones: la lista del menú de upstream (mismos botones y manejadores), con «Jugar» en el rojo de la
+   carcasa. La caja de estadísticas de upstream no se ve: lo suyo está en la tarjeta. */
+html.estilo-dex #scr-menu > .menu-right {
+  flex: none; width: min(var(--tc-dock), 100%); margin: 0; padding: 0; gap: 0; overflow: visible; background: none;
+}
+html.estilo-dex #scr-menu > .menu-right > .box { margin: 0; padding: 0; background: none; border: 0; box-shadow: none; }
+html.estilo-dex #scr-menu > .menu-right > .box::before { display: none; }
+html.estilo-dex #scr-menu > .menu-right > .box:last-child { display: none; }
+html.estilo-dex #scr-menu .menu-list { display: flex; flex-direction: row; gap: var(--space-2); }
+html.estilo-dex #scr-menu .menu-item {
+  position: relative; flex: 1 1 0; min-width: 0; min-height: var(--tc-boton-h); margin: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1);
+  padding: var(--space-2) var(--space-1); text-align: center; cursor: pointer;
+  font: var(--font-peso-fuerte) var(--fs-1) / var(--lh-titulo) var(--font-datos); letter-spacing: 0; color: var(--color-tinta); text-shadow: none;
+  background: var(--color-cristal-hud); border: 1px solid var(--color-borde-control); border-radius: var(--radius-2);
+  box-shadow: var(--shadow-boton);
+  transition: background var(--dur-micro) var(--curva), border-color var(--dur-micro) var(--curva), transform .06s;
+}
+html.estilo-dex #scr-menu .menu-item::before { display: none; }
+/* Hover sólo con ratón: en táctil, el último toque dejaba un botón «encendido». */
+@media (hover: hover) {
+  html.estilo-dex #scr-menu .menu-item:hover { background: var(--color-cristal-3); border-color: var(--color-pantalla); }
+  html.estilo-dex #scr-menu .menu-item.play:hover { background: var(--color-rojo-pulsado); border-color: #FFB3BE; }
+}
+html.estilo-dex #scr-menu .menu-item:focus-visible { background: var(--color-cristal-3); outline: var(--focus-anillo); outline-offset: var(--focus-separacion); }
+html.estilo-dex #scr-menu .menu-item:active { transform: translateY(2px); box-shadow: var(--shadow-boton-pulsado); }
+html.estilo-dex #scr-menu .mi-ico { display: flex; }
+html.estilo-dex #scr-menu .mi-ico img { width: 24px; height: 24px; }   /* iconos de 12 px a ×2 exacto */
+/* Las explicaciones no se ven (sí se leen con lector de pantalla); un aviso («2 premios por recoger», solicitudes
+   de amistad) se marca con un punto oro. */
+html.estilo-dex #scr-menu .menu-item small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+html.estilo-dex #scr-menu .menu-item:has(> small.gold)::after {
+  content: ''; position: absolute; top: var(--space-2); right: var(--space-2); width: 10px; height: 10px; border-radius: 50%;
+  background: var(--color-oro); box-shadow: 0 0 0 2px var(--color-cristal);
+}
+html.estilo-dex #scr-menu .menu-item.play {
+  flex: 2.2 1 0; flex-direction: row; gap: var(--space-2); font-size: var(--fs-4);
+  color: #fff; background: var(--color-rojo); border-color: #F0566A; box-shadow: var(--shadow-boton-rojo);
+}
+html.estilo-dex #scr-menu .menu-item.play:focus-visible { background: var(--color-rojo-pulsado); border-color: #FFB3BE; }
+html.estilo-dex #scr-menu .menu-item.play .mi-ico img { width: 36px; height: 36px; }   /* ×3 */
+/* En una sala, el subtítulo de «Jugar» sí importa («Volver a tu sala (2/4)»): portada.js pone .tc-sala. */
+html.estilo-dex #scr-menu .menu-item.play.tc-sala { display: grid; grid-template-columns: auto auto; justify-content: center; align-content: center; column-gap: var(--space-2); text-align: left; line-height: 1.1; }
+html.estilo-dex #scr-menu .menu-item.play.tc-sala .mi-ico { grid-row: span 2; }
+html.estilo-dex #scr-menu .menu-item.play.tc-sala small {
+  position: static; width: auto; height: auto; clip-path: none; grid-column: 2;
+  font-size: var(--fs-1); font-weight: var(--font-peso-normal); color: #fff; opacity: .92;
+}
+/* Ventana estrecha (menos de 560): «Jugar» en su fila y los otros siete en dos filas de cuatro. */
+@media (max-width: 559.98px) and (min-height: 520px) {
+  html.estilo-dex #scr-menu .menu-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  html.estilo-dex #scr-menu .menu-item.play { grid-column: 1 / -1; }
+}
+
+/* Alrededor, lo mínimo: la tarjeta ya lleva tu cuenta y la fila ya tiene Ajustes. */
+html.estilo-dex body:has(#scr-menu:not(.hidden)):not(:has(.scr.dim:not(.hidden))) :is(#user-pill, #btn-settings) { display: none; }
+/* Los créditos, centrados bajo la fila: el pie de la composición. Sin caja, con el contorno del texto sobre el mundo (como
+   en el proyecto base): una caja de dos renglones tapaba un 4 % de la pantalla del plegable. */
+html.estilo-dex body:has(#scr-menu:not(.hidden)) .credits-line {
+  left: 0; right: 0; width: max-content; max-width: calc(100vw - 2 * var(--space-3)); margin: 0 auto; text-align: center;
+  background: none; padding: 0; color: var(--color-tinta); -webkit-text-stroke: 3px #071318; paint-order: stroke fill;
+}
+/* Los avisos, arriba (abajo está la fila de botones). */
+html.estilo-dex body:has(#scr-menu:not(.hidden)) .toast { top: 72px; bottom: auto; }
+
+/* ---------------- 5. Test de personalidad y su resultado: la misma tarjeta ----------------
+ * Retoque d: sin oscurecido; la tarjeta ya es opaca y el mundo sigue a la vista. */
+html.estilo-dex :is(#scr-test, #scr-result).dim { background: none; }
+html.estilo-dex #scr-test .test-box { width: min(640px, 100%); padding: var(--space-5) var(--tc-pad-x) var(--space-4); }
+html.estilo-dex #scr-test .progress { height: 6px; margin: 0 0 var(--space-3); border-radius: var(--radius-pildora); }
+html.estilo-dex #scr-test #test-count { margin: 0 0 var(--space-1); font-size: var(--fs-1); color: var(--color-tinta-2); }
+html.estilo-dex #scr-test .q { margin: 0 0 var(--space-4); min-height: 0; font-size: var(--fs-4); line-height: var(--lh-titulo); text-wrap: balance; }
+html.estilo-dex #scr-test .answers { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+html.estilo-dex #scr-test .answer { padding: var(--space-2) var(--space-3); font-weight: var(--font-peso-normal); line-height: var(--lh-titulo); text-align: left; }
+@media (hover: none) { html.estilo-dex #scr-test .answer:hover { background: var(--color-cristal-2); border-color: var(--color-borde-control); } }
+html.estilo-dex #scr-test .answer:focus-visible { background: var(--color-cristal-3); }
+html.estilo-dex #scr-result .result { width: min(480px, 100%); padding: var(--space-5) var(--tc-pad-x) var(--space-4); text-align: center; }
+html.estilo-dex #scr-result .sub { margin: 0; color: var(--color-tinta-2); }
+html.estilo-dex #scr-result .trait { margin: var(--space-1) 0; font-size: var(--fs-5); }
+html.estilo-dex #scr-result #res-text { margin: 0 auto; max-width: 40ch; font-size: var(--fs-2); color: var(--color-tinta); }
+/* El compañero, sobre su peana (sin el recuadro del escenario). */
+html.estilo-dex #scr-result #res-stage {
+  margin: var(--space-2) auto 0; border: 0; border-radius: 0; box-shadow: none;
+  background: radial-gradient(ellipse 50px 15px at 50% calc(100% - 18px),
+    color-mix(in srgb, var(--stage-c, var(--color-pantalla)) 24%, transparent) 0 74%,
+    color-mix(in srgb, var(--stage-c, var(--color-pantalla)) 80%, transparent) 76% 88%, transparent 91%);
+}
+html.estilo-dex #scr-result h3 { margin: var(--space-1) 0 0; font-size: var(--fs-3); }
+html.estilo-dex #scr-result .row { margin-top: var(--space-4) !important; gap: var(--space-2); }
+
+/* ---------------- 6. Pantallas bajas (móvil en horizontal) ---------------- */
+@media (max-height: 519.98px) {
+  html.estilo-dex :is(#tap-start, #boot) .boot-in { width: min(340px, calc(100vw - 2 * var(--space-4))); margin-top: 0; padding: var(--space-4) var(--space-4) var(--space-3); }
+  html.estilo-dex #tap-start .tap-blink, html.estilo-dex #boot .boot-in .boot-ld { margin-top: var(--space-3) !important; }
+  /* Inicio de sesión: tres renglones de 44 px (el nombre, el aviso legal y las pestañas; los campos y «Entrar»; invitado
+     y la nota de dónde se guarda). Las etiquetas de los campos se leen pero no se ven: lleva su texto de ayuda (portada.js). */
+  html.estilo-dex #scr-login > .box { width: min(520px, 100%) !important; padding: var(--space-3) var(--space-4); row-gap: var(--space-2); grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: center; }
+  html.estilo-dex #scr-login .logo { grid-column: 1 / 5; margin: 0; }
+  html.estilo-dex #scr-login .logo .t1 { font-size: var(--fs-4); }
+  html.estilo-dex #scr-login .tabs { grid-column: 8 / 13; margin: 0; }
+  html.estilo-dex #scr-login .note:has(> .legal-link) { grid-row: 1; grid-column: 5 / 8; margin: 0; justify-self: center; text-align: center; }
+  html.estilo-dex #scr-login label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; }
+  html.estilo-dex #scr-login .field { grid-row: 3; }
+  html.estilo-dex #scr-login .field::placeholder { color: var(--color-tinta-2); opacity: 1; }
+  html.estilo-dex #scr-login #f-user { grid-column: 1 / 5; }
+  html.estilo-dex #scr-login #f-pass { grid-column: 5 / 9; }
+  html.estilo-dex #scr-login .btn { margin-top: 0; }
+  html.estilo-dex #scr-login #btn-auth, html.estilo-dex #scr-login .box:has(#btn-google:not(.hidden)) #btn-auth { grid-row: 3; grid-column: 9 / 13; }
+  html.estilo-dex #scr-login #login-err { grid-row: 4; margin: 0; }
+  html.estilo-dex #scr-login #btn-guest, html.estilo-dex #scr-login .box:has(#btn-google:not(.hidden)) #btn-guest { grid-row: 5; grid-column: 1 / 6; }
+  html.estilo-dex #scr-login #btn-google { grid-row: 5; grid-column: 6 / 10; }
+  html.estilo-dex #scr-login #login-mode { grid-row: 5; grid-column: 6 / 13; margin: 0; }
+  html.estilo-dex #scr-login .box:has(#btn-google:not(.hidden)) #login-mode { grid-column: 10 / 13; }
+  /* Menú: la tarjeta en dos renglones: el nombre del juego y tu récord y tu colección; tu compañero con sus tipos y tu
+     cuenta. Sin el N.º, el mejor nivel ni las notas (están en Pokémon y en Perfil). La cabecera se disuelve y cada pieza
+     va a su renglón (order; ::before parte la línea). */
+  html.estilo-dex .tc-body { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+  html.estilo-dex .tc-head { display: contents; }
+  html.estilo-dex .tc-title { order: 1; }
+  html.estilo-dex .tc-stats { order: 2; margin-left: auto; }
+  html.estilo-dex .tc-body::before { content: ''; order: 3; flex-basis: 100%; height: 0; }
+  html.estilo-dex .tc-mon { order: 4; }
+  html.estilo-dex .tc-user { order: 5; margin-left: auto; }
+  html.estilo-dex .tc-title { font-size: var(--fs-3); }
+  html.estilo-dex .tc-user { min-height: 28px; }
+  html.estilo-dex .tc-user::after { inset: -8px -2px; }   /* 28 + 16 = 44 de toque */
+  html.estilo-dex .tc-mon { flex-wrap: nowrap; gap: var(--space-1); }
+  html.estilo-dex .tc-name { font-size: var(--fs-2); }
+  html.estilo-dex .tc-no, html.estilo-dex .tc-nivel, html.estilo-dex .tc-sin, html.estilo-dex .tc-guest { display: none; }
+  html.estilo-dex .tc-stats { flex-wrap: nowrap; column-gap: var(--space-2); }
+  html.estilo-dex .tc-stats b { font-size: var(--fs-2); }
+  /* La fila, del ancho de sus botones (cada uno, el de su nombre): icono encima y nombre debajo, 44 px de alto. */
+  html.estilo-dex #scr-menu > .menu-right { width: auto; max-width: 100%; }
+  html.estilo-dex #scr-menu .menu-list { gap: 6px; }
+  html.estilo-dex #scr-menu .menu-item { flex: 0 1 auto; min-width: var(--tap-min); gap: 2px; padding: 2px var(--space-1); line-height: 1.1; }
+  html.estilo-dex #scr-menu .menu-item.play { flex: 0 1 auto; padding: 0 var(--space-4); font-size: var(--fs-3); }
+  html.estilo-dex #scr-menu .menu-item.play .mi-ico img { width: 24px; height: 24px; }
+  html.estilo-dex .pill { min-height: 28px; }
+  html.estilo-dex .topbar .btn.small { min-width: 28px; min-height: 28px; }
+  html.estilo-dex .topbar .btn.small::after { inset: -8px; }   /* 28 + 16 = 44 de toque */
+  html.estilo-dex body:has(#scr-menu:not(.hidden)) .ach-pop { top: max(var(--space-2), env(safe-area-inset-top)); bottom: auto; left: max(var(--space-2), env(safe-area-inset-left)); transform: none; animation-name: pop; }
+  html.estilo-dex body:has(#scr-menu:not(.hidden)) .toast { top: 48px; }
+  /* Test y resultado, compactos (el resultado, con el compañero a la izquierda). */
+  html.estilo-dex #scr-test .test-box { padding: var(--space-3) var(--tc-pad-x); }
+  html.estilo-dex #scr-test .progress { margin-bottom: var(--space-2); }
+  html.estilo-dex #scr-test .q { margin-bottom: var(--space-3); font-size: var(--fs-3); }
+  html.estilo-dex #scr-result .result { width: min(560px, 100%); padding: var(--space-3) var(--tc-pad-x); display: grid; grid-template-columns: auto 1fr; column-gap: var(--space-4); text-align: left; align-items: center; }
+  html.estilo-dex #scr-result .result > * { grid-column: 2; }
+  html.estilo-dex #scr-result #res-stage { grid-column: 1; grid-row: 1 / span 5; margin: 0; }
+  html.estilo-dex #scr-result #res-text { margin: 0; }
+  html.estilo-dex #scr-result .row { justify-content: flex-start !important; margin-top: var(--space-3) !important; }
+}
+
+/* ---------------- 7. Movimiento reducido ---------------- */
+@media (prefers-reduced-motion: reduce) {
+  html.estilo-dex :is(#tc-card, #scr-login > .box, #tap-start .boot-in, #boot .boot-in, #scr-test .test-box, #scr-result .result) { animation: tc-funde var(--dur-micro) linear; }
+  html.estilo-dex #tap-start .tap-blink::before { animation: none; }
+  html.estilo-dex #scr-menu .menu-item { transition: none; }
+}
+@keyframes tc-funde { from { opacity: 0; } to { opacity: 1; } }

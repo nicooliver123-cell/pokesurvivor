@@ -28,6 +28,9 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/tokens-dex.css"><!-- MOD nico: estilo Dex, sus variables y su letra (M PLUS Rounded 1c, OFL) -->
 <link rel="stylesheet" href="css/nico.css"><!-- MOD nico: menús (arreglos de los dos estilos y piel Dex) -->
+<link rel="stylesheet" href="css/portada.css"><!-- MOD nico: portada y menú «Tarjeta de entrenador» (Dex) -->
+<script>/* MOD nico: con Dex guardado, la pantalla de carga ya sale con su tarjeta (js/ui/estilo.js lo confirma al arrancar) */
+  try { if (JSON.parse(localStorage.getItem('ps.settings') || '{}').estilo === 'dex') document.documentElement.classList.add('estilo-dex'); } catch (e) {}</script>
 </head>
 <body>
 
@@ -121,6 +124,20 @@
       <div class="lv" id="menu-partner-info"></div>
     </div>
   </div>
+  <!-- MOD nico: «Tarjeta de entrenador» del estilo Dex (js/ui/portada.js, css/portada.css); en Clásico no se ve -->
+  <section id="tc-card" class="box tc-card" aria-label="Tu compañero">
+    <div class="tc-peana" aria-hidden="true"></div>
+    <canvas id="tc-partner" width="264" height="264" aria-hidden="true"></canvas>
+    <div class="tc-body">
+      <div class="tc-head">
+        <h1 class="tc-title" translate="no">PokéSwarm</h1>
+        <button type="button" class="tc-user" id="tc-user"></button>
+      </div>
+      <div class="tc-mon" id="tc-mon"></div>
+      <div class="tc-stats" id="tc-stats"></div>
+      <p class="tc-guest" id="tc-guest"></p>
+    </div>
+  </section>
   <div class="menu-right">
     <div class="box">
       <div class="menu-list">
@@ -458,6 +475,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=46e68b81ee"></script>
+<script defer src="js/app.min.js?v=353378b00f"></script>
 </body>
 </html>

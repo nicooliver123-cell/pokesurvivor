@@ -16,6 +16,10 @@ G.I18n.add({
     'Fan game {x}: no ads or purchases. Pokémon and its characters are owned by Nintendo, Creatures, GAME FREAK and The Pokémon Company; this project is not affiliated with them.',
   ': sin anuncios ni compras. Pokémon y sus personajes son propiedad de Nintendo, Creatures, GAME FREAK y The Pokémon Company; este proyecto no está afiliado a ellos.':
     ': no ads or purchases. Pokémon and its characters are owned by Nintendo, Creatures, GAME FREAK and The Pokémon Company; this project is not affiliated with them.',
+  // La «Tarjeta de entrenador» del menú (js/ui/portada.js) y las pestañas del inicio de sesión.
+  'Tu compañero': 'Your partner', 'Colección:': 'Collection:', 'Récord:': 'Record:', 'Récord: tu partida más larga': 'Record: your longest run',
+  'Sin partidas todavía': 'No runs yet', 'Como invitado, tu partida no se guarda.': 'As a guest, your progress isn\'t saved.', 'Tu perfil': 'Your profile',
+  'Entrar o crear cuenta': 'Sign in or create an account',
   'Si eres titular de derechos y quieres que retiremos algo, abre un aviso en el repositorio de PokéSwarm y lo quitaremos lo antes posible:':
     'If you are a rights holder and want something removed, open an issue in the PokéSwarm repository and we\'ll take it down as soon as possible:',
   // Ajustes > Cuenta: traer una partida guardada (js/ui/importar-ui.js y js/core/importar.js)

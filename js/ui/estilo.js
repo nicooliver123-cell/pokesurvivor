@@ -316,9 +316,10 @@ G.Estilo = (() => {
   /** Cómo se coloca un sprite en un lienzo de W×H: { k, fx, fy, vida, caja } (pura; `cajas` = { anim: caja }).
    *  k: la mayor escala ≤ kmax con la que cabe su Idle (si ni con 1, 1); vida: las animaciones extra que
    *  también caben con esa k; fx, fy: los pies, con la caja de todo centrada en horizontal y abajo, con
-   *  MARGEN px libres alrededor (Animator.draw redondea medio píxel y la sombra se suaviza). */
+   *  MARGEN px libres alrededor (Animator.draw redondea medio píxel y la sombra se suaviza). Con bajoMax, sólo las animaciones
+   *  que bajan como mucho esos píxeles de arte por debajo de los pies (la tarjeta del menú: el compañero, de pie sobre su peana). */
   const MARGEN = 2;
-  function encaje(cajas, W, H, kmax, lively, sombra = true) {
+  function encaje(cajas, W, H, kmax, lively, sombra = true, bajoMax = Infinity) {
     const somb = sombra ? [9, 0, 9, 3.4] : [0, 0, 0, 0], M2 = 2 * MARGEN;
     const cabe = (c, k) => k * (c[0] + c[2]) <= W - M2 && k * (c[1] + c[3]) <= H - M2;
     const idle = unir(cajas.Idle || [12, 24, 12, 2], somb);
@@ -326,7 +327,7 @@ G.Estilo = (() => {
     while (k > 1 && !cabe(idle, k)) k--;
     let u = idle;
     const vida = [];
-    if (lively) for (const a of VIDA) { if (!cajas[a]) continue; const v = unir(u, cajas[a]); if (cabe(v, k)) { u = v; vida.push(a); } }
+    if (lively) for (const a of VIDA) { if (!cajas[a] || cajas[a][3] > bajoMax) continue; const v = unir(u, cajas[a]); if (cabe(v, k)) { u = v; vida.push(a); } }
     const fx = Math.floor(MARGEN + k * u[0] + Math.max(0, (W - M2 - k * (u[0] + u[2])) / 2));
     const fy = Math.floor(Math.max(MARGEN + k * u[1], H - MARGEN - k * u[3]));
     return { k, fx, fy, vida, caja: u };
@@ -369,7 +370,7 @@ G.Estilo = (() => {
       ctx.globalAlpha = 1;
     }
   }
-  /** Anima `dex` en `cv` (que nadie más pinta) con el encaje de arriba. op: { lively, shiny, kmax, dir }. */
+  /** Anima `dex` en `cv` (que nadie más pinta) con el encaje de arriba. op: { lively, shiny, kmax, dir, bajoMax }. */
   function animar(cv, dex, op = {}) {
     for (const v of vivos) if (v.cv === cv) vivos.delete(v);
     const dir = op.dir || 0;
@@ -379,7 +380,7 @@ G.Estilo = (() => {
     const listo = () => {
       const cajas = {};
       for (const an of ['Idle', ...VIDA]) { const c = cajaDe(dex, an, v.shiny, dir); if (c) cajas[an] = c; }
-      v.e = encaje(cajas, cv.width, cv.height, op.kmax || 2, v.lively);
+      v.e = encaje(cajas, cv.width, cv.height, op.kmax || 2, v.lively, true, op.bajoMax);
       const a = new S.Animator(dex, 1, v.shiny);
       a.scale = v.e.k / S.PX; a.dir = dir; a.loop('Idle');
       v.a = a;
@@ -449,6 +450,7 @@ G.Estilo = (() => {
     const nuevo = relevar(cv, w, h);
     animar(nuevo, dex, { lively: true, shiny: !!op.shiny, kmax });
     ultimoCompanero = { cv: nuevo, dex, op };
+    if (G.Portada) G.Portada.rellenar();   // la «Tarjeta de entrenador» del menú (Dex): js/ui/portada.js
   }
   /** Al cambiar de estilo o de tamaño de ventana: el compañero, en el lienzo que le toca. */
   function rehacerCompanero() {
@@ -714,7 +716,7 @@ G.Estilo = (() => {
   return {
     get actual() { return actual; }, get dex() { return actual === 'dex'; },
     set, porDefecto, hud, colocarLogro, fuenteCanvas, cargarFuentes, descargaEnReposo, ajustes, carta, tipoDeCarta, companero, premio,
-    destacado, encaje, colocacion, disposicion, zonasSeguras, pantalla, plieguePantalla, ranurasEnColumna, capaProbabilidades, tabLibre,
+    destacado, encaje, animar, colocacion, disposicion, zonasSeguras, pantalla, plieguePantalla, ranurasEnColumna, capaProbabilidades, tabLibre,
     on(fn) { oyentes.add(fn); },
     TEXTO_ESTILO, TAM_COMPANERO, TAM_PREMIO, HORIZONTAL_PLEGABLE, tiraPestanas
   };
