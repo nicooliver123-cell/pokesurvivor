@@ -19,8 +19,9 @@ Las cuentas de esta versión son nuevas: es otro origen (otra web) y otro backen
    - Comprobar que los avisos (issues) del repo están activados: el aviso legal, Ajustes y `contacto/` mandan ahí.
    - No darlo de alta en Search Console.
 3. **Traer la partida oficial real** (lo hace Nico, o su amigo, con su cuenta; ningún agente entra en el juego oficial). Seguir los pasos de Ajustes > Cuenta en un PC. Sólo se ha probado con partidas sintéticas con el formato de `newSave()` y un juego oficial simulado, así que es la primera prueba contra el de verdad. Mientras no haya Firebase propio, hacerlo en el navegador donde se juegue: la partida se guarda en ese navegador. Si el código avisa de que no encuentra la partida, o el archivo da error al elegirlo, anotar el mensaje exacto: el juego oficial habrá cambiado por dentro.
+4. **Probar jugando el equilibrio** (lo hace Nico, jugando): legendario al 60 %, tickets ×2, shiny ×1,5 y repetidos → evolución. Las pruebas automáticas comprueban que cada cambio hace lo que dice, no si la partida queda bien de dificultad y de premios. Cada uno se ajusta en `js/core/mods.js`.
 
 ## Opcionales
 
-4. **TURN propio.** Sólo si la conexión directa falla a menudo: un Worker y una clave TURN de Cloudflare propios, en `TURN_URL` de `js/net/net.js`. Mientras tanto, si no hay conexión directa, el tráfico va por el relé de la Realtime Database y el invitado usa la ventana larga (`ventanaVidaReleMs`). Con la cuota de Spark (unos 360 MB al día) da para unas 2,5-9 h de relé al día; es una estimación con la cifra del autor, no medida.
-5. **Textos de upstream desfasados.** `GDD.md` y `docs/` siguen describiendo las curanderas y el despliegue del original. No afecta al juego.
+5. **TURN propio.** Sólo si la conexión directa falla a menudo: un Worker y una clave TURN de Cloudflare propios, en `TURN_URL` de `js/net/net.js`. Mientras tanto, si no hay conexión directa, el tráfico va por el relé de la Realtime Database y el invitado usa la ventana larga (`ventanaVidaReleMs`). Con la cuota de Spark (unos 360 MB al día) da para unas 2,5-9 h de relé al día; es una estimación con la cifra del autor, no medida.
+6. **Textos de upstream desfasados.** `GDD.md` y `docs/` siguen describiendo las curanderas y el despliegue del original. No afecta al juego.

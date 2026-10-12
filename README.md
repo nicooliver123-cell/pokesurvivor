@@ -6,7 +6,12 @@
 > los Pokémon más grandes son más pequeños en partida (sus sprites se muestran a
 > escala reducida), en cada partida se abre una grieta antes de los 2 minutos, con
 > un legendario más débil, los tickets que ganas cuentan doble, los shiny salen un
-> 50 % más y en el gacha un Pokémon repetido desbloquea su evolución. No usa la
+> 50 % más y en el gacha un Pokémon repetido desbloquea su evolución. En partida se
+> lee mejor: tu Pokémon se ve aunque lo rodeen, un solo número de daño por enemigo,
+> disparos enemigos con borde rojo, barras de vida sólo tras un golpe y un borde rojo
+> en la pantalla al recibir daño o con poca vida. Y arregla dos fallos del original: el
+> mapa ya no se convierte en una arena de la grieta a partir del minuto 12 y el
+> fogonazo de la grieta no se queda al elegir la fusión. No usa la
 > infraestructura del juego original. Detalles en
 > [CLAUDE.md](CLAUDE.md); licencias y créditos en [LICENSE](LICENSE) y [CREDITS.md](CREDITS.md).
 >
