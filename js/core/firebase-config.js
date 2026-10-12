@@ -26,19 +26,21 @@ G.FIREBASE_CONFIG = null; // MOD nico: aquí irá la config del proyecto Firebas
 G.FIREBASE_PROYECTOS = ['demo-ps'];
 
 /** MOD nico: ¿se puede usar esta config? Proyecto de la lista blanca; la Realtime
- *  Database, su instancia por defecto (<id>-default-rtdb: subdominio en la nube,
- *  ?ns= en el emulador); y Auth, <id>.firebaseapp.com o <id>.web.app (un dominio
- *  propio también vale). */
+ *  Database es obligatoria (sin ella no hay cooperativo) y tiene que ser su
+ *  instancia por defecto: https://<id>-default-rtdb.<región>.firebasedatabase.app
+ *  (o .firebaseio.com) en la nube, o 127.0.0.1/localhost con ?ns=<id>-default-rtdb
+ *  en el emulador; y Auth, exactamente <id>.firebaseapp.com o <id>.web.app. */
 G.FIREBASE_PERMITIDA = cfg => {
   const id = cfg && cfg.projectId;
-  if (!id || !G.FIREBASE_PROYECTOS.includes(id)) return false;
-  if (cfg.databaseURL) {
-    const m = /^https?:\/\/([^/.:?]+)[^?]*(?:\?ns=([^&]+))?/.exec(cfg.databaseURL);
-    if (!m || ![m[1], m[2]].includes(id + '-default-rtdb')) return false;
-  }
+  if (!id || !/^[a-z0-9-]+$/.test(id) || !G.FIREBASE_PROYECTOS.includes(id)) return false;
+  let db;
+  try { db = new URL(cfg.databaseURL); } catch (e) { return false; }
+  const local = db.hostname === '127.0.0.1' || db.hostname === 'localhost';
+  if (local ? db.searchParams.get('ns') !== id + '-default-rtdb'
+    : db.protocol !== 'https:' ||
+      !new RegExp('^' + id + '-default-rtdb\\.(firebaseio\\.com|[a-z0-9-]+\\.firebasedatabase\\.app)$').test(db.hostname)) return false;
   const auth = String(cfg.authDomain || '').toLowerCase();
-  if (/\.(firebaseapp\.com|web\.app)$/.test(auth) && !auth.startsWith(id + '.')) return false;
-  return true;
+  return auth === id + '.firebaseapp.com' || auth === id + '.web.app';
 };
 
 /* MOD nico: interruptor del emulador local de Firebase, para pruebas.

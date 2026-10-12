@@ -54,7 +54,7 @@ const FORBIDDEN = [
 ];
 // Firebase: lista blanca y config, con el código real de js/core/firebase-config.js.
 function loadFirebaseConfig(host, search) {
-  const ctx = { URLSearchParams, location: { hostname: host, search } };
+  const ctx = { URL, URLSearchParams, location: { hostname: host, search } };
   vm.createContext(ctx);
   ctx.G = {};
   vm.runInContext(rd('js/core/firebase-config.js'), ctx, { filename: 'js/core/firebase-config.js' });
@@ -95,7 +95,11 @@ if (FB) {
       { projectId: 'pokesurvivor-jpter', authDomain: 'pokesurvivor-jpter.firebaseapp.com' },
       { projectId: 'otro-proyecto' },
       { projectId: 'demo-ps', databaseURL: 'https://otro-default-rtdb.europe-west1.firebasedatabase.app' },
-      { projectId: 'demo-ps', authDomain: 'otro.firebaseapp.com' }].filter(c => P(c));
+      { projectId: 'demo-ps', authDomain: 'otro.firebaseapp.com' },
+      { projectId: 'demo-ps', authDomain: 'pokesurvivor.com', databaseURL: 'https://demo-ps-default-rtdb.europe-west1.firebasedatabase.app' },
+      { projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com' },
+      { projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com', databaseURL: 'https://otro.example.com/?ns=demo-ps-default-rtdb' },
+      { projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com', databaseURL: 'http://demo-ps-default-rtdb.europe-west1.firebasedatabase.app' }].filter(c => P(c));
     if (no.length) bad('G.FIREBASE_PERMITIDA acepta configs ajenas: ' + JSON.stringify(no)); else ok('G.FIREBASE_PERMITIDA rechaza el proyecto del original, proyectos fuera de la lista y URLs de otro proyecto');
     if (cfg === null) ok('config publicada en null (modo local) hasta tener el Firebase propio');
     else if (!cfg || !ALLOWED.includes(cfg.projectId) || !P(cfg) || cfg.emulator || /^demo-/.test(cfg.projectId))
@@ -146,7 +150,7 @@ if (!process.argv.includes('--sin-paquete')) {
   const tmp = path.join(tmpDir, 'app.js'), out = path.join(tmpDir, 'app.min.js');
   fs.writeFileSync(tmp, joined);
   try {
-    execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['--yes', 'terser@5', tmp, '--compress', 'passes=1', '--mangle', '--comments', 'false', '--ecma', '2020', '-o', out],
+    execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['--yes', 'terser@5.51.2', tmp, '--compress', 'passes=1', '--mangle', '--comments', 'false', '--ecma', '2020', '-o', out],
       { stdio: ['ignore', 'ignore', 'inherit'], shell: process.platform === 'win32' });
     if (fs.readFileSync(out).equals(min)) ok('js/app.min.js está al día con las fuentes (' + files.length + ' scripts)');
     else bad('js/app.min.js NO coincide con las fuentes: ejecutar node tools/build.js --privado y commitear index.html + js/app.min.js');
