@@ -6,30 +6,44 @@
  * los dos estilos (Dex y Clásico, cambiados con G.Estilo.set en la misma página):
  *
  *   1. Pantallas: recorre las 22 pantallas (.scr) en cada tamaño (escritorio 1440x900, 1920x1080 y
- *      1024x768; móvil táctil 844x390@3 y 780x360@3; plegable desplegado 870x800, 800x870, 1000x900 y
- *      900x1000 @2,5 táctil) y exige: nada de desplazamiento horizontal (página, pantalla y caja), la
- *      caja dentro de la ventana y el menú principal oculto detrás de cualquier .scr.dim.
- *   2. Gacha en móvil (844x390 y 780x360) y en los plegables: en los 9 banners, cada lienzo destacado
- *      dentro del banner y de la ventana, a su tamaño (alto CSS = alto del lienzo), y los tres botones
- *      de tirar a la vista sin desplazar. Tiradas ×1 y ×10 por la interfaz real: sin desplazar y
- *      «Continuar» a la vista sin tapar ninguna carta.
+ *      1024x768; móvil táctil 844x390@3 y 780x360@3; el Magic V6 de Nico, con los tamaños que usó la
+ *      verificación del 12-10-2026 (sin confirmar en el teléfono): interior 724x784 y 784x724 y exterior
+ *      807x360 @3 táctil; y otros plegables o tabletas casi cuadrados, 1000x900 y 900x1000 @2,5 táctil) y
+ *      exige: nada de desplazamiento horizontal (página, pantalla y caja), la caja dentro de la ventana y el
+ *      menú principal oculto detrás de cualquier .scr.dim. Con Dex, que la piel está puesta en cada una
+ *      (borde de la caja y letra y fondo de los botones: si upstream renombra .box o .btn, falla); con
+ *      Clásico, que no. Y el menú principal: las 8 opciones a la vista sin desplazar, el logotipo libre de la
+ *      barra superior y la línea de créditos sin pisar ninguna caja.
+ *   2. Gacha en pantallas bajas y en los plegables: en los 9 banners, cada lienzo destacado dentro del
+ *      banner y de la ventana, a su tamaño (alto CSS = alto del lienzo), y los tres botones de tirar a la
+ *      vista sin desplazar; si las pestañas no caben, la elegida entera (fuera del degradado) y el
+ *      degradado sólo donde hay más; en pantallas bajas, la capa «Probabilidades» (la tabla debajo del título, «Cerrar» entero
+ *      y sin pisarla) y los avisos de logro sin tapar ni quedarse los toques de los botones de tirar.
+ *      Tiradas ×1 y ×10 por la interfaz real: sin desplazar y «Continuar» a la vista sin tapar ninguna
+ *      carta; y una ×10 con diez repetidos que desbloquean su evolución (las de nombre más largo; el azar
+ *      de esa tirada, guionizado sólo en la prueba): cada etiqueta entera, con el nombre, y cada carta a la
+ *      vista sin «Continuar» encima (en pantallas bajas, sin desplazar).
  *   3. Nada se corta: en los lienzos que anima G.Estilo (los 27 legendarios destacados, el compañero del
  *      menú con 37 Pokémon, iniciales y gigantes, y el premio de las tiradas) se dibuja cada fotograma de
  *      Idle y de las animaciones que se les dejan, con su colocación (escala y pies) y su sombra, y la caja
  *      de píxeles opacos no toca el borde; y además 30 fotogramas de verdad de cada lienzo.
- *   4. «Volver al menú» a la vista en el fin de partida (con una partida larga, en todos los tamaños).
+ *   4. Fin de partida (con una partida larga, en todos los tamaños): «Volver al menú» a la vista, y cada
+ *      panel de las estadísticas se llega a ver entero, sin el botón encima, desplazando la caja.
  *   5. Franja de tipo de 8 ± 1 px en las cartas de nivel de los 18 tipos (Dex), ≥ 3:1 contra la carta
- *      (con el filo claro en Fantasma, Dragón y Siniestro); sin franja en Clásico.
+ *      (con el filo claro en Fantasma, Dragón y Siniestro); sin franja en Clásico. Y las píldoras de tipo
+ *      (G.UI.typeChips) de los 18 tipos con Dex, ≥ 4,5:1.
  *   6. Teclado (Dex, 1440x900): Tab recorre el menú, las cartas de nivel y Ajustes con el anillo de
  *      foco visible; «Estilo» es la primera sección de Gráficos y cambiarlo ahí funciona.
- *   7. «Gira el móvil»: sí en un móvil en vertical (390x844), no en los plegables.
+ *   7. «Gira el móvil»: sí en un móvil en vertical (390x844) y en el Magic V6 plegado en vertical
+ *      (360x807), no en los plegables abiertos.
  *   8. Sin internet: tras la primera carga (en Clásico, con el service worker), se corta la red y se
  *      pasa a Dex: la letra está (document.fonts.check) y no se pide nada fuera de assets/fonts.
  *   9. Consola sin errores ni avisos (menos los del entorno de la prueba: ver AVISOS_ENTORNO).
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
- * 1440x900, 844x390 y 800x870) con una hoja de contactos (indice.html) e informe.json.
+ * 1440x900, 844x390 y 724x784; la capa «Probabilidades» y la ×10 de repetidos, en pantallas bajas) con una
+ * hoja de contactos (indice.html) e informe.json.
  * Código de salida 0 = todo bien. Nada habla con servicios de fuera: sólo 127.0.0.1.
  */
 'use strict';
@@ -57,12 +71,16 @@ const AVISOS_ENTORNO = [
 const VP = {
   pc: { w: 1440, h: 900 }, fhd: { w: 1920, h: 1080 }, tab: { w: 1024, h: 768 },
   movil: { w: 844, h: 390, dpr: 3, tactil: true }, movilBajo: { w: 780, h: 360, dpr: 3, tactil: true },
-  pleg1: { w: 870, h: 800, dpr: 2.5, tactil: true }, pleg2: { w: 800, h: 870, dpr: 2.5, tactil: true },
+  // El Honor Magic V6 de Nico (los tamaños de la verificación del 12-10-2026, sin confirmar en el teléfono):
+  // pantalla interior en horizontal y en vertical, y exterior en horizontal.
+  pleg1: { w: 784, h: 724, dpr: 3, tactil: true }, pleg2: { w: 724, h: 784, dpr: 3, tactil: true }, exterior: { w: 807, h: 360, dpr: 3, tactil: true },
+  // Otros plegables o tabletas casi cuadrados.
   pleg3: { w: 1000, h: 900, dpr: 2.5, tactil: true }, pleg4: { w: 900, h: 1000, dpr: 2.5, tactil: true }
 };
 const nombreVp = v => `${v.w}x${v.h}${v.dpr ? '@' + v.dpr : ''}`;
 const CON_CAPTURAS = ['pc', 'movil', 'pleg2'];
-const GACHA_MOVIL = ['movil', 'movilBajo', 'pleg1', 'pleg2', 'pleg3', 'pleg4'];
+const GACHA_MOVIL = ['movil', 'movilBajo', 'exterior', 'pleg1', 'pleg2', 'pleg3', 'pleg4'];
+const TIRADAS = ['movil', 'movilBajo', 'exterior', 'pc', 'pleg1', 'pleg2'];
 
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
@@ -177,8 +195,25 @@ const MEDIR_PANTALLA = id => {
   };
 };
 
+/** ¿Lleva la pantalla la piel Dex? Borde de su caja (--color-bisel) y letra y fondo de un botón normal (M PLUS y
+ *  --color-cristal-2). Si upstream renombra .box o .btn, la piel deja de aplicarse: esto lo ve. */
+const PIEL = id => {
+  const scr = document.getElementById(id), box = scr && scr.querySelector('.box');
+  const ref = document.createElement('div');
+  ref.style.cssText = 'position:absolute;visibility:hidden;border-top:1px solid var(--color-bisel);background:var(--color-cristal-2)';
+  document.body.appendChild(ref);
+  const bisel = getComputedStyle(ref).borderTopColor, cristal2 = getComputedStyle(ref).backgroundColor;
+  ref.remove();
+  const btn = scr && [...scr.querySelectorAll('.btn')].find(b => b.offsetParent !== null && !b.matches('.gold, .danger, .google, .ghost, :hover, :focus'));
+  const bc = box && getComputedStyle(box), tc = btn && getComputedStyle(btn);
+  return { fuenteCaja: bc ? bc.fontFamily : '', bordeCaja: bc ? bc.borderTopColor : '', bisel, boton: btn ? (btn.id || btn.textContent.trim().slice(0, 16)) : null,
+    fuenteBoton: tc ? tc.fontFamily : '', fondoBoton: tc ? tc.backgroundColor : '', cristal2 };
+};
+const conPiel = p => /M PLUS Rounded 1c/.test(p.fuenteCaja) && p.bordeCaja === p.bisel && (!p.boton || (/M PLUS Rounded 1c/.test(p.fuenteBoton) && p.fondoBoton === p.cristal2));
+const sinPiel = p => /Pixelify/.test(p.fuenteCaja) && p.bordeCaja !== p.bisel && (!p.boton || !/M PLUS/.test(p.fuenteBoton));
+
 async function recorrerPantallas(P) {
-  const { page, v } = P, malas = [];
+  const { page, v } = P, malas = [], piel = [];
   for (const e of ESTILOS) {
     await estilo(page, e);
     for (const [id, abrir, cerrar, sub] of PANTALLAS) {
@@ -187,12 +222,105 @@ async function recorrerPantallas(P) {
       const m = await page.evaluate(MEDIR_PANTALLA, id);
       const mal = !m.visible || m.pagina > 0 || m.cuerpo > 0 || m.pantalla > 1 || m.caja > 1 || m.cajaFuera > 1 || m.menuDetras;
       if (mal) malas.push({ estilo: e, cual: id + (sub ? '/' + sub : ''), ...m });
+      const p = await page.evaluate(PIEL, id);
+      if (!(e === 'dex' ? conPiel(p) : sinPiel(p))) piel.push({ estilo: e, cual: id + (sub ? '/' + sub : ''), ...p });
       if (cerrar) await page.evaluate(cerrar);
     }
     await page.evaluate(salirDePartida);
   }
-  return malas;
+  return { malas, piel };
 }
+
+/** Menú principal: las 8 opciones a la vista sin desplazar nada (ni la pantalla ni una caja), el logotipo libre
+ *  de la barra superior y la línea de créditos sin pisar ninguna caja. */
+const MEDIR_MENU = () => {
+  const H = innerHeight, W = innerWidth, rr = el => el.getBoundingClientRect();
+  const cruza = (a, b) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+  const visible = el => !!el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden';
+  const items = [...document.querySelectorAll('#scr-menu .menu-item')];
+  const mal = items.filter(it => {
+    const r = rr(it);
+    if (r.top < -0.5 || r.bottom > H + 0.5 || r.left < -0.5 || r.right > W + 0.5) return true;
+    for (let p = it.parentElement; p && p !== document.body; p = p.parentElement) {
+      const cs = getComputedStyle(p);
+      if (/(auto|scroll|hidden)/.test(cs.overflowY + ' ' + cs.overflowX)) { const q = rr(p); if (r.top < q.top - 0.5 || r.bottom > q.bottom + 0.5) return true; }
+    }
+    return false;
+  }).map(it => it.dataset.go);
+  const scr = document.getElementById('scr-menu'), tb = document.getElementById('topbar'), cl = document.getElementById('credits-line'), logo = document.querySelector('#scr-menu .logo');
+  const cajas = [...document.querySelectorAll('#scr-menu .menu-right > .box')].filter(visible);
+  return { opciones: items.length, mal, desplazada: scr.scrollTop + document.querySelector('#scr-menu .menu-right').scrollTop,
+    logoTapado: visible(tb) && cruza(rr(tb), rr(logo)), creditosPisan: visible(cl) && cajas.some(b => cruza(rr(b), rr(cl))),
+    logo: [Math.round(rr(logo).top), Math.round(rr(logo).bottom)], barra: visible(tb) ? [Math.round(rr(tb).top), Math.round(rr(tb).bottom)] : null };
+};
+
+/** Fin de partida: para cada desplazamiento de la caja, ¿qué paneles se ven enteros (dentro de la caja y de la
+ *  ventana) sin «Volver al menú» encima? Un panel que nunca se ve entero es información perdida. */
+const FIN_PANELES = () => {
+  const box = document.querySelector('#scr-over > .box'), st = document.getElementById('over-stats'), btn = document.getElementById('btn-again');
+  const paneles = [...st.children], visto = paneles.map(() => false), max = box.scrollHeight - box.clientHeight;
+  for (let y = 0; y <= max + 8; y += 4) {
+    box.scrollTop = y;
+    const b = box.getBoundingClientRect(), k = btn.getBoundingClientRect();
+    paneles.forEach((p, i) => {
+      const r = p.getBoundingClientRect();
+      if (r.top >= b.top - 0.5 && r.bottom <= b.bottom + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5 && !(r.top < k.bottom - 1 && r.bottom > k.top + 1)) visto[i] = true;
+    });
+  }
+  box.scrollTop = 0;
+  const k = btn.getBoundingClientRect();
+  return { paneles: paneles.length, nunca: paneles.filter((p, i) => !visto[i]).map(p => (p.innerText || '').trim().split('\n')[0].slice(0, 24)),
+    boton: [Math.round(k.top), Math.round(k.bottom)], botonVisible: k.top >= 0 && k.bottom <= innerHeight + 0.5 && k.height >= 40, alto: innerHeight };
+};
+
+/** Capa «Probabilidades» (pantallas bajas): dentro de la ventana, la tabla debajo del título y de «Cerrar», que
+ *  no la pisa y con su texto entero dentro del botón. */
+const MEDIR_PROB = () => {
+  const capa = document.getElementById('gacha-prob-capa'), h = capa.querySelector('h3'), b = capa.querySelector('button'), t = capa.querySelector('.rates');
+  const rr = el => el.getBoundingClientRect(), cruza = (x, y) => x.left < y.right - 0.5 && x.right > y.left + 0.5 && x.top < y.bottom - 0.5 && x.bottom > y.top + 0.5;
+  const rango = document.createRange(); rango.selectNodeContents(b);
+  const tx = rango.getBoundingClientRect(), R = rr(capa), B = rr(b);
+  return { abierta: !capa.classList.contains('hidden'), debajo: rr(t).top >= Math.max(rr(h).bottom, B.bottom) - 0.5, pisa: cruza(B, rr(t)),
+    textoDentro: tx.left >= B.left - 0.5 && tx.right <= B.right + 0.5 && tx.top >= B.top - 0.5 && tx.bottom <= B.bottom + 0.5,
+    filas: t.querySelectorAll('div').length, dentro: R.top >= -0.5 && R.bottom <= innerHeight + 0.5 && R.left >= -0.5 && R.right <= innerWidth + 0.5, cerrar: Math.round(B.width) };
+};
+
+/** Tira de pestañas del gacha (si no caben, se desplaza en horizontal): la elegida, entera y fuera del degradado del lado por el que
+ *  hay más; las clases mas-izq / mas-der, de acuerdo con el desplazamiento. */
+const MEDIR_TIRA = () => {
+  const tira = document.getElementById('gacha-gens'), on = tira.querySelector('.gen-tab.on'), q = tira.getBoundingClientRect(), r = on.getBoundingClientRect();
+  const max = tira.scrollWidth - tira.clientWidth, F = 36, izq = tira.classList.contains('mas-izq'), der = tira.classList.contains('mas-der');
+  return { gen: on.dataset.gen, entera: r.left >= q.left + (izq ? F : 0) - 0.5 && r.right <= q.right - (der ? F : 0) + 0.5,
+    clases: izq === (max > 1 && tira.scrollLeft > 1) && der === (max > 1 && tira.scrollLeft < max - 1), desborda: max > 1, desplazada: Math.round(tira.scrollLeft), max };
+};
+
+/** Un aviso de logro con el gacha abierto (pantallas bajas): ¿tapa algún botón de tirar o se queda su toque? */
+const AVISO_GACHA = () => {
+  let el = document.getElementById('ach-pop'), creado = false;
+  if (!el) { el = document.createElement('div'); el.id = 'ach-pop'; el.className = 'box ach-pop'; document.body.appendChild(el); creado = true; }
+  const antes = el.innerHTML, oculto = el.classList.contains('hidden');
+  el.innerHTML = '<div><b>Logro de prueba</b><small>Un aviso cualquiera</small></div>';
+  el.classList.remove('hidden');
+  const r = el.getBoundingClientRect(), bs = ['pull-1', 'pull-10', 'pull-10b'].map(id => document.getElementById(id).getBoundingClientRect());
+  const tapa = bs.some(b => r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top);
+  const b = bs[1], hit = document.elementFromPoint((b.left + b.right) / 2, (b.top + b.bottom) / 2);
+  const res = { tapa, toque: !!(hit && hit.closest('#pull-10')), eventos: getComputedStyle(el).pointerEvents, aviso: [Math.round(r.top), Math.round(r.bottom)] };
+  if (creado) el.remove(); else { el.innerHTML = antes; el.classList.toggle('hidden', oculto); }
+  return res;
+};
+
+/** Las píldoras de tipo (G.UI.typeChips) de los 18 tipos: contraste de la letra con su fondo. */
+const PILDORAS = () => {
+  const rgb = s => (s.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+  const lum = v => { const [r, g, b] = v.map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const caja = document.createElement('div');
+  caja.innerHTML = G.UI.typeChips(Object.keys(G.U.TYPE_COLOR));
+  document.body.appendChild(caja);
+  const r = [...caja.children].map(el => { const cs = getComputedStyle(el); return { tipo: el.textContent, ratio: +ratio(rgb(cs.color), rgb(cs.backgroundColor)).toFixed(2) }; });
+  caja.remove();
+  return r;
+};
 
 // ---------------- gacha ----------------
 const MEDIR_GACHA = () => {
@@ -208,7 +336,7 @@ const MEDIR_GACHA = () => {
 };
 
 async function gachaBanners(P) {
-  const { page } = P, malos = [], innerAlto = P.v.h;
+  const { page } = P, malos = [], innerAlto = P.v.h, tiras = [];
   for (const e of ESTILOS) {
     await estilo(page, e);
     await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
@@ -216,6 +344,7 @@ async function gachaBanners(P) {
     for (let g = 1; g <= 9; g++) {
       await page.click(`#gacha-gens .gen-tab[data-gen="${g}"]`);
       await sleep(60);
+      { const t = await page.evaluate(MEDIR_TIRA); if (!t.entera || !t.clases) tiras.push({ estilo: e, ...t }); }
       const m = await page.evaluate(MEDIR_GACHA);
       // En pantallas bajas cabe todo sin desplazar; con más alto (un plegable), las probabilidades van debajo y se llega desplazando.
       const ok = m.lienzos.length === 3 && m.lienzos.every(l => l.dentroBanner && l.dentroVentana && Math.abs(l.altoCss - l.alto) < 0.01 && Math.abs(l.anchoCss - l.ancho) < 0.01) &&
@@ -223,7 +352,7 @@ async function gachaBanners(P) {
       if (!ok) malos.push({ estilo: e, banner: g, ...m });
     }
   }
-  return malos;
+  return { malos, tiras };
 }
 
 /** Tira por la interfaz real y mide el resultado. La animación de la tragaperras se salta (sólo en la prueba:
@@ -252,6 +381,54 @@ async function tirar(P, boton) {
   await page.evaluate(() => { if (G.Slots.__play) G.Slots.play = G.Slots.__play; });
   r.premioCortado = bordes.filter(x => x.sinColocar || x.toca).map(x => ({ nombre: x.nombre, lienzo: x.lienzo, k: x.k, peor: x.peor }));
   r.premioK = bordes.map(x => x.k).join('');
+  return r;
+}
+
+/** Una ×10 por la interfaz real con diez repetidos que desbloquean su evolución: las diez de nombre más largo (el
+ *  peor caso de la etiqueta), una de cada tres en shiny. Sólo dentro de esa tirada, G.Gacha.pull devuelve ese guion
+ *  (y se gasta su ticket); la carta, la etiqueta y el premio los pintan gacha-ui.js, mods.js y estilo.js de verdad.
+ *  Mide que cada etiqueta está entera (sin recortar, dentro de su carta y con el nombre de la evolución) y que cada
+ *  carta se llega a ver entera sin «Continuar» encima (en una pantalla baja, sin desplazar nada). */
+async function tirarRepetidos(P) {
+  const { page } = P;
+  await page.evaluate(() => {
+    if (!G.Slots.__play) G.Slots.__play = G.Slots.play;
+    G.Slots.play = () => Promise.resolve();
+    const largos = Object.keys(G.EVO).map(Number).filter(d => G.DEX_BY[d]).map(d => ({ d, e: G.EVO[d][0] })).filter(x => G.DEX_BY[x.e])
+      .sort((a, b) => G.DEX_BY[b.e].name.length - G.DEX_BY[a.e].name.length || a.d - b.d).slice(0, 10);
+    const pull = G.Gacha.pull;
+    G.Gacha.pull = function (save, n) {
+      G.Gacha.pull = pull;
+      save.tickets.t1 -= n;
+      return largos.slice(0, n).map((x, i) => ({ dex: x.d, rarity: G.DEX_BY[x.d].rarity || 3, shiny: i % 3 === 0 && G.Sprites.hasShiny(x.d) && G.Sprites.hasShiny(x.e), isNew: false, refund: 0, evo: x.e }));
+    };
+    window.__evos = largos.map(x => G.DEX_BY[x.e].name);
+  });
+  await page.click('#pull-10');
+  for (let i = 0; i < 130 && !(await page.locator('#pull-close').isVisible().catch(() => false)); i++) await sleep(150);
+  await sleep(500);
+  const r = await page.evaluate(() => {
+    const fx = document.getElementById('pull-fx'), close = document.getElementById('pull-close'), H = innerHeight, W = innerWidth;
+    const cartas = [...document.querySelectorAll('#pull-results .pcard')];
+    const etiquetas = cartas.map((k, i) => {
+      const t = k.querySelector('.tag'), tr = t.getBoundingClientRect(), kr = k.getBoundingClientRect(), cs = getComputedStyle(t);
+      return { nombre: window.__evos[i], texto: t.innerText.replace(/\s+/g, ' ').trim(), conNombre: t.innerText.replace(/\s+/g, ' ').includes(window.__evos[i]),
+        recortada: t.scrollHeight > t.clientHeight + 1 || t.scrollWidth > t.clientWidth + 1 || tr.bottom > kr.bottom + 0.5 || tr.top < kr.top - 0.5 || (cs.webkitLineClamp && cs.webkitLineClamp !== 'none') };
+    });
+    const vista = cartas.map(() => false), max = fx.scrollHeight - fx.clientHeight;
+    for (let y = 0; y <= max + 8; y += 4) {
+      fx.scrollTop = y;
+      const c = close.getBoundingClientRect();
+      cartas.forEach((k, i) => { const q = k.getBoundingClientRect();
+        if (q.top >= -0.5 && q.bottom <= H + 0.5 && q.left >= -0.5 && q.right <= W + 0.5 && !(q.left < c.right && q.right > c.left && q.top < c.bottom && q.bottom > c.top)) vista[i] = true; });
+    }
+    fx.scrollTop = 0;
+    const filas = {};
+    cartas.forEach(k => { const t = Math.round(k.getBoundingClientRect().top); filas[t] = (filas[t] || 0) + 1; });
+    return { cartas: cartas.length, desplaza: max, filas: Object.values(filas).join('+'), nuncaEnteras: vista.filter(x => !x).length,
+      malas: etiquetas.filter(x => !x.conNombre || x.recortada), ejemplo: etiquetas.slice(0, 2) };
+  });
+  await page.evaluate(() => { if (G.Slots.__play) G.Slots.play = G.Slots.__play; });
   return r;
 }
 
@@ -359,14 +536,14 @@ function hojaDeContactos() {
   const srv = await startServer(ROOT, PORT);
   const browser = await chromium.launch({ headless: HEADLESS });
   try {
-    // 7. «Gira el móvil»: un móvil en vertical sí; los plegables, no (y entran a jugar más abajo).
-    {
-      const P = await nuevo(browser, { w: 390, h: 844, dpr: 3, tactil: true });
+    // 7. «Gira el móvil»: un móvil en vertical y el Magic V6 plegado en vertical, sí; los plegables abiertos, no (y entran a jugar más abajo).
+    for (const v of [{ w: 390, h: 844, dpr: 3, tactil: true }, { w: 360, h: 807, dpr: 3, tactil: true }]) {
+      const P = await nuevo(browser, v);
       await P.page.goto(BASE, { waitUntil: 'load' });
       await P.page.waitForFunction(() => document.getElementById('boot').classList.contains('hidden'), null, { timeout: 30000 });
       await sleep(200);
       const gira = await P.page.evaluate(() => !document.getElementById('rotate').classList.contains('hidden'));
-      check('«Gira el móvil» en un móvil en vertical (390x844, táctil)', gira);
+      check(`«Gira el móvil» en un móvil en vertical (${nombreVp(v)}, táctil)`, gira);
       await P.ctx.close();
     }
 
@@ -376,27 +553,58 @@ function hojaDeContactos() {
       if (v.tactil && v.w / v.h > 0.75) check(`${nv}: juega sin «Gira el móvil»`, dentro);
       if (!dentro) { await P.ctx.close(); continue; }
 
-      // 1. Las 22 pantallas en los dos estilos.
-      const malas = await recorrerPantallas(P);
+      // 1. Las 22 pantallas en los dos estilos (y la piel Dex puesta en cada una).
+      const { malas, piel } = await recorrerPantallas(P);
       check(`${nv}: las 22 pantallas en Dex y Clásico sin desplazamiento horizontal, con la caja dentro y sin el menú detrás`, !malas.length, malas.slice(0, 6));
+      check(`${nv}: la piel Dex está puesta en las 22 pantallas (borde de la caja, letra y fondo de los botones) y en Clásico no`, !piel.length, piel.slice(0, 4));
 
-      // 4. «Volver al menú» a la vista.
+      // El menú principal.
+      for (const e of ESTILOS) {
+        await estilo(page, e);
+        await page.evaluate(() => { G.MenuUI.open(); document.getElementById('scr-menu').scrollTop = 0; for (const x of document.querySelectorAll('.ach-pop, .toast')) x.classList.add('hidden'); });
+        await sleep(250);
+        const m = await page.evaluate(MEDIR_MENU);
+        check(`${nv} ${e}: menú principal con las 8 opciones a la vista sin desplazar, el logotipo libre de la barra superior y los créditos sin pisar ninguna caja`,
+          m.opciones === 8 && !m.mal.length && !m.desplazada && !m.logoTapado && !m.creditosPisan, m);
+      }
+
+      // 4. Fin de partida: «Volver al menú» a la vista y cada panel, entero en algún momento.
       for (const e of ESTILOS) {
         await estilo(page, e);
         await page.evaluate(PANTALLAS.find(p => p[0] === 'scr-over')[1]);
-        await sleep(120);
-        const r = await page.evaluate(() => { const b = document.getElementById('btn-again').getBoundingClientRect(); return { arriba: Math.round(b.top), abajo: Math.round(b.bottom), alto: innerHeight, visible: b.top >= 0 && b.bottom <= innerHeight + 0.5 && b.height >= 40 }; });
-        check(`${nv} ${e}: «Volver al menú» a la vista en el fin de partida (con las estadísticas de una partida larga)`, r.visible, r);
+        await sleep(300);
+        const r = await page.evaluate(FIN_PANELES);
+        check(`${nv} ${e}: fin de partida con las estadísticas de una partida larga: «Volver al menú» a la vista y los ${r.paneles} paneles se llegan a ver enteros, sin el botón encima, desplazando la caja`,
+          r.botonVisible && r.paneles >= 8 && !r.nunca.length, r);
         await page.evaluate(salirDePartida);
       }
 
       // 2. Gacha: banners en pantallas de móvil y de plegable; tiradas.
       if (GACHA_MOVIL.includes(clave)) {
-        const malos = await gachaBanners(P);
+        const { malos, tiras } = await gachaBanners(P);
         check(`${nv}: gacha en los 9 banners (Dex y Clásico): destacados dentro del banner y de la ventana, a su tamaño (sin escalar), y los tres botones a la vista ${v.h < 520 ? 'sin desplazar nada' : 'sin desplazar (las probabilidades, debajo)'}`,
           !malos.length, malos.slice(0, 3));
+        check(`${nv}: pestañas de región (Dex y Clásico): la elegida, entera y fuera del degradado, en los 9 banners; el degradado, sólo en el lado por el que hay más (si no caben)`, !tiras.length, tiras.slice(0, 4));
+        if (v.h < 520) {
+          for (const e of ESTILOS) {
+            await estilo(page, e);
+            await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
+            await sleep(350);
+            const aviso = await page.evaluate(AVISO_GACHA);
+            await page.click('#gacha-prob');
+            await sleep(250);
+            const prob = await page.evaluate(MEDIR_PROB);
+            if (clave === 'movil') await captura(page, `probabilidades-${e}-${nv}`);
+            await page.keyboard.press('Escape');
+            await sleep(150);
+            const trasEsc = await page.evaluate(() => ({ capa: !document.getElementById('gacha-prob-capa').classList.contains('hidden'), gacha: G.UI.isOpen('scr-gacha') }));
+            check(`${nv} ${e}: capa «Probabilidades»: dentro de la ventana, la tabla debajo del título, «Cerrar» entero y sin pisarla; Esc la cierra sin cerrar el gacha`,
+              prob.abierta && prob.dentro && prob.debajo && !prob.pisa && prob.textoDentro && prob.filas >= 6 && !trasEsc.capa && trasEsc.gacha, { prob, trasEsc });
+            check(`${nv} ${e}: un aviso de logro con el gacha abierto no tapa los botones de tirar ni se queda sus toques`, !aviso.tapa && aviso.toque && aviso.eventos === 'none', aviso);
+          }
+        }
       }
-      if (['movil', 'movilBajo', 'pc', 'pleg2'].includes(clave)) {
+      if (TIRADAS.includes(clave)) {
         for (const e of (v.h < 520 ? ESTILOS : ['dex'])) {
           await estilo(page, e);
           await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
@@ -410,6 +618,12 @@ function hojaDeContactos() {
           await sleep(200);
           check(`${nv} ${e}: tiradas ×1 y ×10 sin desplazar, con «Continuar» a la vista sin tapar ninguna carta y el premio en su lienzo, a su tamaño y sin cortes`,
             x1.cartas === 1 && x10.cartas === 10 && [x1, x10].every(x => x.desplaza <= 1 && x.continuarVisible && !x.pisa && !x.fuera && x.escalaCss && !x.premioCortado.length), { x1, x10 });
+          const ev = await tirarRepetidos(P);
+          if (CON_CAPTURAS.includes(clave) || clave === 'movilBajo') await captura(page, `tirada-x10-repetidos-${e}-${nv}`);
+          await page.click('#pull-close');
+          await sleep(200);
+          check(`${nv} ${e}: ×10 de diez repetidos que desbloquean su evolución (nombres largos): cada etiqueta entera, con el nombre de la evolución, y cada carta a la vista sin «Continuar» encima${v.h < 520 ? ', sin desplazar' : ''}`,
+            ev.cartas === 10 && !ev.malas.length && !ev.nuncaEnteras && (v.h >= 520 || ev.desplaza <= 1), ev);
         }
       }
 
@@ -432,9 +646,12 @@ function hojaDeContactos() {
         }
       }
 
-      // 6. Teclado y Ajustes (Dex, escritorio).
+      // 6. Teclado y Ajustes (Dex, escritorio); y las píldoras de tipo con Dex.
       if (clave === 'pc') {
         await estilo(page, 'dex');
+        const pild = await page.evaluate(PILDORAS);
+        check('Dex: las píldoras de tipo (G.UI.typeChips: colección, menú, iniciales…) de los 18 tipos con ≥ 4,5:1 entre la letra y su fondo (Fantasma, Dragón y Siniestro, con letra clara)',
+          pild.length === 18 && pild.every(x => x.ratio >= 4.5), pild.map(x => `${x.tipo} ${x.ratio}`).join(', '));
         await page.evaluate('G.MenuUI.open(); document.activeElement && document.activeElement.blur();');
         const menu = await tabula(page, 12, '.menu-item');
         await page.evaluate(`G.Flow.play(); G.RunUI.showLevelUp(3, G.LevelUp.offer(G.Game.player), () => {}); document.activeElement && document.activeElement.blur();`);

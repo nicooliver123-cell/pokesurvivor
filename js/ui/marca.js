@@ -10,9 +10,10 @@
  * lotes siguientes, el HUD Dex y los entornos.
  *
  * Unidades:
- *   - HUD de escritorio: «u» = px CSS a escala 1. Se multiplican por escalaHUD(w, h) (1 a 1,5;
- *     1,25 a 1440×900) y se redondean a px enteros.
- *   - HUD compacto (alto < 520 px CSS): px CSS tal cual, sin escala (filas adaptables al alto).
+ *   - HUD de escritorio: «u» = px CSS a escala 1. Se multiplican por escalaHUD(w, h) (1 a 1,25,
+ *     tope que pidió Nico: «a veces creo que ocupa demasiado») y se redondean a px enteros.
+ *   - HUD compacto (alto < 520 px CSS): px CSS tal cual, sin escala (filas adaptables al alto, como
+ *     mucho un 20 % del alto entre las dos; también por Nico).
  *   - Mundo: px de mundo (G.Sprites.PX = 2 px de mundo por píxel de arte).
  */
 window.G = window.G || {};
@@ -86,8 +87,10 @@ G.MARCA = (() => {
   };
 
   /* --------------------------------------------------------------- HUD */
-  /** Escala del HUD de escritorio: 1 hasta 1152×720, 1,25 a 1440×900, 1,5 desde 1728×1080. */
-  const escalaHUD = (w, h) => Math.max(1, Math.min(1.5, w / 1152, h / 720));
+  /** Escala del HUD de escritorio: 1 hasta 1152×720 y 1,25 desde 1440×900 (la guía llegaba a 1,5 en
+   *  1728×1080; Nico pidió un HUD más compacto, revisión cruzada: tope de 1,25). */
+  const ESCALA_HUD_MAX = 1.25;
+  const escalaHUD = (w, h) => Math.max(1, Math.min(ESCALA_HUD_MAX, w / 1152, h / 720));
   const ALTO_COMPACTO = 520;                        // alto CSS por debajo del cual va el HUD compacto
 
   const hud = {
@@ -133,10 +136,13 @@ G.MARCA = (() => {
     },
     // ---------- compacto (px CSS, sin escala; móvil en horizontal) ----------
     compacto: {
-      margen: 8, fila1: { y: 8, h: 44 }, fila2: { y: 58, h: 30 }, bandaSuperiorMax: 88,
-      // Filas adaptables al alto (revisión cruzada): fila = clamp(round(k·alto), min, max); margen y hueco
-      // menores por debajo de altoApretado. Dan 88 px a 390 de alto (22,6 %) y 71 a 320 (22 %).
-      adaptable: { fila1: [0.113, 36, 44], fila2: [0.077, 24, 30], margen: [6, 8], hueco: [4, 6], altoApretado: 360, ranuraApretada: 44 },
+      margen: 6, fila1: { y: 6, h: 40 }, fila2: { y: 50, h: 26 }, bandaSuperiorMax: 76,
+      // Filas adaptables al alto (revisión cruzada, con el criterio de Nico: como mucho un 20 % del alto, objetivo
+      // 18-20 %): fila = clamp(round(k·alto), min, max); hueco menor por debajo de altoApretado. Dan 74 px a 390
+      // de alto (19,0 %), 69 a 360 (19,2 %), 65 a 340 (19,1 %) y 63 a 320 (19,7 %).
+      // Las piezas de la guía que van en esas filas (ficha, contador y Rotom de 44 px, jefe y aviso de 30) son
+      // más altas que las filas: el HUD Dex del lote 2 tiene que afinarlas para que quepan (PLAN.md).
+      adaptable: { fila1: [0.1, 32, 40], fila2: [0.064, 22, 26], margen: [6, 6], hueco: [3, 4], altoApretado: 360, ranuraApretada: 44 },
       ficha: {
         carcasa: { w: 44, h: 44, r: [12, 5, 5, 12] }, lente: { r: 15, aro: 2 },
         pantalla: { x: 38, y: 2, w: 168, h: 40, r: 10 }, texto: { izq: 14, der: 162 },
@@ -231,7 +237,7 @@ G.MARCA = (() => {
 
   return Object.freeze({
     color, tipoPildora, tipoConFilo, filoTipo, familia, familiaLogo, peso, escalaTipo, fuente,
-    espacio, radio, tiempo, escalaHUD, ALTO_COMPACTO, hud,
+    espacio, radio, tiempo, escalaHUD, ESCALA_HUD_MAX, ALTO_COMPACTO, hud,
     biomas, arena, gradacion, farol, vineta, halos, motas, clima, rotulo
   });
 })();

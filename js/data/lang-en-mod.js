@@ -107,6 +107,9 @@ G.I18n.add({
   'Dex: menús de Pokédex y letra redondeada. Clásico: el aspecto del juego original.': 'Dex: Pokédex menus and a rounded font. Classic: the look of the original game.',
   'Letra del estilo Dex:': 'Dex style font:',
   'Letra del estilo Dex: M PLUS Rounded 1c (OFL).': 'Dex style font: M PLUS Rounded 1c (OFL).',
-  'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de la derecha para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal.':
-    'Put your finger anywhere and drag to move: the joystick appears where you touch. Tap a move on the right to switch to it and the top-right button to pause. Play in landscape.'
+  // Controles: un plegable abierto o una tableta también juegan en vertical (y, con las ranuras en columna, «de la derecha»).
+  'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).':
+    'Put your finger anywhere and drag to move: the joystick appears where you touch. Tap a move at the bottom to switch to it and the top-right button to pause. Play in landscape (on an unfolded foldable or a tablet, portrait works too).',
+  'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de la derecha para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).':
+    'Put your finger anywhere and drag to move: the joystick appears where you touch. Tap a move on the right to switch to it and the top-right button to pause. Play in landscape (on an unfolded foldable or a tablet, portrait works too).'
 });

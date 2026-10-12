@@ -13,12 +13,15 @@
  *
  * Qué hace, en los DOS estilos (arreglos independientes del estilo):
  *   - los legendarios destacados del gacha, el compañero del menú y el premio de la tirada se
- *     animan en lienzos del tamaño en que se ven, a escala entera (nada escalado por CSS) y sin
- *     cortar ningún fotograma (sección 5); el compañero y el premio, más grandes que en upstream;
+ *     animan sin cortar ningún fotograma (sección 5), a escala entera: en Clásico, en los lienzos de
+ *     upstream (el compañero, con su escalado por CSS en pantallas bajas); en Dex, en lienzos más
+ *     grandes y del tamaño en que se ven;
  *   - Tab recorre los menús (upstream lo anulaba siempre en input.js) y las cartas de subida de
  *     nivel se pueden enfocar (tabindex, role=button, Intro);
  *   - en el gacha de un móvil en horizontal, el botón «Probabilidades» abre el cartel como capa
- *     (css/nico.css lo enseña sólo en pantallas bajas).
+ *     (css/nico.css lo enseña sólo en pantallas bajas) y la tira de pestañas trae a la vista la
+ *     del banner elegido y avisa con un degradado del lado por el que hay más;
+ *   - Ajustes > Controles dice que un plegable abierto o una tableta también juegan en vertical.
  * Y sólo en Dex: la clase en <html>, la fuente del lienzo (abajo), la franja de tipo de 8 px y la
  * píldora del tipo en las cartas, y el texto de los controles cuando las ranuras van en columna.
  *
@@ -47,6 +50,9 @@ G.Estilo = (() => {
   const oyentes = new Set();
   const doc = typeof document !== 'undefined' ? document : null;
   const compacto = () => (typeof innerHeight === 'number' ? innerHeight : 900) < ((MARCA() && MARCA().ALTO_COMPACTO) || 520);
+  /** ¿Menú principal en columna? Pantalla estrecha y alta (un plegable abierto en vertical): por debajo de 760
+   *  de ancho y sin ser baja, como el @media de upstream (css/style.css) y el arreglo de css/nico.css. */
+  const columnaEstrecha = () => !compacto() && (typeof innerWidth === 'number' ? innerWidth : 1440) <= 760;
 
   // ===================================================================
   // 1. Fuente del lienzo: «… Pixelify …» -> M PLUS Rounded 1c (sólo con Dex)
@@ -114,6 +120,7 @@ G.Estilo = (() => {
   function aplicar() {
     if (doc) doc.documentElement.classList.toggle(CLASE, actual === 'dex');
     if (actual === 'dex') cargarFuentes(); else descargaEnReposo();
+    rehacerCompanero();
     oyentes.forEach(fn => { try { fn(actual); } catch (e) { console.warn('[Estilo]', e); } });
   }
   /** Cambia el estilo ('dex' | 'clasico'), lo guarda y lo aplica al momento. */
@@ -131,6 +138,9 @@ G.Estilo = (() => {
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const TEXTO_ESTILO = 'Dex: menús de Pokédex y letra redondeada. Clásico: el aspecto del juego original.';
   const ABAJO = 'Toca un ataque de abajo para cambiarlo', DERECHA = 'Toca un ataque de la derecha para cambiarlo';
+  /** «Se juega en horizontal» ya no es del todo cierto: un plegable abierto o una tableta juegan en vertical
+   *  (G.MODS.pedirGiro). En los dos estilos. */
+  const HORIZONTAL = 'Se juega en horizontal.', HORIZONTAL_PLEGABLE = 'Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).';
 
   /** ¿Van las ranuras de ataque en columna a la derecha? (lo decidirá el HUD Dex del lote 2). */
   const ranurasEnColumna = () => !!(actual === 'dex' && G.HudDex && G.HudDex.columna && G.HudDex.columna());
@@ -152,8 +162,14 @@ G.Estilo = (() => {
           if (otro) otro.focus();
         };
       });
-    } else if (tab === 'ctl' && ranurasEnColumna()) {
-      for (const p of box.querySelectorAll('p.sub')) if (p.textContent.includes(ABAJO)) p.textContent = p.textContent.replace(ABAJO, DERECHA);
+    } else if (tab === 'ctl') {
+      const columna = ranurasEnColumna();
+      for (const p of box.querySelectorAll('p.sub')) {
+        let txt = p.textContent;
+        if (columna && txt.includes(ABAJO)) txt = txt.replace(ABAJO, DERECHA);
+        if (txt.endsWith(HORIZONTAL)) txt = txt.slice(0, -HORIZONTAL.length) + HORIZONTAL_PLEGABLE;
+        if (txt !== p.textContent) p.textContent = txt;
+      }
     } else if (tab === 'about') {
       const li = [...box.querySelectorAll('ul.credits li')].find(x => /Pixelify/.test(x.textContent));
       if (li) li.insertAdjacentHTML('afterend', '<li><b>Letra del estilo Dex:</b> M PLUS Rounded 1c (OFL).</li>');
@@ -341,30 +357,71 @@ G.Estilo = (() => {
    *  Idle cabe), sin cortes. */
   function destacado(viejo, dex) {
     if (!viejo || !doc || !G.Sprites || !G.Sprites.Animator) return;
-    // En la tira de pestañas de una pantalla baja, la del banner elegido, a la vista.
-    if (!viejo.previousElementSibling) { const on = doc.querySelector('#gacha-gens .gen-tab.on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    if (!viejo.previousElementSibling) tiraPestanas(true);   // la pestaña del banner elegido, a la vista
     animar(relevar(viejo), dex, { lively: true, kmax: 2, dir: 1 });
   }
 
-  const TAM_COMPANERO = { escritorio: [320, 240], compacto: [208, 150] };
-  let ultimoCompanero = null;
-  /** menu.js, open(): el compañero del menú, en un lienzo de 320×240 (208×150 en pantallas bajas),
-   *  hasta ×6. */
-  function companero(cv, dex, op = {}) {
-    if (!cv || !doc || !G.Sprites || !G.Sprites.Animator) return;
-    const [w, h] = compacto() ? TAM_COMPANERO.compacto : TAM_COMPANERO.escritorio;
-    const nuevo = relevar(cv, w, h);
-    animar(nuevo, dex, { lively: true, shiny: !!op.shiny, kmax: 6 });
-    ultimoCompanero = { cv: nuevo, dex, op };
+  /** La tira de pestañas de región del gacha, que en una pantalla baja se desplaza en horizontal (css/nico.css):
+   *  con `traer`, la del banner elegido queda entera y fuera del degradado del borde (antes podía quedar a medias
+   *  y la tira no avisaba de que había más); y las clases mas-izq / mas-der ponen el degradado sólo en el lado por
+   *  el que hay más pestañas. */
+  const FUNDIDO = 36;
+  function tiraPestanas(traer) {
+    const tira = doc && doc.getElementById('gacha-gens');
+    if (!tira || !tira.getBoundingClientRect) return;
+    const on = tira.querySelector('.gen-tab.on');
+    if (traer && on && tira.scrollWidth > tira.clientWidth + 1) {
+      const q = tira.getBoundingClientRect(), r = on.getBoundingClientRect(), m = FUNDIDO + 4;
+      const d = r.left < q.left + m ? r.left - (q.left + m) : r.right > q.right - m ? r.right - (q.right - m) : 0;
+      if (d) tira.scrollLeft += d;   // el navegador lo deja entre 0 y el máximo
+    }
+    const max = tira.scrollWidth - tira.clientWidth;
+    tira.classList.toggle('mas-izq', max > 1 && tira.scrollLeft > 1);
+    tira.classList.toggle('mas-der', max > 1 && tira.scrollLeft < max - 1);
   }
 
-  /** gacha-ui.js, pull(): el premio, en un lienzo del tamaño en que se ve. Tirada ×1: 200×180 hasta
-   *  ×4 (160×140 y ×3 en pantallas bajas); ×10: 132×120 hasta ×3 (96×76 y ×2). */
+  const TAM_COMPANERO = { escritorio: [320, 240], compacto: [208, 150], clasico: [260, 200] };
+  let ultimoCompanero = null;
+  /** [ancho, alto, escala máxima] del compañero. Clásico: el lienzo y la escala de upstream (260×200, ×4; en
+   *  pantallas bajas y en la columna estrecha, css/style.css y css/nico.css lo escalan por CSS, como upstream).
+   *  Dex: 320×240 hasta ×6 (208×150 en pantallas bajas y en la columna estrecha), al tamaño en que se ve. */
+  function tamCompanero() {
+    if (actual !== 'dex') return [...TAM_COMPANERO.clasico, 4];
+    return [...(compacto() || columnaEstrecha() ? TAM_COMPANERO.compacto : TAM_COMPANERO.escritorio), 6];
+  }
+  /** menu.js, open(): el compañero del menú, sin cortes, en el lienzo de tamCompanero(). */
+  function companero(cv, dex, op = {}) {
+    if (!cv || !doc || !G.Sprites || !G.Sprites.Animator) return;
+    const [w, h, kmax] = tamCompanero();
+    const nuevo = relevar(cv, w, h);
+    animar(nuevo, dex, { lively: true, shiny: !!op.shiny, kmax });
+    ultimoCompanero = { cv: nuevo, dex, op };
+  }
+  /** Al cambiar de estilo o de tamaño de ventana: el compañero, en el lienzo que le toca. */
+  function rehacerCompanero() {
+    const u = ultimoCompanero;
+    if (!u || !u.cv.isConnected) return;
+    const [w, h] = tamCompanero();
+    if (u.cv.width !== w || u.cv.height !== h) companero(u.cv, u.dex, u.op);
+  }
+
+  /** [ancho, alto, escala máxima] del premio: [tirada][pantalla normal, pantalla baja, pantalla alta de menos de
+   *  800 de ancho]. Clásico: el lienzo y la escala de upstream (132×120, ×2); en pantallas bajas, 96×76, sin el
+   *  escalado por CSS de upstream (a 84 de ancho), para que la ×10 quepa en dos filas sin cortar a nadie. Dex: ×1
+   *  200×180 hasta ×4 (160×140, ×3) y ×10 132×120 hasta ×3 (96×76, ×2). En la ×10 de una pantalla alta y estrecha
+   *  (el Magic V6 abierto, 724 o 784 de ancho), 120×110: así caben cinco cartas por fila y las diez en dos filas,
+   *  sin desplazar (con 132, cuatro por fila y tres filas). */
+  const TAM_PREMIO = {
+    dex: { 1: [[200, 180, 4], [160, 140, 3], [200, 180, 4]], 10: [[132, 120, 3], [96, 76, 2], [120, 110, 3]] },
+    clasico: { 1: [[132, 120, 2], [96, 76, 2], [132, 120, 2]], 10: [[132, 120, 2], [96, 76, 2], [120, 110, 2]] }
+  };
+  const ANCHO_ESTRECHO = 800;   // como el @media de css/nico.css para las cartas de la ×10
+  /** gacha-ui.js, pull(): el premio, sin cortes, en un lienzo del tamaño en que se ve (TAM_PREMIO). */
   function premio(card, r, n) {
     const viejo = card && card.querySelector('canvas');
     if (!viejo || !r || !doc || !G.Sprites || !G.Sprites.Animator) return;
-    const bajo = compacto();
-    const [w, h, kmax] = n === 1 ? (bajo ? [160, 140, 3] : [200, 180, 4]) : (bajo ? [96, 76, 2] : [132, 120, 3]);
+    const pantalla = compacto() ? 1 : (typeof innerWidth === 'number' ? innerWidth : 1440) < ANCHO_ESTRECHO ? 2 : 0;
+    const [w, h, kmax] = TAM_PREMIO[actual === 'dex' ? 'dex' : 'clasico'][n === 1 ? 1 : 10][pantalla];
     animar(relevar(viejo, w, h), r.dex, { lively: r.rarity >= 4 || !!r.shiny, shiny: !!r.shiny, kmax });
     card.classList.add(n === 1 ? 'premio-1' : 'premio-10');
     // Dex: «¡NUEVO!» -> «¡Nuevo!». gacha-ui.js escribe el nombre y la etiqueta justo después de este gancho,
@@ -403,6 +460,8 @@ G.Estilo = (() => {
         <button class="btn small ghost" type="button">Cerrar</button></div><div class="panel rates"></div></div>`);
     const capa = doc.getElementById('gacha-prob-capa');
     capa.querySelector('button').onclick = () => capaProbabilidades(false);
+    const tira = doc.getElementById('gacha-gens');
+    if (tira) tira.addEventListener('scroll', () => tiraPestanas(false), { passive: true });
     // Esc cierra la capa sin cerrar el gacha (game.js vuelve al menú con Esc): se atiende antes.
     addEventListener('keydown', e => {
       if (e.key === 'Escape' && !capa.classList.contains('hidden')) { e.stopPropagation(); capaProbabilidades(false); }
@@ -414,11 +473,13 @@ G.Estilo = (() => {
   // ===================================================================
   /** input.js, keydown: ¿se deja que Tab mueva el foco? Upstream lo anulaba siempre (para que no se
    *  fuera el foco del lienzo jugando), así que con el teclado no se podía llegar a ningún botón. Ahora
-   *  sólo se anula jugando sin ninguna pantalla encima. */
+   *  sólo se deja con una pantalla abierta (menús, pausa, cartas, fin, resultado del gacha y su capa) o
+   *  fuera de partida (estado 'ui'). En partida sin pantalla ('playing', o 'held' mientras un compañero
+   *  elige su fusión), se sigue anulando: Tab sacaría el foco del lienzo hacia los botones de detrás. */
   function tabLibre() {
     if (!doc) return false;
     if (doc.querySelector('.scr:not(.hidden), #pull-fx:not(.hidden), #gacha-prob-capa:not(.hidden)')) return true;
-    return !(G.Game && G.Game.state === 'playing');
+    return !G.Game || G.Game.state === 'ui';
   }
 
   // ===================================================================
@@ -488,7 +549,7 @@ G.Estilo = (() => {
     const bandas = { sup: 0, inf: 0, izq: 0, der: 0 };
     let escala = 1, ranuras;
     if (esCompacto) {
-      const A = (H && H.compacto.adaptable) || { fila1: [0.113, 36, 44], fila2: [0.077, 24, 30], margen: [6, 8], hueco: [4, 6], altoApretado: 360, ranuraApretada: 44 };
+      const A = (H && H.compacto.adaptable) || { fila1: [0.1, 32, 40], fila2: [0.064, 22, 26], margen: [6, 6], hueco: [3, 4], altoApretado: 360, ranuraApretada: 44 };
       const fila = ([k, mn, mx]) => Math.max(mn, Math.min(mx, Math.round(k * juego.h)));
       const apretado = juego.h < A.altoApretado;
       const margen = apretado ? A.margen[0] : A.margen[1], hueco = apretado ? A.hueco[0] : A.hueco[1];
@@ -525,8 +586,8 @@ G.Estilo = (() => {
   if (typeof addEventListener === 'function') {
     addEventListener('resize', () => {
       seguras = null;
-      const u = ultimoCompanero;
-      if (u && u.cv.isConnected && u.cv.offsetParent !== null) companero(u.cv, u.dex, u.op);
+      rehacerCompanero();
+      tiraPestanas(true);
     });
   }
   if (doc) {
@@ -539,6 +600,6 @@ G.Estilo = (() => {
     set, porDefecto, fuenteCanvas, cargarFuentes, descargaEnReposo, ajustes, carta, tipoDeCarta, companero, premio,
     destacado, encaje, colocacion, disposicion, zonasSeguras, ranurasEnColumna, capaProbabilidades, tabLibre,
     on(fn) { oyentes.add(fn); },
-    TEXTO_ESTILO, TAM_COMPANERO
+    TEXTO_ESTILO, TAM_COMPANERO, TAM_PREMIO, HORIZONTAL_PLEGABLE, tiraPestanas
   };
 })();

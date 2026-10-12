@@ -22,25 +22,65 @@
 /* Los submenús se abren sin el menú principal detrás (se veía a través del velo). */
 body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
 
-/* Compañero del menú: su lienzo ya mide lo que se ve (320x240; 208x150 en pantallas bajas). */
-#scr-menu #menu-partner { width: auto; height: auto; }
+/* Compañero del menú: en Clásico, el lienzo de upstream (260x200, sin cortes: estilo.js) con el escalado por CSS
+   de upstream; en Dex, un lienzo que ya mide lo que se ve (bloque 2). */
+
+/* Menú principal en una pantalla estrecha y alta (el Magic V6 abierto en vertical, 724x784; upstream lo pone en
+   columna por debajo de 760 de ancho): la caja de opciones se encogía hasta enseñar 2 de las 8, la barra superior
+   tapaba el logotipo y la línea de créditos se montaba en la caja de estadísticas. Ahora el logotipo empieza bajo
+   la barra, el compañero va más pequeño, la lista en dos columnas (como upstream en un portátil bajo) y nada se
+   encoge: si aun así no cabe, se desplaza la pantalla entera. Abajo queda sitio para los créditos (dos renglones). */
+@media (max-width: 760px) and (min-height: 521px) {
+  #scr-menu { justify-content: flex-start; }
+  #scr-menu .menu-left { flex: 0 0 auto; padding: 60px 12px 2px; margin-top: auto; }   /* centrado si sobra alto */
+  #scr-menu .menu-left .logo { margin-bottom: 4px; }
+  #scr-menu .menu-left .logo .t1 { font-size: 34px; }
+  #scr-menu .partner-card { margin-top: 2px; }
+  #scr-menu .partner-card .nm { font-size: 20px; }
+  #scr-menu #menu-partner { height: min(17vh, 140px); width: auto; }
+  #scr-menu .menu-right { flex: 0 0 auto; overflow: visible; padding: 4px 12px 50px; gap: 6px; margin-bottom: auto; }
+  #scr-menu .menu-right > :first-child { margin-top: 0; }
+  #scr-menu .menu-right .box { padding: 8px 14px; }
+  #scr-menu .menu-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; }
+  #scr-menu .menu-item { font-size: 17px; padding: 4px 10px; }
+  #scr-menu .menu-item.play { grid-column: span 2; font-size: 24px; }
+  #scr-menu .menu-item small { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+/* Si además es algo más baja (el navegador con sus barras), sin las explicaciones de cada opción (como upstream
+   en una pantalla muy baja), menos la de «Jugar». */
+@media (max-width: 760px) and (min-height: 521px) and (max-height: 739.98px) {
+  #scr-menu .menu-item small { display: none; }
+  #scr-menu .menu-item.play small { display: block; }
+}
 
 /* Premio del gacha: lienzos al tamaño en que se ven (estilo.js), nunca escalados por CSS. */
 #pull-results .pcard canvas { width: auto; height: auto; display: block; margin: 0 auto; }
 #pull-results .pcard.premio-1 { width: auto; min-width: 150px; }
 #pull-results .pcard.premio-10 { width: 146px; padding: 6px 4px; }   /* 132 + relleno + borde: caben 5 por fila en un plegable (800 de ancho) */
+/* ×10 en una pantalla alta de menos de 800 de ancho (el Magic V6 abierto, 724 o 784): cartas de 130 con el premio en
+   120x110 (estilo.js), para que quepan cinco por fila y las diez en dos filas sin desplazar (con 146, cuatro por fila,
+   tres filas y, con repetidos que desbloquean su evolución, había que desplazar). */
+@media (max-width: 799.98px) and (min-height: 520px) {
+  #pull-results { gap: 6px; }
+  #pull-results .pcard.premio-10 { width: 130px; padding: 6px 2px; }
+}
 
 /* Gacha en pantallas de 760 a 920 px de ancho (un plegable desplegado): el banner a todo el ancho y las
    probabilidades debajo. Con la columna de 300 px al lado, los tres destacados (170 px cada uno) no
    cabían y la caja se desplazaba en horizontal (upstream sólo pasaba a una columna por debajo de 760). */
 #scr-gacha .split > * { min-width: 0; }
 @media (max-width: 920px) and (min-height: 520px) { #scr-gacha .split { grid-template-columns: 1fr; } }
-#pull-results { padding-bottom: 64px; }   /* «Continuar» queda fijo abajo: que no tape la última fila */
 
-/* Fin de partida: «Volver al menú» siempre a la vista, aunque las estadísticas no quepan. */
+/* Fin de partida: «Volver al menú» siempre a la vista, aunque las estadísticas no quepan. Las estadísticas
+   conservan su alto (no se encogen) y la caja se desplaza por debajo del botón: así se llega a ver entero cada
+   panel (encogidas, se salían por debajo del botón y algunos no se veían nunca). */
 #scr-over .box { display: flex; flex-direction: column; max-height: calc(100dvh - 16px); }
-#scr-over #over-stats { min-height: 0; }
+#scr-over #over-stats { flex-shrink: 0; }
 #btn-again { position: sticky; bottom: 0; z-index: 1; flex-shrink: 0; align-self: center; }
+
+/* Los avisos de logro sólo informan: que no se queden con los toques de lo que tapan (abajo, en un móvil en
+   horizontal, tapaban los botones de tirar del gacha durante 2,8 s). */
+.ach-pop { pointer-events: none; }
 
 /* Avisos centrados (logros y mensajes): la animación «pop» de upstream cambia el transform y anulaba su
    translateX(-50%), así que entraban desplazados medio ancho a la derecha durante 0,2 s (PLAN.md). La misma
@@ -48,11 +88,23 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
 .toast, .ach-pop { animation-name: pop-centrado; }
 @keyframes pop-centrado { from { transform: translateX(-50%) scale(.94); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
 
+/* Pestañas de región del gacha, si no caben (una tira que se desplaza en horizontal: en un móvil en horizontal o en
+   una pantalla estrecha): la elegida se ve siempre entera (estilo.js la trae a la vista, fuera del degradado) y un
+   degradado avisa en el lado por el que hay más pestañas (sólo en ése: clases mas-izq y mas-der). */
+#scr-gacha #gacha-gens.mas-der { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
+#scr-gacha #gacha-gens.mas-izq { -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px); mask-image: linear-gradient(90deg, transparent, #000 36px); }
+#scr-gacha #gacha-gens.mas-izq.mas-der { -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+
 /* Gacha: el botón «Probabilidades» y su capa sólo existen en pantallas bajas. */
 #gacha-prob { display: none; }
 #gacha-prob-capa { position: fixed; z-index: 46; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: min(420px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); overflow-y: auto;
   box-shadow: 0 0 0 100vmax rgba(2, 8, 11, .72), 0 18px 50px rgba(0, 0, 0, .55); animation: none; }
+#gacha-prob-capa { display: block; }
+#gacha-prob-capa > .row.between { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
+#gacha-prob-capa > .row.between > h3 { margin: 0; min-width: 0; }
+#gacha-prob-capa > .row.between > .btn { flex-shrink: 0; white-space: nowrap; }
 #gacha-prob-capa .rates { margin-top: 6px; }
 
 @media (max-height: 519.98px) {
@@ -60,15 +112,14 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
    *     márgenes negativos ni altura fija: eso los cortaba) y los tres botones a la vista. --- */
   body:has(#scr-gacha:not(.hidden)) #topbar { display: none; }   /* los tickets ya salen en el banner y en cada botón */
   #scr-gacha { padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
-  #scr-gacha > .box { width: 100%; height: 100%; max-height: none; padding: 6px 10px; overflow-x: hidden; overflow-y: auto;
+  #scr-gacha > .box:not(#gacha-prob-capa) { width: 100%; height: 100%; max-height: none; padding: 6px 10px; overflow-x: hidden; overflow-y: auto;
     display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: 44px minmax(0, 1fr); column-gap: 8px; row-gap: 6px; }
-  #scr-gacha > .box > .row.between { display: contents; }
-  #scr-gacha > .box > .row.between > h2 { grid-column: 1; grid-row: 1; align-self: center; margin: 0; }
-  #scr-gacha #gacha-gens { grid-column: 2; grid-row: 1; margin: 0; padding: 0; align-items: stretch; scroll-snap-type: x proximity;
-    scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+  #scr-gacha > .box:not(#gacha-prob-capa) > .row.between { display: contents; }
+  #scr-gacha > .box:not(#gacha-prob-capa) > .row.between > h2 { grid-column: 1; grid-row: 1; align-self: center; margin: 0; }
+  /* Pestañas de región: en la fila del título, sin barra de desplazamiento (el degradado, en el bloque de arriba). */
+  #scr-gacha #gacha-gens { grid-column: 2; grid-row: 1; margin: 0; padding: 0; align-items: stretch; scrollbar-width: none; }
   #scr-gacha #gacha-gens::-webkit-scrollbar { display: none; }
-  #scr-gacha #gacha-gens .gen-tab { scroll-snap-align: center; min-height: 44px; justify-content: center; padding: 2px 10px; }
+  #scr-gacha #gacha-gens .gen-tab { min-height: 44px; justify-content: center; padding: 2px 10px; }
   #gacha-prob { display: inline-flex; align-items: center; grid-column: 3; grid-row: 1; min-height: 44px; }
   #scr-gacha [data-back] { grid-column: 4; grid-row: 1; min-height: 44px; }
   #scr-gacha .split { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; min-height: 0; margin: 0 !important; gap: 0; }
@@ -90,19 +141,22 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
   /* Si la pantalla es estrecha, los destacados se acercan (sus lienzos son transparentes por los lados). */
   @media (max-width: 760px) { #banner .feat canvas + canvas { margin-left: -46px; } }
 
-  /* --- Tiradas: ×10 en dos filas de 5 sin desplazar y «Continuar» en la esquina. --- */
-  #pull-fx { justify-content: flex-start; padding: max(10px, env(safe-area-inset-top)) 10px 10px; }
-  #pull-fx::before { display: none; }
-  #pull-results { padding-bottom: 0; }
+  /* --- Tiradas: ×10 en dos filas (seis y cuatro) sin desplazar y «Continuar» en la esquina. --- */
+  #pull-fx { justify-content: flex-start; padding: max(8px, env(safe-area-inset-top)) 10px 6px; }
+  #pull-fx::before, #pull-fx::after { display: none; }   /* el centrado vertical de upstream: aquí sólo restaba alto */
   #pull-close { position: fixed; right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); min-height: 44px; }
   #pull-results .pcard.premio-10 { width: 110px; min-width: 0; padding: 4px; }
+  #pull-results .pcard.premio-10 .stars { line-height: 12px; height: 12px; }
   #pull-results .pcard.premio-10 .stars img { width: 12px; height: 12px; }
-  #pull-results .pcard.premio-10 b { font-size: 12px; max-width: 96px; margin: 0 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #pull-results .pcard.premio-10 .tag { font-size: 10px; max-width: 96px; margin: 0 auto;
-    display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  /* La evolución desbloqueada de un repetido: en la ×10 de una pantalla baja, sólo el texto (su sprite
-     de 40 px no cabe en dos filas de cinco cartas); en la ×1 y en escritorio, con su sprite. */
+  #pull-results .pcard.premio-10 b { font-size: 12px; line-height: 1.2; max-width: 100%; margin: 0 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #pull-results .pcard.premio-10 .tag { font-size: 10px; line-height: 1.2; max-width: 100%; margin: 1px auto 0; overflow-wrap: anywhere; }
+  /* La evolución desbloqueada de un repetido: en la ×10 de una pantalla baja, el texto entero, con el nombre de
+     la evolución (hasta tres renglones), y sin su sprite de 40 px, que no cabe en dos filas; en la ×1 y en
+     escritorio, también con su sprite. */
   #pull-results .pcard.premio-10 .tag canvas { display: none !important; }
+
+  /* --- Gacha: los avisos de logro, arriba (abajo están los botones de tirar). --- */
+  body:has(#scr-gacha:not(.hidden)) .ach-pop { top: max(6px, env(safe-area-inset-top)); bottom: auto; }
 
   /* --- Fin de partida --- */
   #scr-over .box { max-height: calc(100dvh - 12px); }
@@ -208,7 +262,11 @@ html.estilo-dex .field:focus { border-color: var(--color-pantalla); }
 html.estilo-dex .panel { background: rgba(2, 8, 11, .22); border: 1px solid var(--color-bisel); border-radius: var(--radius-2); }
 html.estilo-dex kbd { border: 1px solid var(--color-borde-control); border-bottom-width: 2px; background: rgba(2, 8, 11, .35);
   font-weight: 800; font-size: var(--fs-1); color: var(--color-tinta); border-radius: var(--radius-1); }
-html.estilo-dex .type { border-radius: var(--radius-0); font-weight: 800; font-size: 11px; text-shadow: none; }
+html.estilo-dex .type { border-radius: var(--radius-0); font-weight: 800; font-size: 11px; text-shadow: none; color: var(--color-tinta-oscura); }
+/* Píldoras de tipo (G.UI.typeChips pone el color de upstream en línea): Fantasma, Dragón y Siniestro, con la letra
+   clara (con la oscura daban 4,18, 3,95 y 2,90:1) y Fantasma con el fondo de G.MARCA.tipoPildora; todas ≥ 4,5:1. */
+html.estilo-dex .type[style*="#7a6bc4" i] { background: var(--tipo-ghost) !important; color: #fff; }
+html.estilo-dex .type[style*="#6b58ff" i], html.estilo-dex .type[style*="#6b5c52" i] { color: #fff; }
 html.estilo-dex .progress { background: var(--color-carril); }
 html.estilo-dex .progress i { background: var(--color-pantalla); }
 html.estilo-dex input[type=range] { background: var(--color-carril); }
@@ -242,6 +300,8 @@ html.estilo-dex .legal-link:hover { color: var(--color-tinta); }
 html.estilo-dex .about-logo { text-shadow: 2px 2px 0 #a55f00, 4px 4px 0 #071318; }
 
 /* ---------- menú principal ---------- */
+/* El compañero: su lienzo ya mide lo que se ve (320x240; 208x150 en pantallas bajas y en la columna estrecha). */
+html.estilo-dex #scr-menu #menu-partner { width: auto; height: auto; }
 html.estilo-dex .stage {
   background: radial-gradient(ellipse at 50% 88%, rgba(98, 227, 221, .18), transparent 60%), linear-gradient(180deg, rgba(18, 52, 64, .9), rgba(11, 30, 38, .92));
   border: 3px solid var(--stage-c, var(--color-bisel)); border-radius: var(--radius-3);
