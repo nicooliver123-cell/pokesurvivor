@@ -9,19 +9,21 @@
  *      Firebase en la nube que aparezca en lo servido.
  *   2. index.html y dev.html (también se publica): noindex, sin SEO del original, sin
  *      enlaces a páginas borradas, y que el ?v= de index.html coincide con js/app.min.js.
- *   3. Que el paquete js/app.min.js está al día con las fuentes (lo reconstruye en una
+ *      Y que el paquete js/app.min.js está al día con las fuentes (lo reconstruye en una
  *      carpeta temporal con los mismos parámetros que tools/build.js y compara).
- *   4. Que siguen los ganchos "// MOD nico" y js/core/mods.js se carga en dev.html.
- *   5. Curación: simula 2.000 runs con el código real (node:vm) y exige 0 curanderos,
+ *   3. Que siguen los ganchos "// MOD nico" y js/core/mods.js se carga en dev.html.
+ *   4. Curación: simula 2.000 runs con el código real (node:vm) y exige 0 curanderos,
  *      y que con curacionEnemiga=true sí salgan (control: la prueba sabe detectarlos).
- *   6. Tamaño: escala de los 966 Pokémon con el código real; normales intactos.
- *   7. Invitado del cooperativo: la ventana que evita el rebote de vida (js/core/mods.js).
- *   8. Busca en TODO js/ (menos js/app.min.js) asignaciones de vida que no estén en la
+ *   5. Tamaño: escala de los 966 Pokémon con el código real; normales intactos.
+ *   6. Invitado del cooperativo: la ventana que evita el rebote de vida (js/core/mods.js).
+ *   7. Busca en TODO js/ (menos js/app.min.js) asignaciones de vida que no estén en la
  *      lista de conocidas: una nueva es FALLO hasta revisarla (posible curación de upstream).
- *   9. Traer la partida del juego oficial: el exportador (sin red, una línea, igual que
- *      tools/nico/exportar-oficial.js, no modifica nada, respaldo a localStorage) y el
- *      importador de js/core/importar.js (saneado, fusión, monedas sin duplicar, compañero,
- *      y aplicar() en modo local e invitado con el db.js real).
+ *   8. Traer la partida del juego oficial: el exportador (sin red, una línea, igual que
+ *      tools/nico/exportar-oficial.js, no modifica nada, respaldo a localStorage, se niega
+ *      en la consola de esta versión) y el importador de js/core/importar.js (saneado,
+ *      fusión, monedas sin duplicar, rechazo de la partida de esta versión, pity, compañero
+ *      y perfil sólo la primera vez, aplicar() en modo local e invitado con el db.js real,
+ *      y la vista previa de js/ui/importar-ui.js con datos hostiles).
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -116,7 +118,7 @@ if (FB) {
   }
 }
 
-// ---------------- 2-3. index.html y paquete ----------------
+// ---------------- 2. index.html y paquete ----------------
 console.log('2. index.html y js/app.min.js');
 const idx = rd('index.html');
 if (/<meta name="robots" content="noindex">/.test(idx)) ok('index.html lleva noindex'); else bad('index.html sin noindex: construir con node tools/build.js --privado');
@@ -166,7 +168,7 @@ if (minS.includes('curacionEnemiga') && minS.includes('anchoMaxJugador')) ok('el
 if (minS.includes('pokesurvivor-partida') && minS.includes('imp-box')) ok('el paquete incluye el importador (js/core/importar.js y js/ui/importar-ui.js)');
 else bad('el paquete no incluye js/core/importar.js o js/ui/importar-ui.js');
 
-// ---------------- 4. ganchos ----------------
+// ---------------- 3. ganchos ----------------
 console.log('3. Ganchos "// MOD nico"');
 const HOOKS = [
   ['dev.html', /src="js\/core\/util\.js"><\/script>\r?\n<script defer src="js\/core\/mods\.js">/, 'mods.js se carga justo después de util.js'],
@@ -196,7 +198,7 @@ const HOOKS = [
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
-// ---------------- 5. simulación de curación ----------------
+// ---------------- 4. simulación de curación ----------------
 console.log('4. Curación de enemigos (simulación con el código real)');
 function loadGame(curacion) {
   const ctx = { console, window: {} };
@@ -233,7 +235,7 @@ try {
   else bad('control: con curacionEnemiga=true no sale ningún curandero (la prueba no detectaría el fallo)');
 } catch (e) { bad('no se pudo simular: ' + (e && e.stack || e)); }
 
-// ---------------- 6. tamaño ----------------
+// ---------------- 5. tamaño ----------------
 console.log('5. Tamaño de los Pokémon del jugador');
 try {
   const G = loadGame(false);
@@ -257,7 +259,7 @@ try {
   else if (touched.length) bad('se reducen iniciales: ' + touched.join(', '));
 } catch (e) { bad('no se pudo calcular el tamaño: ' + (e && e.stack || e)); }
 
-// ---------------- 7. invitado del cooperativo: lógica de la ventana de vida ----------------
+// ---------------- 6. invitado del cooperativo: lógica de la ventana de vida ----------------
 console.log('6. Invitado del cooperativo: sin rebote de vida (lógica de js/core/mods.js)');
 try {
   let now = 1000, rele = false;
@@ -288,7 +290,7 @@ try {
   else failed.forEach(x => bad('ventana de vida: ' + x[0]));
 } catch (e) { bad('no se pudo probar la ventana de vida: ' + (e && e.stack || e)); }
 
-// ---------------- 8. asignaciones de vida en todo js/ ----------------
+// ---------------- 7. asignaciones de vida en todo js/ ----------------
 console.log('7. Asignaciones de vida en js/ (detección de curaciones nuevas de upstream)');
 // Cada línea que asigna vida (=, +=, -=, *=, ++...), revisada a mano, con las veces que puede salir.
 // Si upstream añade una nueva o repite una conocida en otro sitio, es FALLO hasta revisarla:
@@ -346,7 +348,7 @@ if (stale.length) warn(`${stale.length} línea(s) de la lista ya no están (actu
 if (!unknown) ok(`${SCAN.length} ficheros de js/: sólo las ${KNOWN.length} asignaciones de vida revisadas`);
 else console.log('        Revisa si alguna puede subir la vida de un enemigo; si no, añádela a KNOWN en tools/nico/check.js con su motivo.');
 
-// ---------------- 9. traer la partida del juego oficial ----------------
+// ---------------- 8. traer la partida del juego oficial ----------------
 // El juego real (db.js, Pokédex, logros, mejoras...) en node:vm; nunca se habla con el juego oficial:
 // la partida "oficial" de estas pruebas es sintética, con el formato de newSave().
 const IMPORT_FILES = ['js/core/util.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/moves.js', 'js/data/types.js',
@@ -449,6 +451,11 @@ async function importChecks() {
     e4.downloads.length === 1 && env4.save.name === 'AshOficial' && env4.save.updated === 200 && e5.downloads.length === 1 && !e4.alerts.length);
   const e6 = runExporter(frag, { storage: { 'ps.lang': 'es' } });
   t('exportador: sin partida en ningún sitio avisa y no descarga', e6.downloads.length === 0 && e6.alerts.length === 1);
+  // Pegado en la consola de ESTA versión (con su G real, que tiene G.Importar y una partida abierta): avisa y no descarga.
+  const vivoFork = { guest: false }; Object.defineProperty(vivoFork, 'save', { get: () => of, enumerable: true });
+  const e7 = runExporter(frag, { G: Object.assign(Object.create(GG), { DB: vivoFork }), storage: { 'ps.save.nicofork': ofJSON } });
+  t('exportador: pegado en la consola de esta versión avisa de que no es el juego oficial y no descarga nada',
+    e7.downloads.length === 0 && e7.alerts.length === 1 && /versión modificada, no el juego oficial/.test(e7.alerts[0]) && e7.escrituras === 0, e7.alerts);
 
   // ---- el importador: partida oficial realista contra una cuenta nueva del fork ----
   const texto = d1 ? d1.blob.parts.join('') : J({ tipo: I.TIPO, version: 1, save: of });
@@ -500,7 +507,61 @@ async function importChecks() {
     const n5 = I.fusionar(n4, conMas({ coins: 50500, tickets: { t1: 30, t10: 5 } }), AHORA + 4);
     t('reimportar tras gastar en el oficial no resta ni duplica; luego sólo suma lo que pase de lo ya acreditado',
       n4.coins === n3.coins && n4[I.REGISTRO][T0].coins === 50000 && n5.coins === n3.coins + 500 && n5.tickets.t10 === n3.tickets.t10 + 1);
+
+    // Primera importación: todo lo que cuenta para Confirmar tiene su fila (pity, favoritos y título incluidos).
+    t('primera importación: la vista previa cuenta los banners con más pity, los favoritos y el título',
+      c1.pity === 2 && J(c1.favs) === J(n1.profile.favs) && c1.titulo === 'Coleccionista' && c1.perfil, { pity: c1.pity, favs: c1.favs, titulo: c1.titulo });
+    // Después de traerla, el jugador saca un ★5 aquí (pity 0), elige otro compañero y vacía el perfil. Reimportar
+    // el mismo archivo no le devuelve el pity ni le cambia nada de eso, y Confirmar queda sin nada que hacer.
+    const aqui = JSON.parse(J(n2));
+    aqui.pity[1] = 0; aqui.partner = 7; aqui.partnerShiny = false; aqui.profile = { favs: [], title: '' };
+    const aquiJSON = J(aqui);
+    const n6 = I.fusionar(aqui, a.save, AHORA + 5), c6 = I.comparar(aqui, n6, a.save);
+    const ciclosPity = [n6.pity[1]];
+    let vuelta = n6;
+    for (let i = 0; i < 2; i++) { vuelta = I.fusionar(vuelta, a.save, AHORA + 6 + i); ciclosPity.push(vuelta.pity[1]); }
+    t('reimportar no devuelve el pity gastado aquí (3 vueltas) ni cambia el compañero o el perfil elegidos aquí; nada que confirmar',
+      ciclosPity.every(p => p === 0) && n6.partner === 7 && n6.partnerShiny === false && J(n6.profile) === J(aqui.profile) &&
+      n6.coins === aqui.coins && J(n6.tickets) === J(aqui.tickets) && c6.yaImportada && !c6.algo && !c6.pity && !c6.companero && !c6.perfil && J(aqui) === aquiJSON,
+      { pity: ciclosPity, partner: n6.partner, profile: n6.profile, c6 });
+    // Reimportar con más monedas en el oficial: sólo se suman monedas; pity, compañero y perfil se quedan.
+    const n7 = I.fusionar(aqui, conMas({ coins: 48210 + 2000, tickets: { t1: 25, t10: 4 } }), AHORA + 9), c7 = I.comparar(aqui, n7, a.save);
+    t('reimportar con más monedas: sólo suma monedas y tickets nuevos; pity, compañero y perfil se quedan como aquí',
+      n7.coins === aqui.coins + 2000 && n7.tickets.t1 === aqui.tickets.t1 + 2 && n7.tickets.t10 === aqui.tickets.t10 && n7.pity[1] === 0 &&
+      n7.partner === 7 && J(n7.profile) === J(aqui.profile) && c7.monedas === 2000 && c7.t1 === 2 && c7.algo && !c7.pity && !c7.companero && !c7.perfil,
+      { coins: [aqui.coins, n7.coins], c7 });
+    // Si aquí no hay un compañero válido (ninguno), se pone el oficial aunque no sea la primera vez.
+    const sinCompa = Object.assign(JSON.parse(aquiJSON), { partner: null });
+    const n8 = I.fusionar(sinCompa, a.save, AHORA + 10), c8 = I.comparar(sinCompa, n8, a.save);
+    t('reimportar sin compañero válido aquí: pone el oficial y lo enseña en la vista previa', n8.partner === P && n8.partnerShiny === true && c8.companero && c8.algo);
   } else t('analizar la partida realista', false, a.error);
+
+  // ---- una partida de ESTA versión no se trae (autoimportación) ----
+  // Sus monedas ya incluyen lo acreditado; si se aceptara, cada vuelta lo volvería a sumar.
+  const propia = (x, origen = 'otra-web.test') => I.analizar(J({ tipo: I.TIPO, version: 1, origen, exportado: AHORA, save: x }), AHORA);
+  const vueltasPropia = [];
+  let miPartida = JSON.parse(fkJSON);   // una partida del fork que nunca ha traído nada (sin registro)
+  for (let i = 0; i < 3; i++) {
+    const x = propia(miPartida), pv = x.ok ? I.previsualizar(miPartida, x.save, AHORA + i) : {};
+    let lanza = false;
+    try { if (x.ok) miPartida = I.fusionar(miPartida, x.save, AHORA + i); } catch (e) { lanza = e.message === I.TEXTOS.propia; }
+    vueltasPropia.push({ analiza: x.ok, error: pv.error, lanza, coins: miPartida.coins });
+  }
+  t('autoimportación: la partida de esta misma cuenta (mismo created) se rechaza en la vista previa y en fusionar; 3 vueltas sin sumar nada',
+    vueltasPropia.every(v => v.analiza && v.error === I.TEXTOS.propia && v.lanza && v.coins === fk.coins), vueltasPropia);
+  const conReg = propia(Object.assign(JSON.parse(ofJSON), { importOficial: { 1: { coins: 1e6 } } }));
+  t('una partida con el registro importOficial (sólo lo escribe esta versión) se rechaza al elegirla', !conReg.ok && conReg.error === I.TEXTOS.propia, conReg.error);
+  C.location = { host: 'fork.test' };
+  const mismaWeb = propia(of, 'fork.test'), otraWeb = propia(of, 'juego-oficial.test');
+  delete C.location;
+  t('un archivo exportado desde esta misma web se rechaza; desde otra, no', !mismaWeb.ok && mismaWeb.error === I.TEXTOS.propia && otraWeb.ok);
+  // Dos cuentas de esta versión: A (sin traer nada) -> B suma lo de A una sola vez; B ya lleva el registro y no vuelve a A.
+  const cuentaA = JSON.parse(fkJSON), cuentaB = Object.assign(JSON.parse(fkJSON), { created: fk.created + 777, name: 'Amigo', coins: 500 });
+  let B = cuentaB;
+  for (let i = 0; i < 3; i++) B = I.fusionar(B, propia(cuentaA).save, AHORA + i);
+  const deB = propia(B);
+  t('dos cuentas de esta versión: de A a B se suma una sola vez (3 vueltas) y de B a A se rechaza (lleva el registro)',
+    B.coins === 500 + fk.coins && !deB.ok && deB.error === I.TEXTOS.propia, { B: B.coins, deB: deB.error });
 
   // ---- errores y saneado ----
   const env = save => J({ tipo: I.TIPO, version: 1, origen: 'pruebas', exportado: T0, save });
@@ -516,7 +577,7 @@ async function importChecks() {
 
   // Claves desconocidas (también __proto__), dex inválidos y números negativos o enormes.
   const raro = JSON.parse(ofJSON);
-  Object.assign(raro, { hack: { x: 1 }, importOficial: { 1: { coins: 1e6 } }, coins: -50 });
+  Object.assign(raro, { hack: { x: 1 }, coins: -50 });   // importOficial se rechaza aparte (es de esta versión)
   raro.stats.inventado = 5; raro.stats.runs = -1; raro.stats.totalKills = 1e20; raro.stats.bestTime = 'mucho';
   raro.pupg[P] = { hp: 99, superpoder: 9 }; raro.ach.inventado = T0; raro.arenas.cosmico = T0; raro.itemsFound.gorra = T0;
   raro.evoMoves['no-existe'] = T0; raro.tickets = { t1: -3, t10: 1e12, t100: 5 }; raro.pity = { 1: 500, 99: 4 };
@@ -562,6 +623,20 @@ async function importChecks() {
     const reg = await LG.DB.register('NicoFork', 'prueba-local-' + crypto.randomBytes(4).toString('hex'));   // sólo en memoria
     LG.DB.grant(2, 'starter'); LG.DB.save.partner = 2; LG.DB.commit();   // el 2 no está en la oficial
     const ref = LG.DB.save, refOwned = ref.owned, base = ref.coins;
+    // Autoimportación con el db.js real, antes de traer nada (la partida aún no lleva registro): la de esta
+    // misma cuenta, sacada con un fragmento sin la comprobación o elegida tal cual de localStorage, no se
+    // aplica. 3 vueltas: las monedas no cambian y no se guarda nada.
+    const vivoL = { guest: false }; Object.defineProperty(vivoL, 'save', { get: () => LG.DB.save, enumerable: true });
+    const exportarAqui = () => runExporter(frag, { G: { DB: vivoL } }).downloads[0].blob.parts.join('');
+    const guardadoAntes = store['ps.save.nicofork'], vueltasL = [];
+    for (let i = 0; i < 3; i++) {
+      const y = LG.Importar.analizar(i === 2 ? store['ps.save.nicofork'] : exportarAqui(), AHORA);
+      const ap = y.ok ? LG.Importar.aplicar(y.save) : { ok: false, error: y.error };
+      vueltasL.push({ analiza: y.ok, ok: ap.ok, error: ap.error, coins: LG.DB.save.coins });
+    }
+    t('aplicar (local): la partida de esta misma cuenta no se trae (mismo created); 3 vueltas sin sumar monedas ni guardar nada',
+      !!guardadoAntes && vueltasL.every(v => v.analiza && !v.ok && v.error === LG.Importar.TEXTOS.propia && v.coins === base) &&
+      store['ps.save.nicofork'] === guardadoAntes, vueltasL);
     const x = LG.Importar.analizar(texto, AHORA);
     const res = LG.Importar.aplicar(x.save);
     await res.subida;
@@ -572,6 +647,11 @@ async function importChecks() {
     const res2 = LG.Importar.aplicar(x.save);
     const guardada2 = JSON.parse(store['ps.save.nicofork']);
     t('aplicar (local) dos veces no duplica', res2.ok && guardada2.coins === guardada.coins && guardada2.tickets.t1 === guardada.tickets.t1);
+    // Ya con el registro: exportarla desde aquí y elegirla da error al leer el archivo (3 vueltas, nada cambia).
+    const vueltasR = [];
+    for (let i = 0; i < 3; i++) { const y = LG.Importar.analizar(exportarAqui(), AHORA); vueltasR.push({ ok: y.ok, error: y.error, coins: LG.DB.save.coins }); }
+    t('autoimportación después de traer la oficial: el archivo se rechaza al elegirlo (lleva el registro) y las monedas no cambian',
+      vueltasR.every(v => !v.ok && v.error === LG.Importar.TEXTOS.propia && v.coins === guardada.coins) && JSON.parse(store['ps.save.nicofork']).coins === guardada.coins, vueltasR);
     LG.Game = { state: 'playing' };
     const res3 = LG.Importar.aplicar(x.save);
     t('aplicar: en mitad de una run no hace nada y lo dice', !res3.ok && res3.error === LG.Importar.TEXTOS.enRun);
@@ -582,6 +662,47 @@ async function importChecks() {
     t('aplicar (invitado): se aplica en memoria, no se guarda y lo indica', res4.ok && res4.invitado && !res4.guardada && LG.DB.save.coins === LG.DB.START_COINS + 48210 &&
       J(store) === antes && JSON.parse(store['ps.save.nicofork']).coins === guardada.coins);
   } catch (e) { t('aplicar con el db.js real', false, String(e && e.stack || e)); }
+
+  // ---- la sección de Ajustes (js/ui/importar-ui.js) con el db.js real y un DOM mínimo ----
+  // Los textos del archivo (nombre, origen, fecha, título, favoritos, orígenes) no pueden meter HTML;
+  // la partida de esta cuenta da el error sin vista previa ni Confirmar; lo que cuenta tiene su fila.
+  try {
+    const store = {};
+    const ls = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+    const U = loadImporter({ localStorage: ls, location: { protocol: 'file:', hostname: '', search: '' }, crypto: require('crypto').webcrypto, TextEncoder });
+    const UG = U.G;
+    await UG.DB.ready();
+    await UG.DB.register('NicoUI', 'prueba-ui-' + crypto.randomBytes(4).toString('hex'));   // sólo en memoria
+    UG.DB.commit();
+    const els = {};
+    const el = id => els[id] || (els[id] = { id, innerHTML: '', textContent: '', disabled: false, value: '', files: null, isConnected: true,
+      click() {}, select() {}, focus() {} });
+    U.document = { getElementById: el, createElement: () => ({}), head: { appendChild() {} }, querySelector: () => null };
+    vm.runInContext(rd('js/ui/importar-ui.js'), U, { filename: 'js/ui/importar-ui.js' });
+    const UI = UG.ImportarUI;
+    el('imp-box').innerHTML = UI.html(); UI.wire();
+    const elegir = async txt => { el('imp-file').files = [{ size: Buffer.byteLength(txt), text: async () => txt }]; await el('imp-file').onchange(); return el('imp-box').innerHTML; };
+    const hPropia = await elegir(store['ps.save.nicoui']);   // su propia partida, tal cual de localStorage
+    t('Ajustes: elegir la partida de esta misma cuenta da el error, sin vista previa ni Confirmar',
+      hPropia.includes(I.TEXTOS.propia) && !/Vista previa|id="imp-ok"/.test(hPropia), hPropia.slice(-300));
+    const hostil = JSON.parse(ofJSON);
+    hostil.name = '<img src=x onerror=alert(1)>';
+    hostil.profile = { favs: [{ dex: P, shiny: true }, { dex: '<svg onload=alert(2)>' }], title: '<b>x</b>' };
+    hostil.owned[lista[2]] = { at: T0, from: '"><svg onload=alert(3)>' };
+    const hHostil = await elegir(J({ tipo: I.TIPO, version: 1, origen: '<script>alert(4)</script>', exportado: '<i>hoy</i>', save: hostil }));
+    const PELIGRO = /<img|<svg|<script|<iframe|onerror\s*=|onload\s*=|<b>x<\/b>|<i>hoy|javascript:/i;
+    t('Ajustes: la vista previa con nombre, origen, fecha, título, favoritos y orígenes hostiles no pinta HTML del archivo',
+      /Vista previa/.test(hHostil) && /id="imp-ok"/.test(hHostil) && !PELIGRO.test(hHostil), (hHostil.match(PELIGRO) || ['vista previa sin pintar'])[0]);
+    t('Ajustes: la vista previa enseña el pity y los favoritos que se traen (y no un título descartado)',
+      /Banners con más tiradas sin legendaria/.test(hHostil) && /Favoritos del perfil/.test(hHostil) && !/Título del perfil/.test(hHostil) && /Compañero/.test(hHostil));
+    await el('imp-ok').onclick();
+    const hOk = el('imp-box').innerHTML, guardadaUI = JSON.parse(store['ps.save.nicoui']);
+    t('Ajustes: Confirmar trae la partida y la guarda en este navegador', /¡Hecho!/.test(hOk) && /Guardada en este navegador/.test(hOk) &&
+      guardadaUI.coins === UG.DB.START_COINS + 48210 && guardadaUI.name === 'NicoUI', { coins: guardadaUI.coins });
+    const hPropia2 = await elegir(store['ps.save.nicoui']);
+    t('Ajustes: después, su propia partida (ya con el registro) también da el error y no suma nada',
+      hPropia2.includes(I.TEXTOS.propia) && !/id="imp-ok"/.test(hPropia2) && JSON.parse(store['ps.save.nicoui']).coins === guardadaUI.coins);
+  } catch (e) { t('Ajustes (js/ui/importar-ui.js) con un DOM mínimo', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`exportador e importador: ${r.length} casos bien`);

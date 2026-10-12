@@ -33,6 +33,9 @@ G.I18n.add({
   'Trayendo…': 'Bringing…',
   'Los pasos 1 a 3 necesitan un PC: en el móvil no hay consola. Vale cualquier PC, porque tu partida oficial está en su nube: basta con entrar con tu cuenta. El código sólo lee tu partida y la descarga; no envía nada a ninguna parte.':
     'Steps 1 to 3 need a computer: phones have no console. Any computer works, because your official save is in its cloud: just sign in with your account. The code only reads your save and downloads it; it sends nothing anywhere.',
+  'Pega sólo este código, copiado de esta página: nunca pegues en la consola código que te pase otra persona.':
+    'Only paste this code, copied from this page: never paste code someone else gives you into the console.',
+  'Ver el código comentado': 'See the commented code',
   'Para traer la partida, vuelve al menú: termina o abandona la run.': 'To bring your save, go back to the menu: finish or quit the run.',
   'Vista previa': 'Preview',
   'Partida oficial': 'Official save',
@@ -50,8 +53,11 @@ G.I18n.add({
   'Movimientos evolucionados nuevos': 'New evolved moves',
   'Pokémon con mejoras subidas': 'Pokémon with higher upgrades',
   'Récords y estadísticas mejorados': 'Records and stats improved',
-  'Ya habías traído esta partida: sólo se suman las Pokémonedas y tickets que tenga de más desde la última vez.':
-    'You already brought this save: only the PokéCoins and tickets it has gained since last time are added.',
+  'Banners con más tiradas sin legendaria': 'Banners with more pulls without a legendary',
+  'Favoritos del perfil': 'Profile favourites',
+  'Título del perfil': 'Profile title',
+  'Ya habías traído esta partida: sólo se suma lo que tenga de nuevo. De Pokémonedas y tickets, lo que tenga de más desde la última vez; tu compañero, tu perfil y el pity de los banners no cambian.':
+    'You already brought this save: only what is new is added. For PokéCoins and tickets, what it has gained since last time; your partner, your profile and the banners\' pity don\'t change.',
   'No hay nada nuevo que traer.': 'There is nothing new to bring.',
   'Tu apodo, tus misiones de hoy, tu personalidad y tu inicial no cambian.':
     'Your nickname, today\'s missions, your personality and your starter don\'t change.',
@@ -76,6 +82,8 @@ G.I18n.add({
   'Este archivo es de una versión más nueva del exportador: actualiza esta página y vuelve a probar.':
     'This file comes from a newer version of the exporter: reload this page and try again.',
   'La partida no tiene una fecha de creación válida.': 'The save doesn\'t have a valid creation date.',
+  'Este archivo es una partida de esta versión, no del juego oficial: el código hay que pegarlo en la consola de pokesurvivor.com, con tu cuenta iniciada.':
+    'This file is a save from this version, not from the official game: the code has to be pasted into the console on pokesurvivor.com, signed in to your account.',
   'No hay ninguna partida abierta.': 'No save is open.',
   '{x} datos no reconocidos se han descartado.': '{x} unrecognised entries were discarded.',
   '{x} números fuera de rango se han ajustado.': '{x} out-of-range numbers were adjusted.',

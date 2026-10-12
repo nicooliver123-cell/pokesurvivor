@@ -7,12 +7,21 @@
  * elige el jugador (Ajustes > Cuenta, js/ui/importar-ui.js).
  *
  *   analizar(texto)                  -> { ok:false, error } | { ok:true, resumen, avisos, save }   (pura)
+ *   esLaMisma(actual, oficial)       -> ¿el archivo es esta misma partida? (mismo `created`)
  *   fusionar(actual, oficial, ahora) -> partida nueva (pura: no toca ninguna de las dos)
  *   comparar(actual, nueva, oficial) -> qué cambia, para la vista previa (pura)
- *   previsualizar(actual, oficial)   -> { nueva, cambios }
+ *   previsualizar(actual, oficial)   -> { nueva, cambios } | { error }
  *   aplicar(oficial)                 -> fusiona con la partida abierta y la guarda como cualquier
  *                                       otro cambio: en local, en este navegador; en la nube, con
  *                                       la subida normal de js/core/db.js (transacción con merge()).
+ *
+ * Sólo se aceptan partidas del juego oficial. Una partida de ESTA versión (el fragmento pegado en
+ * su propia consola, o un ps.save.* / ps.cloud.* suyo) se rechaza: sus monedas ya incluyen lo
+ * acreditado antes y traerla otra vez lo volvería a sumar. Se reconoce porque lleva el registro
+ * `importOficial` (sólo lo escribe esta versión), porque el archivo dice que se exportó desde esta
+ * misma web o porque su `created` es el de la partida abierta. El propio fragmento, además, se
+ * niega a funcionar si se pega aquí. Es una protección para el uso honrado, no antitrampas: el
+ * archivo lo controla el jugador (y la partida abierta también, desde la consola).
  *
  * Saneado: sólo las claves de newSave() (+ pupgDone); dex que existan en la Pokédex; ids que
  * existan en el juego (mejoras, objetos, movimientos, logros, tipos, banners, títulos); números
@@ -29,7 +38,7 @@ G.Importar = (() => {
   // El fragmento para la consola del juego oficial. Una línea, sin dependencias, sin red.
   // tools/nico/check.js comprueba que es idéntico a tools/nico/exportar-oficial.js, que no usa
   // fetch/XMLHttpRequest/sendBeacon/WebSocket ni URLs, y que no modifica la partida.
-  const EXPORTADOR = `(() => { const g = typeof G === 'object' && G ? G : window.G, db = g && g.DB; if (db && db.guest) return alert('Estás jugando como invitado. Inicia sesión con tu cuenta en el juego y vuelve a pegar esto.'); let s = db && db.save; if (!s && !(db && 'save' in db)) { try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i) || ''; if (!k.startsWith('ps.cloud.') && !k.startsWith('ps.save.')) continue; try { const v = JSON.parse(localStorage.getItem(k)); if (v && v.owned && (!s || (v.updated || 0) > (s.updated || 0))) s = v; } catch (e) {} } } catch (e) {} } if (!s || typeof s !== 'object' || !s.owned) return alert('No encuentro tu partida. Inicia sesión con tu cuenta en el juego (no como invitado), espera a ver el menú y vuelve a pegar esto.'); const nombre = String(s.name || 'jugador').replace(/[^a-z0-9ñáéíóúü_-]+/gi, '_'), fecha = new Date().toISOString().slice(0, 10); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ tipo: 'pokesurvivor-partida', version: 1, origen: location.host, exportado: Date.now(), save: s })], { type: 'application/json' })); a.download = 'pokesurvivor-partida-' + nombre + '-' + fecha + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000); console.log('Partida exportada: ' + Object.keys(s.owned).length + ' Pokémon en ' + a.download + '. Ya puedes cerrar la consola.'); })();`;
+  const EXPORTADOR = `(() => { const g = typeof G === 'object' && G ? G : window.G, db = g && g.DB; if (g && g.Importar && g.Importar.TIPO === 'pokesurvivor-partida') return alert('Esta página es la versión modificada, no el juego oficial. Pega este código en la consola del juego oficial, con tu cuenta iniciada.'); if (db && db.guest) return alert('Estás jugando como invitado. Inicia sesión con tu cuenta en el juego y vuelve a pegar esto.'); let s = db && db.save; if (!s && !(db && 'save' in db)) { try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i) || ''; if (!k.startsWith('ps.cloud.') && !k.startsWith('ps.save.')) continue; try { const v = JSON.parse(localStorage.getItem(k)); if (v && v.owned && (!s || (v.updated || 0) > (s.updated || 0))) s = v; } catch (e) {} } } catch (e) {} } if (!s || typeof s !== 'object' || !s.owned) return alert('No encuentro tu partida. Inicia sesión con tu cuenta en el juego (no como invitado), espera a ver el menú y vuelve a pegar esto.'); const nombre = String(s.name || 'jugador').replace(/[^a-z0-9ñáéíóúü_-]+/gi, '_'), fecha = new Date().toISOString().slice(0, 10); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ tipo: 'pokesurvivor-partida', version: 1, origen: location.host, exportado: Date.now(), save: s })], { type: 'application/json' })); a.download = 'pokesurvivor-partida-' + nombre + '-' + fecha + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000); console.log('Partida exportada: ' + Object.keys(s.owned).length + ' Pokémon en ' + a.download + '. Ya puedes cerrar la consola.'); })();`;
 
   const TEXTOS = {
     vacio: 'El archivo está vacío.',
@@ -38,6 +47,7 @@ G.Importar = (() => {
     tipo: 'Este archivo no es una partida de PokéSurvivor.',
     version: 'Este archivo es de una versión más nueva del exportador: actualiza esta página y vuelve a probar.',
     creada: 'La partida no tiene una fecha de creación válida.',
+    propia: 'Este archivo es una partida de esta versión, no del juego oficial: el código hay que pegarlo en la consola de pokesurvivor.com, con tu cuenta iniciada.',
     sinPartida: 'No hay ninguna partida abierta.',
     enRun: 'Para traer la partida, vuelve al menú: termina o abandona la run.',
     descartados: '{x} datos no reconocidos se han descartado.',
@@ -222,6 +232,11 @@ G.Importar = (() => {
     } else if (pareceSave(datos.save)) src = datos.save;   // documento saves/{uid} de Firestore: { save, v, updatedAt }
     else src = datos;                                      // partida suelta (localStorage ps.cloud.* / ps.save.*)
     if (!pareceSave(src)) return { ok: false, error: TEXTOS.tipo };
+    // Una partida de esta versión no se trae (ver la cabecera): lleva el registro que sólo
+    // escribe esta versión, o se exportó desde esta misma web.
+    if (tiene(src, REGISTRO)) return { ok: false, error: TEXTOS.propia };
+    const aqui = typeof location === 'object' && location ? location.host : '';
+    if (env && aqui && env.origen === aqui) return { ok: false, error: TEXTOS.propia };
     const c = contador();
     let save;
     try { save = sanear(src, ahora, c); }
@@ -248,21 +263,36 @@ G.Importar = (() => {
   }
 
   // ---------------- fusionar ----------------
+  /** ¿El archivo es esta misma partida (exportada desde esta versión)? Mismo `created` = misma cuenta. */
+  function esLaMisma(actual, oficial) {
+    return esObj(actual) && esObj(oficial) && actual.created != null && String(actual.created) === String(oficial.created);
+  }
+
   /**
    * Partida nueva = la del fork + lo de la oficial. No modifica ninguna de las dos.
+   * Si la "oficial" es esta misma partida (esLaMisma), lanza Error(TEXTOS.propia).
+   * Cada partida oficial se reconoce por su `created`; en la partida del fork queda apuntado en
+   * `importOficial` lo ya acreditado por cada una. Traer la misma otra vez no duplica nada:
    *   - owned, shiny: unión (con la fecha más antigua, como merge()); un shiny trae su normal
-   *   - mejoras (pupg y las antiguas), estadísticas y pity de cada banner: el máximo
+   *   - mejoras (pupg y las antiguas) y estadísticas: el máximo
    *   - legendarios, arenas, objetos, movimientos evolucionados y logros: unión
-   *   - monedas y tickets (t1, t10): se SUMAN, pero sólo lo nuevo. En la partida queda apuntado
-   *     lo ya acreditado por cada partida oficial (por su `created`); al volver a traerla sólo
-   *     se acredita la diferencia positiva, así que traerla dos veces no duplica nada
-   *   - compañero: el de la oficial si lo tienes (y su shiny si tienes el shiny)
-   *   - perfil (favoritos y título): los de la oficial si los del fork están vacíos
+   *   - monedas y tickets (t1, t10): se SUMAN, pero sólo lo nuevo: la primera vez, todo; después,
+   *     sólo lo que la oficial tenga por encima de lo ya acreditado (si se gastó allí, no resta)
+   *   - sólo la PRIMERA vez que se trae cada partida oficial (luego se quedan los del fork, que el
+   *     jugador ya ha podido cambiar aquí):
+   *       · pity de cada banner: el máximo (el del fork baja a 0 con un ★5; volver a subirlo sería
+   *         regalar tiradas)
+   *       · compañero: el de la oficial si lo tienes (y su shiny si tienes el shiny). También
+   *         después, si el del fork no es válido (ninguno o uno que no tienes)
+   *       · perfil (favoritos y título): los de la oficial si los del fork están vacíos
    *   - nombre, misiones, personalidad, inicial y fecha de creación: los del fork
    *   - updated = ahora
    */
   function fusionar(actual, oficial, ahora = Date.now()) {
+    if (esLaMisma(actual, oficial)) throw new Error(TEXTOS.propia);
     const r = copia(actual), o = oficial;
+    const reg = r[REGISTRO] = esObj(r[REGISTRO]) ? r[REGISTRO] : {};
+    const id = String(o.created), primera = !tiene(reg, id), antes = esObj(reg[id]) ? reg[id] : {};
     for (const coll of ['owned', 'shiny']) {
       r[coll] = esObj(r[coll]) ? r[coll] : {};
       for (const k of Object.keys(o[coll] || {})) {
@@ -286,11 +316,9 @@ G.Importar = (() => {
     r.stats = esObj(r.stats) ? r.stats : {};
     for (const k of Object.keys(o.stats || {})) r.stats[k] = Math.max(n0(r.stats[k]), n0(o.stats[k]));
     r.pity = esObj(r.pity) ? r.pity : {};
-    for (const g of Object.keys(o.pity || {})) r.pity[g] = Math.max(n0(r.pity[g]), n0(o.pity[g]));
+    if (primera) for (const g of Object.keys(o.pity || {})) r.pity[g] = Math.max(n0(r.pity[g]), n0(o.pity[g]));
     // Monedas y tickets: sólo lo que no se haya acreditado ya por esta partida oficial.
     r.tickets = Object.assign({ t1: 0, t10: 0 }, esObj(r.tickets) ? r.tickets : {});
-    const reg = r[REGISTRO] = esObj(r[REGISTRO]) ? r[REGISTRO] : {};
-    const id = String(o.created), antes = esObj(reg[id]) ? reg[id] : {};
     const ahoraReg = { coins: 0, t1: 0, t10: 0, at: ahora };
     for (const [k, v] of [['coins', o.coins], ['t1', o.tickets.t1], ['t10', o.tickets.t10]]) {
       const ya = n0(antes[k]), suma = Math.max(0, n0(v) - ya);
@@ -298,18 +326,19 @@ G.Importar = (() => {
       if (k === 'coins') r.coins = n0(r.coins) + suma; else r.tickets[k] = n0(r.tickets[k]) + suma;
     }
     reg[id] = ahoraReg;
-    if (o.partner != null && r.owned[o.partner]) {
+    const compaValido = r.partner != null && !!r.owned[r.partner];
+    if (o.partner != null && r.owned[o.partner] && (primera || !compaValido)) {
       r.partner = o.partner;
       r.partnerShiny = !!(o.partnerShiny && r.shiny[o.partner]);
     }
     r.profile = esObj(r.profile) ? r.profile : { favs: [], title: '' };
-    if (!Array.isArray(r.profile.favs) || !r.profile.favs.some(Boolean)) {
+    if (primera && (!Array.isArray(r.profile.favs) || !r.profile.favs.some(Boolean))) {
       const favs = (o.profile && o.profile.favs || []).filter(f => r.owned[f.dex]).slice(0, MAX_FAVS)
         .map(f => ({ dex: f.dex, shiny: !!(f.shiny && r.shiny[f.dex]) }));
       if (favs.length) r.profile.favs = favs;
     }
     const titulo = o.profile && o.profile.title;
-    if (!r.profile.title && titulo && ((G.AchDefs && G.AchDefs.LIST) || []).some(a => a.title === titulo && r.ach[a.id])) r.profile.title = titulo;
+    if (primera && !r.profile.title && titulo && ((G.AchDefs && G.AchDefs.LIST) || []).some(a => a.title === titulo && r.ach[a.id])) r.profile.title = titulo;
     r.updated = ahora;
     return r;
   }
@@ -325,14 +354,20 @@ G.Importar = (() => {
     const mas = k => Object.keys(n[k] || {}).filter(x => n0(n[k][x]) > n0((a[k] || {})[x])).length;
     const at = a.tickets || {}, nt = n.tickets || {};
     const companero = n.partner !== a.partner || !!n.partnerShiny !== !!a.partnerShiny ? { dex: n.partner, shiny: !!n.partnerShiny } : null;
+    // Perfil: favoritos y título, por separado (cada uno con su fila en la vista previa).
+    const pa = esObj(a.profile) ? a.profile : {}, pn = esObj(n.profile) ? n.profile : {};
+    const favsA = Array.isArray(pa.favs) ? pa.favs : [], favsN = Array.isArray(pn.favs) ? pn.favs : [];
+    const favs = JSON.stringify(favsN) !== JSON.stringify(favsA) ? favsN : null;
+    const titulo = (pn.title || '') !== (pa.title || '') ? pn.title || '' : null;
+    // Todo lo que cuenta en `algo` tiene su fila en la vista previa (js/ui/importar-ui.js).
     const c = {
       pokemon: nuevas('owned'), shinies: nuevas('shiny'),
       monedas: n0(n.coins) - n0(a.coins), t1: n0(nt.t1) - n0(at.t1), t10: n0(nt.t10) - n0(at.t10),
       legendarios: nuevas('legends'), arenas: nuevas('arenas'), objetos: nuevas('itemsFound'),
       movimientos: nuevas('evoMoves'), logros: nuevas('ach'), mejoras,
-      estadisticas: mas('stats'), pity: mas('pity'), companero,
-      perfil: JSON.stringify(n.profile) !== JSON.stringify(a.profile),
-      yaImportada: !!(o && esObj(a[REGISTRO]) && a[REGISTRO][String(o.created)])
+      estadisticas: mas('stats'), pity: mas('pity'), companero, favs, titulo,
+      perfil: !!(favs || titulo !== null),
+      yaImportada: !!(o && esObj(a[REGISTRO]) && tiene(a[REGISTRO], String(o.created)))
     };
     c.algo = !!(c.pokemon || c.shinies || c.monedas || c.t1 || c.t10 || c.legendarios || c.arenas || c.objetos ||
       c.movimientos || c.logros || c.mejoras || c.estadisticas || c.pity || c.companero || c.perfil);
@@ -340,6 +375,7 @@ G.Importar = (() => {
   }
 
   function previsualizar(actual, oficial, ahora = Date.now()) {
+    if (esLaMisma(actual, oficial)) return { error: TEXTOS.propia };
     const nueva = fusionar(actual, oficial, ahora);
     return { nueva, cambios: comparar(actual, nueva, oficial) };
   }
@@ -350,6 +386,7 @@ G.Importar = (() => {
     const db = G.DB;
     if (!db || !db.save) return { ok: false, error: TEXTOS.sinPartida };
     if (G.Game && G.Game.state && G.Game.state !== 'ui') return { ok: false, error: TEXTOS.enRun };
+    if (esLaMisma(db.save, oficial)) return { ok: false, error: TEXTOS.propia };
     const actual = copia(db.save);
     const nueva = fusionar(actual, oficial);
     const cambios = comparar(actual, nueva, oficial);
@@ -361,5 +398,5 @@ G.Importar = (() => {
     return { ok: true, cambios, guardada, invitado, nube, subida };
   }
 
-  return { analizar, fusionar, comparar, previsualizar, aplicar, EXPORTADOR, TEXTOS, MAX_BYTES, TIPO, REGISTRO };
+  return { analizar, esLaMisma, fusionar, comparar, previsualizar, aplicar, EXPORTADOR, TEXTOS, MAX_BYTES, TIPO, REGISTRO };
 })();

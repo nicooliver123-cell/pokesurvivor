@@ -53,7 +53,8 @@ G.ImportarUI = (() => {
         <button class="btn small gold" id="imp-pick" ${enRun() || trabajando ? 'disabled' : ''}>Elegir archivo</button>
         <input type="file" id="imp-file" accept=".json,application/json" hidden>
       </div>
-      <p class="note">Los pasos 1 a 3 necesitan un PC: en el móvil no hay consola. Vale cualquier PC, porque tu partida oficial está en su nube: basta con entrar con tu cuenta. El código sólo lee tu partida y la descarga; no envía nada a ninguna parte.</p>`;
+      <p class="note">Los pasos 1 a 3 necesitan un PC: en el móvil no hay consola. Vale cualquier PC, porque tu partida oficial está en su nube: basta con entrar con tu cuenta. El código sólo lee tu partida y la descarga; no envía nada a ninguna parte.</p>
+      <p class="note">Pega sólo este código, copiado de esta página: nunca pegues en la consola código que te pase otra persona. <a href="tools/nico/exportar-oficial.js" target="_blank" rel="noopener">Ver el código comentado</a></p>`;
     if (enRun()) h += `<p class="note imp-err">Para traer la partida, vuelve al menú: termina o abandona la run.</p>`;
     if (analisis && G.DB.save) h += previa();
     if (aviso) h += `<div class="imp-msg ${aviso.ok ? 'imp-ok' : 'imp-err'}">${aviso.textos.map(t => `<p>${esc(t)}</p>`).join('')}</div>`;
@@ -62,9 +63,12 @@ G.ImportarUI = (() => {
 
   function previa() {
     const R = analisis.resumen;
-    const C = G.Importar.previsualizar(G.DB.save, analisis.save).cambios;
+    const P = G.Importar.previsualizar(G.DB.save, analisis.save);
+    if (P.error) return `<div class="imp-msg imp-err"><p>${esc(P.error)}</p></div>`;
+    const C = P.cambios;
     const fila = (label, val) => `<div class="set-row"><div class="grow"><b>${esc(label)}</b></div><span class="gold">${val}</span></div>`;
     const si = (n, label) => (n > 0 ? fila(label, mas(n)) : '');
+    const favs = C.favs && C.favs.length ? C.favs.map(f => esc(nombrePk(f.dex)) + (f.shiny ? ' ★' : '')).join(', ') : '';
     let h = `<div class="imp-prev"><h3 class="set-h">Vista previa</h3>`
       + fila('Partida oficial', `<span translate="no">${esc(R.nombre || '?')}</span>`)
       + (R.exportado ? fila('Exportada el', fechaDMA(R.exportado)) : '')
@@ -77,9 +81,12 @@ G.ImportarUI = (() => {
       + si(C.arenas, 'Arenas ganadas nuevas') + si(C.objetos, 'Objetos nuevos')
       + si(C.movimientos, 'Movimientos evolucionados nuevos') + si(C.mejoras, 'Pokémon con mejoras subidas')
       + si(C.estadisticas, 'Récords y estadísticas mejorados')
-      + (C.companero && C.companero.dex ? fila('Compañero', `<span translate="no">${esc(nombrePk(C.companero.dex))}${C.companero.shiny ? ' ★' : ''}</span>`) : '');
+      + si(C.pity, 'Banners con más tiradas sin legendaria')
+      + (C.companero && C.companero.dex ? fila('Compañero', `<span translate="no">${esc(nombrePk(C.companero.dex))}${C.companero.shiny ? ' ★' : ''}</span>`) : '')
+      + (favs ? fila('Favoritos del perfil', `<span translate="no">${favs}</span>`) : '')
+      + (C.titulo ? fila('Título del perfil', esc(C.titulo)) : '');
     const notas = [];
-    if (C.yaImportada) notas.push('Ya habías traído esta partida: sólo se suman las Pokémonedas y tickets que tenga de más desde la última vez.');
+    if (C.yaImportada) notas.push('Ya habías traído esta partida: sólo se suma lo que tenga de nuevo. De Pokémonedas y tickets, lo que tenga de más desde la última vez; tu compañero, tu perfil y el pity de los banners no cambian.');
     if (!C.algo) notas.push('No hay nada nuevo que traer.');
     notas.push('Tu apodo, tus misiones de hoy, tu personalidad y tu inicial no cambian.');
     for (const a of analisis.avisos) notas.push(a);
@@ -122,7 +129,9 @@ G.ImportarUI = (() => {
     try { texto = await f.text(); }
     catch (e) { aviso = { ok: false, textos: ['No se ha podido leer el archivo.'] }; return repintar(); }
     const r = G.Importar.analizar(texto);
-    if (r.ok) analisis = r; else aviso = { ok: false, textos: [r.error] };
+    // Una partida de esta misma cuenta (exportada desde aquí) no se trae: se dice ya, sin vista previa.
+    if (r.ok && G.DB.save && G.Importar.esLaMisma(G.DB.save, r.save)) aviso = { ok: false, textos: [G.Importar.TEXTOS.propia] };
+    else if (r.ok) analisis = r; else aviso = { ok: false, textos: [r.error] };
     repintar();
     const p = document.querySelector('#imp-box .imp-prev, #imp-box .imp-msg');
     if (p && p.scrollIntoView) p.scrollIntoView({ block: 'nearest' });

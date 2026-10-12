@@ -105,8 +105,10 @@ partida la sacas tú de tu navegador, con un código que pegas en la web oficial
    `permitir pegar` (o `allow pasting`), escríbelo y pulsa Enter.
 3. En esta versión, abre **Ajustes > Cuenta > Traer partida del juego oficial**,
    pulsa **Copiar**, pega el código en la consola del juego oficial y pulsa Enter.
-   Se descarga `pokesurvivor-partida-<nombre>-<fecha>.json`. El mismo código está
-   en [tools/nico/exportar-oficial.js](tools/nico/exportar-oficial.js).
+   Se descarga `pokesurvivor-partida-<nombre>-<fecha>.json`. El mismo código está,
+   comentado, en [tools/nico/exportar-oficial.js](tools/nico/exportar-oficial.js).
+   Pega sólo este código, copiado de esta versión: nunca pegues en la consola
+   código que te pase otra persona.
 4. Vuelve aquí, pulsa **Elegir archivo**, mira la vista previa y pulsa **Confirmar**.
 
 El código sólo lee la partida que ya tiene tu navegador y la descarga: no envía
@@ -116,11 +118,13 @@ Se suma a lo que ya tengas aquí, sin borrar nada:
 
 - Colección y shinies, legendarios vencidos, arenas, objetos, movimientos
   evolucionados y logros: se juntan.
-- Mejoras de cada Pokémon, estadísticas y pity del gacha: se queda el máximo.
+- Mejoras de cada Pokémon y estadísticas: se queda el máximo.
 - Pokémonedas y tickets: se suman una sola vez. Si más adelante vuelves a traer
   la misma partida, sólo se suma lo que tenga de más desde la última vez.
-- Compañero: el del juego oficial (y su shiny, si lo tienes). Favoritos y título
-  del perfil: los del oficial, si aquí no tenías.
+- Sólo la primera vez que traes cada partida oficial: el pity del gacha (se queda
+  el máximo), el compañero del juego oficial (y su shiny, si lo tienes) y, si aquí
+  no tenías, los favoritos y el título del perfil. Si la vuelves a traer, se
+  quedan los que tengas aquí.
 - Tu apodo, tus misiones del día, tu personalidad y tu inicial de aquí no cambian.
 
 Límites:
@@ -131,7 +135,11 @@ Límites:
   sólo en el navegador donde la traigas: hazlo en el que juegues. Como invitado
   no se guarda.
 - Es una foto de ese momento: lo que juegues después en el oficial no llega solo.
-  Vuelve a traerla cuando quieras; no duplica nada.
+  Vuelve a traerla cuando quieras: sólo se suma lo nuevo, sin repetir monedas,
+  tickets ni pity.
+- Sólo vale una partida del juego oficial. El código no hace nada si lo pegas en
+  esta versión, y una partida de esta versión se rechaza al elegirla: sus monedas
+  ya incluyen lo traído y se volverían a sumar.
 - Si el juego oficial cambia mucho por dentro, el código puede dejar de
   encontrar la partida: avisará con un mensaje y no descargará nada.
 

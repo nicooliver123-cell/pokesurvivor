@@ -36,7 +36,9 @@
  *      errores de JavaScript o si el aviso legal no lleva el contacto del fork.
  *   8. Antes de la partida, A trae una partida "oficial" sintética por Ajustes > Cuenta (elegir
  *      archivo, vista previa, Confirmar): tiene que sumarse y subirse a Firestore con la
- *      transacción normal, y traer otra vez el mismo archivo no puede sumar nada.
+ *      transacción normal, y traer otra vez el mismo archivo no puede sumar nada. El código
+ *      de la sección, pegado en la consola de esta versión, avisa y no descarga; y elegir la
+ *      partida de la propia cuenta (con o sin el registro de lo traído) da error.
  *
  * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
  * desde el último golpe que el propio invitado predijo en ella (lo mide la trampa):
@@ -372,6 +374,38 @@ async function importOfficial(P) {
     coins: G.DB.save.coins }));
   check('Importar otra vez el mismo archivo no ofrece sumar nada (monedas y tickets sin duplicar)', re.desactivado && re.yaTraida && re.coins === r.coins, re);
   await page.click('#imp-cancel');
+  // El código de la sección, pegado en la consola de ESTA versión (la pestaña donde se pulsa Copiar):
+  // avisa de que no es el juego oficial y no descarga nada.
+  const codigo = await page.inputValue('#imp-code');
+  let alerta = null, descargas = 0;
+  const onDialog = d => { alerta = d.message(); d.dismiss().catch(() => {}); };
+  const onDownload = () => { descargas++; };
+  page.on('dialog', onDialog); page.on('download', onDownload);
+  await page.evaluate(codigo);
+  await sleep(800);
+  page.off('dialog', onDialog); page.off('download', onDownload);
+  check('El código para el juego oficial, pegado en la consola de esta versión, avisa y no descarga nada',
+    /versión modificada, no el juego oficial/.test(alerta || '') && descargas === 0, { alerta, descargas });
+  // Elegir la partida de la propia cuenta (como si se exportara desde aquí): error, sin vista previa ni sumar nada.
+  // Con el registro de lo traído (lo normal) y sin él (se reconoce por su `created`).
+  const propias = [];
+  for (const conRegistro of [true, false]) {
+    const f = path.join(OUT, `partida-propia-${conRegistro ? 'con' : 'sin'}-registro.json`);
+    fs.writeFileSync(f, await page.evaluate(conReg => {
+      const s = JSON.parse(JSON.stringify(G.DB.save));
+      if (!conReg) delete s.importOficial;
+      return JSON.stringify({ tipo: 'pokesurvivor-partida', version: 1, origen: 'otra-web.test', exportado: Date.now(), save: s });
+    }, conRegistro));
+    // Sin el mensaje de la vuelta anterior: así se espera al de este archivo (repintar lo vuelve a crear).
+    await page.evaluate(() => { const m = document.querySelector('#imp-box .imp-msg'); if (m) m.remove(); });
+    await page.setInputFiles('#imp-file', f);
+    await waitVisible(page, '#imp-box .imp-msg');
+    propias.push(await page.evaluate(() => ({ msg: document.querySelector('#imp-box .imp-msg').textContent.replace(/\s+/g, ' ').trim(),
+      previa: !!document.querySelector('#imp-box .imp-prev'), confirmar: !!document.getElementById('imp-ok'), coins: G.DB.save.coins })));
+  }
+  report.capturaImportarPropia = await shot(page, tag + '_importar_partida_propia');
+  check('Elegir la partida de la propia cuenta (con y sin el registro) da error, sin vista previa ni Confirmar, y no suma nada',
+    propias.length === 2 && propias.every(p => /partida de esta versión, no del juego oficial/.test(p.msg) && !p.previa && !p.confirmar && p.coins === r.coins), propias);
   await page.click('#set-close');
 }
 
