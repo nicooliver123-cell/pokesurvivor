@@ -79,9 +79,8 @@ G.MODS = {
   /** Invitado, copia de un enemigo (enemy.js, hurt): ¿se resta ya en pantalla tu
    *  golpe? No si el anfitrión dice que tiene escudo (bit 4 de su estado). */
   predecirGolpe(e) {
-    if (this.curacionEnemiga) return true;
-    if (e.net && (e.net.st & 4)) return false;
-    e.golpePredichoT = performance.now();
+    if (!this.curacionEnemiga && e.net && (e.net.st & 4)) return false;
+    e.golpePredichoT = performance.now();   // también con true, por si se cambia en plena partida
     return true;
   },
 
