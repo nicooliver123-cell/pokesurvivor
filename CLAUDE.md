@@ -2,11 +2,12 @@
 
 Copia propia y modificable de [PokéSurvivor](https://github.com/JPTER78/pokesurvivor) (fan game de JPTER78, HTML + JS vanilla sobre Canvas; código MIT, sprites CC BY-NC 4.0) para que Nico y un amigo jueguen en cooperativo con sus cambios. Se publicará como fork en https://github.com/nicooliver123-cell/pokesurvivor, con el juego en https://nicooliver123-cell.github.io/pokesurvivor/. Pendientes: [PLAN.md](PLAN.md), la única lista.
 
-Aquí se empieza de cero: otra web y otro Firebase, así que no se traen las cuentas, la colección ni el progreso del juego oficial.
+Es otra web y otro Firebase, así que las cuentas son nuevas; pero el jugador puede traer su partida del juego oficial desde Ajustes > Cuenta (ver «Traer la partida del juego oficial»).
 
 ## Reglas duras
 
 - **Nunca usar la infraestructura del original**: su proyecto Firebase `pokesurvivor-jpter`, `turn.pokesurvivor.com`, su ranking, su dominio ni su correo. Sería usar su backend y su factura con un cliente modificado. `js/core/db.js` sólo conecta con un proyecto de la lista blanca `G.FIREBASE_PROYECTOS` de `js/core/firebase-config.js` (si falta la lista, con ninguno) y `tools/nico/check.js` lo vigila.
+- Traer la partida del oficial no rompe lo anterior: la saca el propio jugador en su navegador y el fork sólo lee el archivo `.json` que él elige. Nada de `fetch` ni conexiones al juego oficial desde el fork, y ningún agente inicia sesión en el juego oficial ni crea cuentas allí.
 - Sin autorización expresa de Nico: nada de `git push`, crear repos en GitHub ni crear proyectos de Firebase.
 - `index.html` y `js/app.min.js` son **generados**: no se editan ni se resuelven a mano en un merge.
 - Conservar `LICENSE`, `CREDITS.md`, `assets/fonts/OFL.txt` y las atribuciones del juego. Sin monetización ni donaciones: los sprites son CC BY-NC.
@@ -50,6 +51,14 @@ Aquí se empieza de cero: otra web y otro Firebase, así que no se traen las cue
 Siguen siendo algo más grandes que los pequeños, así que se reconocen. El alcance de los ataques no cambia: sale de los pies con el radio de cada movimiento. Los enemigos, los jefes y los menús tampoco cambian. El tamaño no viaja por la red: cada cliente lo calcula a partir del Pokémon, así que los dos jugadores tienen que usar la misma versión.
 
 **Cooperativo.** El anfitrión decide la vida de los enemigos. El invitado resta su golpe en pantalla al momento y luego recibe la vida del anfitrión; antes, con latencia o con escudo, la barra subía y parecía una curación. Ahora, con `curacionEnemiga=false`: la ventana de arriba, no se predice el golpe si el anfitrión dice que el enemigo tiene escudo, y al volver de la grieta las copias llegan con su vida real (`'ne'` la lleva; un cliente que no la mande deja la máxima, como antes). La prueba mide la vida en los dos clientes con una trampa en el setter y latencia simulada.
+
+## Traer la partida del juego oficial
+
+- **Exportador** (en el oficial): una línea que el jugador pega en la consola de pokesurvivor.com con su sesión iniciada. Lee `G.DB.save` (si el juego cambia y no existe, la copia `ps.cloud.*` / `ps.save.*` más reciente de localStorage), avisa con `alert` si es invitado o no hay sesión, y descarga `pokesurvivor-partida-<nombre>-<fecha>.json` con `{tipo: 'pokesurvivor-partida', version: 1, origen, exportado, save}`. Sin red y sin escribir nada. Está en `G.Importar.EXPORTADOR` (`js/core/importar.js`, lo que copia el botón de Ajustes) y en `tools/nico/exportar-oficial.js`; `check.js` exige que sean idénticos.
+- **Importador**, `js/core/importar.js` (`G.Importar`): `analizar(texto)` (JSON.parse, máximo 2 MB, envoltorio o partida suelta, sólo claves de `newSave()` + `pupgDone`, dex de la Pokédex, ids que existan en el juego, números finitos ≥ 0 con tope), `fusionar(actual, oficial)` y `comparar()`, puras, y `aplicar(oficial)`, que fusiona sobre la partida abierta (`applyInPlace`) y guarda con `commit(true)` y, en la nube, `flush()` (la transacción normal con `merge()`).
+- **Fusión**: unión de colección, shinies, legendarios, arenas, objetos, movimientos evolucionados y logros; máximo de mejoras, estadísticas y pity; monedas y tickets se suman sólo una vez: `save.importOficial[<created de la oficial>]` guarda lo ya acreditado y una reimportación suma sólo la diferencia positiva. Compañero: el oficial si lo tiene (shiny si tiene el shiny). Perfil: el oficial si el del fork está vacío. Nombre, misiones, personalidad, inicial y `created`: los del fork. Detalle en el comentario de `fusionar()`.
+- **UI**: `js/ui/importar-ui.js`, sección de Ajustes > Cuenta (pasos, Copiar, Elegir archivo, vista previa, Confirmar); aviso si es invitado y bloqueo en mitad de una run. Ganchos `// MOD nico`: `db.js` expone `newSave`, `migrate` y `applyInPlace`; `settings-ui.js` pinta y conecta la sección. Inglés en `js/data/lang-en-mod.js`.
+- **Pruebas**: `check.js` (exportador simulado y 37 casos del importador, también `aplicar()` en local e invitado con el `db.js` real) y el E2E (A trae una partida sintética por la UI en la nube del emulador y la reimporta sin duplicar). La partida oficial real no se ha probado aquí: ningún agente entra en el juego oficial.
 
 ## Higiene del fork (hecha)
 

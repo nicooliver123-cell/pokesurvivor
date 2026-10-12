@@ -10,8 +10,10 @@
 > **Jugar:** https://nicooliver123-cell.github.io/pokesurvivor/ · Fallos, sugerencias
 > y retiradas de contenido: [avisos del repositorio](https://github.com/nicooliver123-cell/pokesurvivor/issues).
 >
-> **Aquí se empieza de cero.** Es otra web y otra base de datos (un Firebase propio),
-> así que no se traen las cuentas, la colección ni el progreso del juego oficial.
+> **Tu partida del juego oficial se puede traer.** Es otra web y otra base de datos (un
+> Firebase propio), así que las cuentas son nuevas, pero desde **Ajustes > Cuenta** se
+> suman aquí tu colección, shinies, mejoras, logros, Pokémonedas y tickets del juego
+> oficial. Pasos más abajo, en [Traer tu partida del juego oficial](#traer-tu-partida-del-juego-oficial).
 
 Bullet-heaven con Pokémon al estilo de Survivor.io y Megabonk, con sprites de
 *Pokémon Mundo Misterioso*, capa roguelike, **966 Pokémon de las 9 generaciones**,
@@ -91,6 +93,47 @@ sitio, se pierde.
 
 En `videos/` hay grabaciones del juego (con su música): un combate contra un
 jefe, la captura de un shiny salvaje y un shiny en el gacha.
+
+## Traer tu partida del juego oficial
+
+Esta versión no entra en tu cuenta del juego oficial ni habla con su servidor. La
+partida la sacas tú de tu navegador, con un código que pegas en la web oficial:
+
+1. En un **PC**, abre pokesurvivor.com e inicia sesión con tu cuenta. Vale
+   cualquier PC: tu partida oficial está en su nube.
+2. Pulsa `F12` y ve a la pestaña **Consola**. Si Chrome te pide escribir
+   `permitir pegar` (o `allow pasting`), escríbelo y pulsa Enter.
+3. En esta versión, abre **Ajustes > Cuenta > Traer partida del juego oficial**,
+   pulsa **Copiar**, pega el código en la consola del juego oficial y pulsa Enter.
+   Se descarga `pokesurvivor-partida-<nombre>-<fecha>.json`. El mismo código está
+   en [tools/nico/exportar-oficial.js](tools/nico/exportar-oficial.js).
+4. Vuelve aquí, pulsa **Elegir archivo**, mira la vista previa y pulsa **Confirmar**.
+
+El código sólo lee la partida que ya tiene tu navegador y la descarga: no envía
+nada a ninguna parte ni cambia nada. Esta versión sólo lee el archivo que eliges.
+
+Se suma a lo que ya tengas aquí, sin borrar nada:
+
+- Colección y shinies, legendarios vencidos, arenas, objetos, movimientos
+  evolucionados y logros: se juntan.
+- Mejoras de cada Pokémon, estadísticas y pity del gacha: se queda el máximo.
+- Pokémonedas y tickets: se suman una sola vez. Si más adelante vuelves a traer
+  la misma partida, sólo se suma lo que tenga de más desde la última vez.
+- Compañero: el del juego oficial (y su shiny, si lo tienes). Favoritos y título
+  del perfil: los del oficial, si aquí no tenías.
+- Tu apodo, tus misiones del día, tu personalidad y tu inicial de aquí no cambian.
+
+Límites:
+
+- Desde el móvil no se puede exportar, porque no hay consola: hace falta un PC.
+  El archivo sí se puede elegir luego en cualquier dispositivo.
+- Mientras esta versión no tenga su Firebase propio, la partida traída se guarda
+  sólo en el navegador donde la traigas: hazlo en el que juegues. Como invitado
+  no se guarda.
+- Es una foto de ese momento: lo que juegues después en el oficial no llega solo.
+  Vuelve a traerla cuando quieras; no duplica nada.
+- Si el juego oficial cambia mucho por dentro, el código puede dejar de
+  encontrar la partida: avisará con un mensaje y no descargará nada.
 
 ## Guardado en la nube y publicación
 
