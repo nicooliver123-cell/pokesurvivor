@@ -74,6 +74,7 @@ G.FX = (() => {
   }
 
   function dmgText(x, y, value, color = '#ffffff', big = false) {
+    if (arguments[5] && G.Claridad && G.Claridad.sumar(arguments[5], value, color, big, arguments[6])) return;   // MOD nico: un número por enemigo (6.º: el enemigo; 7.º: su escudo) (js/entities/claridad.js)
     // Con cientos de golpes por segundo no se leen igual: tope de 70 (los
     // grandes, como "¡Muy eficaz!" o los de jefe, siempre entran).
     // Ajustes → "Números de daño": los números se ocultan; los avisos de texto no.
@@ -146,6 +147,7 @@ G.FX = (() => {
         if (arr[i].t >= arr[i].life) arr.splice(i, 1);
       }
     }
+    if (G.Claridad) G.Claridad.actualizar(dt);   // MOD nico: números agrupados por enemigo (js/entities/claridad.js)
   }
 
   // ---------------- dibujo ----------------
@@ -263,6 +265,7 @@ G.FX = (() => {
       ctx.fillText(t.s, t.x, t.y);
       ctx.restore();
     }
+    if (G.Claridad) G.Claridad.dibujarNumeros(ctx);   // MOD nico: números agrupados por enemigo (js/entities/claridad.js)
   }
 
   return { clear, px, burst, spark, sp, twinkle, trail, dmgText, ring, slash, beam, update, draw,

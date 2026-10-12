@@ -38,6 +38,10 @@
  *      repetido -> su evolución (js/data/evolutions.js sin ciclos y sólo con especies del juego; pull() real
  *      con las tiradas guionizadas: Bulbasaur, Eevee, shiny, ×10 en orden, ramas; la carta y el inglés).
  *      La grieta: también la primera natural antes del límite lleva el 60 % (las posteriores, enteras).
+ *  11. Claridad en partida (js/entities/claridad.js con fx.js, enemy.js y mods.js reales): números de daño
+ *      sumados por enemigo (también el escudo aparte y el invitado), su vida y su subida sin depender de los
+ *      FPS; barras de vida sólo 1,5 s tras un cambio (y quién las conserva); qué tapa a tu Pokémon, el contorno
+ *      a escala, el aro, el chevrón y los compañeros; el borde rojo (golpe, vida baja, «menos sacudidas»).
  *  12. Arreglos de upstream: el bioma a los 0-120 min con world.js y tiles.js reales (nombre, líquido y daño de
  *      los charcos; control: upstream da «Grieta · …» a los 12 min y se rompe a los 84) y el fogonazo de la
  *      grieta, que se apaga también al elegir fusión (frame() de game.js tal cual).
@@ -186,6 +190,9 @@ else bad('el paquete no incluye js/core/mods.js (o una versión vieja)');
 if (minS.includes('G.EVO={1:[2],')) ok('el paquete incluye js/data/evolutions.js'); else bad('el paquete no incluye js/data/evolutions.js');
 if (minS.includes('pokesurvivor-partida') && minS.includes('imp-box')) ok('el paquete incluye el importador (js/core/importar.js y js/ui/importar-ui.js)');
 else bad('el paquete no incluye js/core/importar.js o js/ui/importar-ui.js');
+if (minS.includes('G.Claridad=') && ['jugadorVisible', 'numerosAgrupados', 'contornoDisparos', 'barrasTrasGolpe', 'vinetaDanio', 'biomasEnCiclo', 'destelloSinCongelar'].every(k => minS.includes(k)))
+  ok('el paquete incluye la claridad en partida (js/entities/claridad.js) y sus ajustes');
+else bad('el paquete no incluye js/entities/claridad.js o sus ajustes de js/core/mods.js');
 
 // ---------------- 3. ganchos ----------------
 console.log('3. Ganchos "// MOD nico"');
@@ -248,6 +255,22 @@ const HOOKS = [
     'repetidos: pull() pregunta por la evolución antes de dar las monedas y la apunta en el resultado'],
   ['js/ui/gacha-ui.js', /<div class="tag">\$\{tag\}<\/div>`\);\r?\n\s*if \(r\.evo && G\.MODS && G\.MODS\.marcarEvolucion\) G\.MODS\.marcarEvolucion\(c, r\);\s*\/\/ MOD nico/, 'repetidos: la carta enseña la evolución desbloqueada'],
   ['js/ui/gacha-ui.js', /· Los repetidos dan Pokémonedas \(los shiny repetidos, el triple\)\.<br>/, 'repetidos: la nota de upstream que cambia notasGacha() sigue ahí'],
+  // Claridad en partida (js/entities/claridad.js)
+  ['dev.html', /src="js\/entities\/player\.js"><\/script>\r?\n<script defer src="js\/entities\/claridad\.js"><\/script><!-- MOD nico/, 'claridad: claridad.js se carga justo después de player.js'],
+  ['js/game.js', /items\.sort\(\(a, b\) => a\.y - b\.y\);\r?\n\s*if \(G\.Claridad\) G\.Claridad\.escenaOrdenada\(items\);\s*\/\/ MOD nico/, 'claridad: drawScene pasa la escena ordenada (qué tapa a cada jugador)'],
+  ['js/game.js', /drawScene\(G\.Camera, [^\n]*\r?\n\s*if \(G\.Claridad\) G\.Claridad\.encima\(ctx\);\s*\/\/ MOD nico[^\n]*\r?\n\s*G\.Projectiles\.draw\(ctx\);/, 'claridad: tu Pokémon tapado, encima de la escena y debajo de disparos y efectos'],
+  ['js/game.js', /G\.FX\.draw\(ctx\);\r?\n\s*if \(G\.Claridad\) G\.Claridad\.chevron\(ctx\);\s*\/\/ MOD nico/, 'claridad: el chevrón, después de los números'],
+  ['js/game.js', /if \(G\.Claridad\) G\.Claridad\.vineta\(ctx, w, h, pl\);\s*\/\/ MOD nico[^\n]*\r?\n\s*G\.HUD\.draw\(ctx, w, h, pl, st\);/, 'claridad: el borde rojo, antes del HUD'],
+  ['js/entities/fx.js', /function dmgText\(x, y, value, color = '#ffffff', big = false\) \{\r?\n\s*if \(arguments\[5\] && G\.Claridad && G\.Claridad\.sumar\(arguments\[5\], value, color, big, arguments\[6\]\)\) return;\s*\/\/ MOD nico/, 'claridad: dmgText suma los golpes de cada enemigo'],
+  ['js/entities/fx.js', /if \(G\.Claridad\) G\.Claridad\.actualizar\(dt\);\s*\/\/ MOD nico/, 'claridad: FX.update mueve los números agrupados'],
+  ['js/entities/fx.js', /if \(G\.Claridad\) G\.Claridad\.dibujarNumeros\(ctx\);\s*\/\/ MOD nico/, 'claridad: FX.draw pinta los números agrupados'],
+  ['js/entities/enemy.js', /this\.boss \|\| eff === 'super', this\);\s*\/\/ MOD nico/, 'claridad: showHurt pasa el enemigo (también los golpes que anuncia el anfitrión)'],
+  ['js/entities/enemy.js', /G\.FX\.dmgText\(this\.x, this\.y - this\.bodyH - 4, d, '#9fd8ff', false, this, true\);/, 'claridad: el escudo pasa el enemigo y que es su escudo'],
+  ['js/entities/enemy.js', /if \(\(this\.boss \|\| this\.hp < this\.maxHp\) && \(!G\.Claridad \|\| G\.Claridad\.barra\(this\)\)\) \{\s*\/\/ MOD nico/, 'claridad: barra de vida sólo tras un golpe reciente'],
+  ['js/entities/player.js', /drawShadow\(ctx, this\.dex, this\.x, this\.y, this\.scale\);[^\n]*\r?\n\s*if \(G\.Claridad\) G\.Claridad\.aro\(ctx, this\);\s*\/\/ MOD nico/, 'claridad: el aro a los pies, debajo del sprite'],
+  ['js/entities/player.js', /G\.Camera\.kick\(0\.28\);\r?\n\s*if \(G\.Claridad\) G\.Claridad\.golpe\(this, d\);\s*\/\/ MOD nico/, 'claridad: el golpe recibido, para el borde rojo'],
+  ['js/entities/projectile.js', /if \(!p\.friendly && G\.Claridad && G\.Claridad\.disparoHostil\(ctx, shape, v\.pal, p\.x, p\.y - L, angle, a, p\.r >= 8 \? 1\.5 : 1, Math\.floor\(p\.t \* 12\)\)\) continue;\s*\/\/ MOD nico/,
+    'claridad: los disparos enemigos, con su contorno rojo'],
   // Arreglos de upstream
   ['js/game.js', /G\.World\.setBiome\(G\.MODS && G\.MODS\.biomaNormal \? G\.MODS\.biomaNormal\(b\) : b\);\s*\/\/ MOD nico/, 'biomas: desde el minuto 12, el mapa sigue en sus biomas normales'],
   ['js/game.js', /if \(state !== 'playing' && flashT > 0 && G\.MODS && G\.MODS\.destelloSinCongelar\) flashT -= dt;\s*\/\/ MOD nico/, 'fogonazo de la grieta: se apaga también al elegir fusión'],
@@ -1642,6 +1665,268 @@ ${fTicket}      }
   for (const [name, , detail] of failed) bad(`gacha: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 11. claridad en partida ----------------
+function claridadChecks() {
+  console.log('11. Claridad en partida (js/entities/claridad.js con fx.js, enemy.js y mods.js reales)');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  /** El juego mínimo: util.js, mods.js, fx.js, enemy.js y claridad.js reales; sprites, ajustes y red, de mentira. */
+  function mundo({ numeros = true, fx = 2, calm = false, mods = {} } = {}) {
+    const S = { reloj: 1000, ajustes: { dmgNumbers: numeros, calm }, red: [], dibujados: [] };
+    // Un document mínimo: sus lienzos pintan (tinte del contorno) pero no se pueden leer.
+    const document = { createElement: () => ({ width: 0, height: 0, getContext: () => ({ drawImage() {}, fillRect() {} }) }) };
+    const c = { console, document, performance: { now: () => S.reloj } };
+    vm.createContext(c);
+    c.window = c; c.G = {};
+    for (const f of ['js/core/util.js', 'js/core/mods.js']) vm.runInContext(rd(f), c, { filename: f });
+    const G = c.G;
+    Object.assign(G.MODS, mods);
+    G.Sprites = { PX: 2, bodyRadius: () => 10, bodyHeight: () => 30, hovers: () => false, drawShadow() {}, white: img => img,
+      Animator: class { constructor(dex, scale) { this.dex = dex; this.scale = scale; this.cur = 'Idle'; this.frame = 0; this.dir = 0; }
+        busy() { return false; } play() {} loop() {} update() {} draw(ctx, x, y, o) { S.dibujados.push({ x, y, o }); } },
+      // Geometría de un fotograma de 40x40 con los pies en (20, 30); la imagen no se puede leer en node (sin document):
+      // claridad.js usa entonces la caja del cuerpo (radio y alto), como con el juego abierto con file://.
+      animMeta: () => ({ w: 40, h: 40, ax: 20, ay: 30, n: 1, r: 8 }), sheet: () => S.hoja || (S.hoja = { ready: true, img: { width: 40, height: 320 } }) };
+    G.Settings = { get: k => S.ajustes[k], get fx() { return fx; } };
+    G.Audio = { sfx() {} };
+    G.Coop = { isHost: false, active: false, hit: (...a) => S.red.push(a), puppets: () => [] };
+    G.DEX_BY = {}; G.Events = { golden: false }; G.Icons = { draw() {} };
+    G.Game = { player: { x: 0, y: 0, hp: 100, maxHp: 100, r: 10, bodyH: 30 } };
+    for (const f of ['js/entities/fx.js', 'js/entities/enemy.js', 'js/entities/claridad.js']) vm.runInContext(rd(f), c, { filename: f });
+    const enemigo = (o = {}) => {
+      const e = new G.Enemy({ dex: 1, name: 'Prueba', hp: o.hp || 1000, spd: 1, dmg: 1, xp: 1, behavior: o.behavior || 'charger' }, o.x || 0, o.y || 0, { hp: 1, spd: 1, dmg: 1 }, !!o.boss);
+      if (o.remote) { e.remote = true; e.net = { st: 0 }; }
+      G.EnemyMgr.add(e);
+      return e;
+    };
+    return { c, G, S, C: G.Claridad, enemigo };
+  }
+  /** Un lienzo de mentira que apunta lo que se pinta. */
+  function lienzo() {
+    const L = { textos: [], rects: [], imgs: [], elipses: [], lineas: 0, fillStyle: '', strokeStyle: '', font: '', lineWidth: 1, globalAlpha: 1 };
+    const nop = () => {};
+    return new Proxy(L, {
+      get(o, k) {
+        if (k in o) return o[k];
+        if (k === 'fillText') return (s, x, y) => o.textos.push({ s: String(s), color: o.fillStyle, font: o.font, borde: o.lineWidth, x, y });
+        if (k === 'fillRect') return (x, y, w, h) => o.rects.push({ x, y, w, h, color: o.fillStyle });
+        if (k === 'drawImage') return (...a) => o.imgs.push(a);
+        if (k === 'ellipse') return (...a) => o.elipses.push({ a, color: o.strokeStyle });
+        if (k === 'moveTo') return () => { o.lineas++; };
+        if (k === 'createRadialGradient') return () => ({ addColorStop: (p, col) => o.rects.push({ parada: p, color: col }) });
+        return nop;
+      },
+      set(o, k, v) { o[k] = v; return true; }
+    });
+  }
+  const digitos = L => L.textos.filter(x => /^\d+$/.test(x.s));
+
+  // ---- A. Números de daño: uno por enemigo mientras vive ----
+  try {
+    const W = mundo(), { G, C } = W;
+    const e1 = W.enemigo(), e2 = W.enemigo({ x: 200 });
+    e1.hurt(10); e1.hurt(12); e1.hurt(8);
+    let n = C.numeros, L = lienzo();
+    G.FX.draw(L);
+    t('tres golpes al mismo enemigo (por su id): un único número con la suma (30), en el hueco de fx.js', n.length === 1 && n[0].id === e1.id && n[0].suma === 30 &&
+      n[0].golpes === 3 && !n[0].suelto && digitos(L).length === 1 && digitos(L)[0].s === '30', { n, textos: L.textos });
+    t('tamaño 11 (con el saltito de cada golpe, más) y contorno de 2', /^700 1[1-5]px Pixelify/.test(digitos(L)[0].font) && digitos(L)[0].borde === 2, digitos(L)[0]);
+    e2.hurt(5);
+    e2.shield = 100; e2.shieldT = 8;
+    e2.hurt(20); e2.hurt(20);
+    n = C.numeros;
+    const n2 = n.find(x => x.id === e2.id && !x.escudo), esc = n.find(x => x.escudo);
+    t('otro enemigo, otro número; los del escudo (azules), aparte del suyo', n.length === 3 && n2 && n2.suma === 5 && esc && esc.id === e2.id && esc.suma === 40 &&
+      esc.clave === e2.id + ':e' && esc.color === '#9fd8ff', n);
+    e1.hurt(10, '#fff', 0, 0, 0, 'super');
+    const s1 = C.numeros.find(x => x.id === e1.id);
+    t('un «muy eficaz» tiñe el número de amarillo y lo hace grande', s1.suma === 40 && s1.color === '#ffe14d' && s1.big, s1);
+    G.FX.update(0.2);
+    L = lienzo(); G.FX.draw(L);
+    const f16 = digitos(L).find(x => x.s === '40');
+    t('grande, ya sin el saltito: 16', f16 && /^700 16px/.test(f16.font), f16);
+    G.FX.update(0.3);
+    e1.hurt(1);
+    const r1 = C.numeros.find(x => x.id === e1.id);
+    G.FX.update(0.9);
+    const vivo = C.numeros.find(x => x.id === e1.id);
+    G.FX.update(0.15);
+    const suelto = C.numeros.find(x => x.id === e1.id);
+    t('se renueva mientras recibe (0,5 s después suma al mismo) y tras ~1 s sin golpes se suelta', r1.suma === 41 && r1.golpes === 5 && !vivo.suelto && suelto.suelto,
+      { r1, vivo, suelto });
+    const y0 = suelto.y;
+    G.FX.update(0.1);
+    const y1 = C.numeros.find(x => x.id === e1.id).y;
+    e1.hurt(3);
+    const nuevo = C.numeros.filter(x => x.id === e1.id && !x.escudo);
+    t('suelto, sube; un golpe nuevo empieza otro número', y1 < y0 && nuevo.length === 2 && nuevo.some(x => !x.suelto && x.suma === 3), { y0, y1, nuevo });
+    for (let i = 0; i < 12; i++) G.FX.update(0.1);
+    t('el suelto se desvanece (los grandes, en 0,95 s)', !C.numeros.some(x => x.id === e1.id && x.suma === 41));
+    e2.dead = true;
+    G.FX.update(0.016);
+    t('al caer el enemigo, sus números se sueltan', C.numeros.filter(x => x.id === e2.id).every(x => x.suelto));
+    // Invitado: golpes suyos a una copia (hurt, remote) y los del anfitrión ('hn' -> showHurt), juntos.
+    const e3 = W.enemigo({ remote: true });
+    e3.hurt(4); e3.hurt(4); e3.showHurt(7, '#fff');
+    const g3 = C.numeros.find(x => x.id === e3.id);
+    t('invitado: sus golpes a una copia (los manda al anfitrión) y los que anuncia el anfitrión, en un único número', W.S.red.length === 2 && g3 && g3.suma === 15 && g3.golpes === 3, g3);
+  } catch (e) { t('números agrupados', false, String(e && e.stack || e)); }
+  // La subida al soltarse no depende de los FPS (fx.js frena ×0,94 por fotograma: a 144 FPS sube la mitad que a 30).
+  try {
+    const subida = dt => {
+      const W = mundo(), e = W.enemigo();
+      e.hurt(10);
+      W.G.FX.update(1.05);
+      const y0 = W.C.numeros[0].y;
+      for (let k = 0; k < Math.round(0.5 / dt); k++) W.G.FX.update(dt);
+      return y0 - W.C.numeros[0].y;
+    };
+    const a = subida(1 / 30), b = subida(1 / 144);
+    t('frenado de la subida independiente de los FPS (0,5 s a 30 y a 144 FPS)', a > 8 && Math.abs(a - b) < 1, { a30: +a.toFixed(2), a144: +b.toFixed(2) });
+  } catch (e) { t('subida independiente de los FPS', false, String(e && e.stack || e)); }
+  // Ajustes: sin números de daño, nada; con numerosAgrupados = false, como el original (uno por golpe).
+  try {
+    const sin = mundo({ numeros: false }), e = sin.enemigo();
+    e.hurt(10); e.hurt(10);
+    const L1 = lienzo(); sin.G.FX.draw(L1);
+    const orig = mundo({ mods: { numerosAgrupados: false } }), o = orig.enemigo();
+    o.hurt(10); o.hurt(11); o.hurt(12);
+    const L2 = lienzo(); orig.G.FX.draw(L2);
+    t('Ajustes > Números de daño apagado: ningún número; numerosAgrupados = false: uno por golpe (13 px, contorno 3)',
+      !sin.C.numeros.length && !digitos(L1).length && !orig.C.numeros.length && digitos(L2).length === 3 && /^700 13px/.test(digitos(L2)[0].font), digitos(L2));
+    const tope = mundo({ fx: 0 });
+    for (let i = 0; i < 30; i++) tope.enemigo({ x: i * 40 }).hurt(5);
+    t('calidad baja: como mucho 25 números a la vez (los topes de fx.js)', tope.C.numeros.length === 25, tope.C.numeros.length);
+  } catch (e) { t('ajustes de los números', false, String(e && e.stack || e)); }
+
+  // ---- B. Barras de vida sólo tras un golpe reciente (enemy.js draw real) ----
+  try {
+    const W = mundo(), { G, S } = W;
+    const barra = e => { const L = lienzo(); e.draw(L); return L.rects.some(x => x.color === '#ff5f6d' || x.color === '#ffcb3d'); };
+    const e = W.enemigo();
+    const b0 = barra(e);
+    e.hurt(10);
+    const b1 = barra(e);
+    S.reloj += 1400; const b2 = barra(e);
+    S.reloj += 200; const b3 = barra(e);
+    e.hurt(5); const b4 = barra(e);
+    t('enemigo normal: sin barra entero; con el golpe, 1,5 s y se esconde; otro golpe, otra vez', !b0 && b1 && b2 && !b3 && b4, { b0, b1, b2, b3, b4 });
+    S.reloj += 5000;
+    const casos = { jefe: W.enemigo({ boss: true }), escudo: W.enemigo({ behavior: 'shielder' }), invocador: W.enemigo({ behavior: 'summoner' }),
+      curandero: W.enemigo({ behavior: 'healer' }), duende: W.enemigo({ behavior: 'thief' }), shiny: W.enemigo(), legendario: W.enemigo() };
+    casos.shiny.shiny = true; casos.legendario.legend = true;
+    const siempre = {};
+    for (const [k, x] of Object.entries(casos)) { if (k !== 'jefe') x.hp -= 100; barra(x); S.reloj += 3000; siempre[k] = barra(x); }
+    t('jefes, legendarios, shiny, duendes del tesoro y apoyos (escudo, invocador, curandero) la conservan', Object.values(siempre).every(Boolean), siempre);
+    const h = W.enemigo(); h.hp -= 50; barra(h); S.reloj += 3000;
+    G.MODS.barrasTrasGolpe = 0; const orig = barra(h); G.MODS.barrasTrasGolpe = 1.5;
+    t('barrasTrasGolpe = 0: como el original (siempre que esté herido)', orig && !barra(h));
+    // Invitado: la vida le llega por red (la línea de coop.js con la ventana de mods.js).
+    const cp = W.enemigo({ remote: true });
+    barra(cp);
+    cp.hp = G.MODS.vidaDelAnfitrion(cp, 700);
+    const r1 = barra(cp);
+    S.reloj += 1600; cp.hp = G.MODS.vidaDelAnfitrion(cp, 700);
+    const r2 = barra(cp);
+    t('invitado: la vida que llega por red enseña la barra 1,5 s; si no cambia, se esconde', r1 && !r2, { r1, r2 });
+  } catch (e) { t('barras de vida', false, String(e && e.stack || e)); }
+
+  // ---- C. Tu Pokémon siempre visible (cajas de los sprites; aquí, las del cuerpo) ----
+  try {
+    const W = mundo(), { G, C, S } = W;
+    G.World = { biome: 0 };
+    G.Tiles = { propSprite: () => ({ width: 24, height: 40 }) };
+    const jugador = (o = {}) => Object.assign(new (function Jugador() {})(), { x: 0, y: 0, r: 10, bodyH: 40, dead: false, invuln: 0, flash: 0,
+      anim: Object.assign(new G.Sprites.Animator(25, o.escala || 1), {}) }, o);
+    const pl = jugador();
+    G.Game.player = pl;
+    const ene = (x, y, extra = {}) => Object.assign(W.enemigo({ x, y }), extra);
+    const escena = (...cosas) => cosas.map(c => (c.prop ? { y: c.prop.y, prop: c.prop } : { y: c.y, ent: c })).sort((a, b) => a.y - b.y);
+    const delante = ene(0, 12), detras = ene(0, -12), lado = ene(60, 12), muerto = ene(0, 14, { dead: true }), rozando = ene(19, 12);
+    const arbol = { prop: { x: 4, y: 20, type: 'tree' } }, plano = { prop: { x: 0, y: 10, type: 'spring', flat: true } };
+    const casos = {
+      delante: C.tapado(pl, escena(pl, delante)), detras: C.tapado(pl, escena(pl, detras)), lado: C.tapado(pl, escena(pl, lado)),
+      muerto: C.tapado(pl, escena(pl, muerto)), rozando: C.tapado(pl, escena(pl, rozando)), arbol: C.tapado(pl, escena(pl, arbol)),
+      plano: C.tapado(pl, escena(pl, plano))
+    };
+    t('tapado: un enemigo delante encima de él o un árbol, sí; detrás, al lado, caído, rozando o un objeto plano, no',
+      casos.delante && !casos.detras && !casos.lado && !casos.muerto && !casos.rozando && casos.arbol && !casos.plano, casos);
+    // encima(): aro + contorno de 1 píxel de arte (4 copias desplazadas) + el sprite; y el chevrón después.
+    const L = lienzo();
+    C.escenaOrdenada(escena(pl, delante));
+    S.dibujados.length = 0;
+    C.encima(L);
+    const desp = L.imgs.map(a => a[5]).sort((a, b) => a - b);
+    const L2 = lienzo(); C.chevron(L2);
+    t('tapado: aro dorado encima, contorno blanco (4 copias a ±1 píxel de arte) y el sprite; chevrón después de los números',
+      C.tapados.length === 1 && L.elipses.some(x => x.color === '#ffcb3d') && L.imgs.length === 4 && desp[3] - desp[0] === 4 && S.dibujados.length === 1 && L2.lineas === 1,
+      { tapados: C.tapados.length, imgs: L.imgs.length, desp, sprite: S.dibujados.length, chevron: L2.lineas });
+    // Sin nada encima: sólo el aro (lo pinta player.js debajo del sprite) y sin chevrón.
+    const L3 = lienzo(); C.escenaOrdenada(escena(pl, detras)); C.encima(L3);
+    const L4 = lienzo(); C.chevron(L4);
+    const L5 = lienzo(); C.aro(L5, pl);
+    const ar = L5.elipses[0] && L5.elipses[0].a;
+    t('sin nada encima: nada repintado ni chevrón; el aro a los pies (1,65 r × 0,66 r), dorado', !C.tapados.length && !L3.imgs.length && !L4.lineas &&
+      ar && Math.abs(ar[2] - 16.5) < 1e-9 && Math.abs(ar[3] - 6.6) < 1e-9 && L5.elipses[0].color === '#ffcb3d', { ar });
+    // Grande reducido (anchoMaxJugador): el contorno, a 1 píxel de arte de SU sprite; y su caja, a escala.
+    const gr = jugador({ escala: 0.47, r: 11, bodyH: 22 });
+    G.Game.player = gr;
+    const L6 = lienzo(); C.escenaOrdenada(escena(gr, ene(0, 6))); C.encima(L6);
+    const d6 = L6.imgs.map(a => a[5]).sort((a, b) => a - b);
+    t('Pokémon grande reducido: contorno a 1 píxel de arte de su sprite (0,94 -> 1 unidad) y a escala', L6.imgs.length === 4 && d6[3] - d6[0] === 2 && L6.imgs[0][7] === 40 * 2 * 0.47,
+      { d6, ancho: L6.imgs[0] && L6.imgs[0][7] });
+    // Compañero: aro y contorno en blanco frío (el tuyo, dorado y blanco).
+    G.Game.player = pl;
+    const amigo = jugador({ x: 300 });
+    G.Coop.active = true; G.Coop.puppets = () => [amigo];
+    const L7 = lienzo(); C.aro(L7, amigo);
+    const L8 = lienzo(); C.escenaOrdenada(escena(pl, amigo, ene(300, 12))); C.encima(L8);
+    G.Coop.active = false;
+    t('compañero: aro y contorno en blanco frío (#cfe8ff), sin chevrón', L7.elipses[0] && L7.elipses[0].color === '#cfe8ff' && C.tapados.length === 1 && C.tapados[0] === amigo &&
+      L8.elipses.some(x => x.color === '#cfe8ff'), { aro: L7.elipses[0] && L7.elipses[0].color, tapados: C.tapados.length });
+    G.MODS.jugadorVisible = false;
+    const L9 = lienzo(); C.escenaOrdenada(escena(pl, delante)); C.encima(L9); C.aro(L9, pl); C.chevron(L9);
+    t('jugadorVisible = false: ni aro, ni contorno, ni chevrón', !L9.elipses.length && !L9.imgs.length && !L9.lineas);
+  } catch (e) { t('tu Pokémon siempre visible', false, String(e && e.stack || e)); }
+
+  // ---- D. Borde rojo: golpe recibido y vida baja ----
+  try {
+    const W = mundo(), { G, C, S } = W, pl = G.Game.player;
+    C.vineta(lienzo(), 800, 400, pl);   // el primer fotograma de la partida
+    C.golpe(pl, 1); const a1 = C.alfaVineta(pl);
+    C.golpe(pl, 30); const a2 = C.alfaVineta(pl);
+    S.reloj += 175; const a3 = C.alfaVineta(pl);
+    S.reloj += 200; const a4 = C.alfaVineta(pl);
+    t('golpe: alfa de 0,2 (poco daño) a 0,45 (un cuarto de la vida o más) que se apaga en ~0,35 s', Math.abs(a1 - 0.21) < 1e-9 && Math.abs(a2 - 0.45) < 1e-9 &&
+      Math.abs(a3 - 0.225) < 1e-6 && a4 === 0, { a1, a2, a3, a4 });
+    C.golpe({ hp: 100, maxHp: 100 }, 50);
+    t('el golpe a otro jugador (un compañero) no pinta tu borde', C.alfaVineta(pl) === 0);
+    pl.hp = 20;
+    const latido = []; for (let i = 0; i < 40; i++) { S.reloj += 50; latido.push(C.alfaVineta(pl)); }
+    pl.hp = 40; const sano = C.alfaVineta(pl);
+    pl.hp = 0; pl.dead = true; const ko = C.alfaVineta(pl);
+    t('por debajo del 30 %: latido lento (sube y baja en 2 s, sin llegar al golpe más fuerte); con más vida o KO, nada', Math.min(...latido) > 0.1 && Math.max(...latido) < 0.3 && Math.max(...latido) - Math.min(...latido) > 0.08 &&
+      sano === 0 && ko === 0, { min: Math.min(...latido), max: Math.max(...latido) });
+    pl.dead = false; pl.hp = 100;
+    C.golpe(pl, 30); const fuerte = C.alfaVineta(pl);
+    S.ajustes.calm = true; const suave = C.alfaVineta(pl);
+    const L = lienzo(); C.vineta(L, 800, 400, pl);
+    G.MODS.vinetaDanio = false; const L2 = lienzo(); C.vineta(L2, 800, 400, pl);
+    t('«Menos sacudidas y destellos»: a la mitad; vinetaDanio = false: no pinta nada', Math.abs(suave - fuerte / 2) < 1e-9 && L.rects.length > 0 && !L2.rects.length, { fuerte, suave });
+  } catch (e) { t('borde rojo', false, String(e && e.stack || e)); }
+
+  // ---- E. Disparos enemigos: el gancho y el ajuste (el contorno se mira en el navegador: coop-e2e.js) ----
+  try {
+    const W = mundo({ mods: { contornoDisparos: false } });
+    W.G.VFX = { SHAPES: { ball: { w: 5, h: 5 } }, sprite: () => { throw new Error('no debería pedir el sprite'); } };
+    t('contornoDisparos = false: projectile.js pinta como siempre', W.C.disparoHostil(lienzo(), 'ball', 'normal', 0, 0, 0, 1, 1, 0) === false);
+  } catch (e) { t('disparos enemigos', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`claridad en partida: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`claridad: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 // ---------------- 12. arreglos de upstream: biomas desde el minuto 12 y el fogonazo de la grieta ----------------
 function arreglosChecks() {
   console.log('12. Arreglos de upstream: biomas desde el minuto 12 (world.js y tiles.js reales) y el fogonazo de la grieta');
@@ -1724,6 +2009,7 @@ ${fFlash}${fFrame}        return { flash, frame, get flashT() { return flashT; }
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
+  try { claridadChecks(); } catch (e) { bad('no se pudo probar la claridad en partida: ' + (e && e.stack || e)); }
   try { arreglosChecks(); } catch (e) { bad('no se pudo probar los arreglos de upstream: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);

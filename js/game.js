@@ -609,6 +609,7 @@ G.Game = (() => {
     if (rift) items.push({ y: rift.y, ent: rift });
     if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });
     items.sort((a, b) => a.y - b.y);
+    if (G.Claridad) G.Claridad.escenaOrdenada(items);   // MOD nico: para saber qué tapa a cada jugador (js/entities/claridad.js)
     for (const it of items) {
       if (it.prop) G.World.drawProp(ctx, it.prop, t);
       else it.ent.draw(ctx);
@@ -624,9 +625,11 @@ G.Game = (() => {
     ctx.scale(G.Camera.scale, G.Camera.scale);
     G.Camera.apply(ctx);
     drawScene(G.Camera, G.Coop.active ? [pl, ...G.Coop.puppets()] : [pl]);
+    if (G.Claridad) G.Claridad.encima(ctx);   // MOD nico: tu Pokémon, encima de lo que lo tapa (js/entities/claridad.js)
     G.Projectiles.draw(ctx);
     G.Combat.drawAirFields(ctx);
     G.FX.draw(ctx);
+    if (G.Claridad) G.Claridad.chevron(ctx);   // MOD nico: después de los números, que no lo tapen
     ctx.restore();
 
     G.Weather.draw(ctx, w, h, frameDt);
@@ -640,6 +643,7 @@ G.Game = (() => {
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, w, h);
     }
+    if (G.Claridad) G.Claridad.vineta(ctx, w, h, pl);   // MOD nico: borde rojo al recibir daño y con poca vida (js/entities/claridad.js)
     G.HUD.draw(ctx, w, h, pl, st);
     G.Touch.draw(ctx);
     if (G.Settings.get('fps')) {

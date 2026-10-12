@@ -210,6 +210,7 @@ G.Player = class Player {
     this.flash = 0.14;
     G.Audio.sfx('hurt');
     G.Camera.kick(0.28);
+    if (G.Claridad) G.Claridad.golpe(this, d);   // MOD nico: borde rojo al recibir daño (js/entities/claridad.js)
     G.FX.dmgText(this.x, this.y - this.bodyH - 4, '-' + Math.round(d), eff === 'super' ? '#ff3048' : eff === 'weak' ? '#c9a0a8' : '#ff6b7a', eff === 'super');
     G.FX.burst(this.x, this.y - this.bodyH * 0.5, '#ff5f6d', 6, 90);
     // Banda Focus: aguanta el golpe con 1 de vida (una vez cada 60 s).
@@ -412,6 +413,7 @@ G.Player = class Player {
       ctx.restore();
     }
     G.Sprites.drawShadow(ctx, this.dex, this.x, this.y, this.scale);   // MOD nico: sombra a escala
+    if (G.Claridad) G.Claridad.aro(ctx, this);   // MOD nico: aro a los pies (js/entities/claridad.js)
     // Poder de altar: aro de su color latiendo bajo los pies.
     if (this.power && !this.dead) {
       ctx.save();

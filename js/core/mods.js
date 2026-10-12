@@ -119,6 +119,41 @@ G.MODS = {
    * false = como el original. */
   repetidoDaEvolucion: true,
 
+  /* ---- Claridad en partida (aprobado por Nico en la revisión con maquetas del 12-10-2026) ----
+   * Todo es dibujo local (js/entities/claridad.js): no viaja por la red ni cambia el juego, así
+   * que en grupo cada cliente lo ve con su ajuste, también con los enemigos del anfitrión. */
+
+  /* Tu Pokémon siempre visible: un aro a los pies (dorado el tuyo; blanco frío el de tus
+   * compañeros). Si algo dibujado delante lo tapa (enemigos, árboles, hierba alta, otro jugador:
+   * se mira con las cajas de sus sprites), se vuelve a pintar ENCIMA con un contorno de 1 píxel
+   * de arte (blanco el tuyo, blanco frío los compañeros) y el aro. A escala con la reducción de
+   * los grandes (anchoMaxJugador). false = como el original. */
+  jugadorVisible: true,
+
+  /* Chevrón dorado encima de tu Pokémon (sólo el tuyo), pintado después de los números:
+   * 'tapado' (por defecto: sólo cuando algo lo tapa), 'siempre' o 'nunca'. */
+  jugadorChevron: 'tapado',
+
+  /* Números de daño: un número por enemigo mientras vive. Los golpes al mismo enemigo se suman
+   * en un único número encima de él, que da un saltito con cada golpe; al caer el enemigo, o tras
+   * numerosPausa segundos sin golpes, sube y se desvanece. Los del escudo (azules), aparte. Respeta
+   * Ajustes > Números de daño. false = un número por golpe, como el original. */
+  numerosAgrupados: true,
+  numerosPausa: 1,
+
+  /* Disparos enemigos con contorno rojo (#ff2440) de 1 píxel de arte. false = como el original. */
+  contornoDisparos: true,
+
+  /* Barras de vida de los enemigos: sólo durante estos segundos después de que les cambie la vida.
+   * Jefes, legendarios, shiny, duendes del tesoro y apoyos (escudo, invocador y curandero) la
+   * conservan como en el original. 0 = como el original (siempre que estén heridos). */
+  barrasTrasGolpe: 1.5,
+
+  /* Borde rojo: al recibir daño, un fogonazo breve (alfa 0,2-0,45 según el daño, ~0,35 s) y, por
+   * debajo del 30 % de vida, un latido lento. Con «Menos sacudidas y destellos», a la mitad. Sólo
+   * tu propio Pokémon. false = sin borde. */
+  vinetaDanio: true,
+
   /* Arreglo de un fallo de upstream (desde «Arenas de grieta por tipo», 3f85b87): a partir del
    * minuto 12 el mapa normal se volvía una arena de la grieta («Grieta · …», con su líquido y su
    * daño; y en el 84 se rompía). true = el mapa rota entre sus 3 biomas normales cada 4 min.

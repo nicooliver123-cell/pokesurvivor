@@ -112,7 +112,7 @@
       if (this.shield > 0) {
         const a = Math.min(this.shield, d);
         this.shield -= a;
-        if (a >= d) { G.FX.dmgText(this.x, this.y - this.bodyH - 4, d, '#9fd8ff'); this.flash = 0.05; return; }
+        if (a >= d) { G.FX.dmgText(this.x, this.y - this.bodyH - 4, d, '#9fd8ff', false, this, true); this.flash = 0.05; return; }   // MOD nico: + el enemigo y su escudo (números agrupados, js/entities/claridad.js)
         amount = d - a;
       }
       this.hp -= Math.max(1, Math.round(amount));
@@ -131,7 +131,7 @@
       this.flash = 0.09;
       // Muy eficaz: número amarillo y grande. Poco eficaz: gris.
       G.FX.dmgText(this.x, this.y - this.bodyH - 4, d, eff === 'super' ? '#ffe14d' : eff === 'weak' ? '#a3abb8' : color,
-                   this.boss || eff === 'super');
+                   this.boss || eff === 'super', this);   // MOD nico: + el enemigo (números agrupados, js/entities/claridad.js)
       G.FX.spark(this.x, this.y - this.bodyH * 0.5, color, dirX, dirY, 3);
       if (!this.anim.busy() && this.phase !== 'dash') this.anim.play('Hurt');
       G.Audio.sfx('hit');
@@ -714,7 +714,7 @@
       const SUP = { healer: 'heart', shielder: 'shield', summoner: 'friends' };
       if (SUP[this.behavior]) G.Icons.draw(ctx, SUP[this.behavior], Math.round(this.x - 6), Math.round(this.y - this.bodyH - (this.hp < this.maxHp ? 26 : 18)), 12);
 
-      if (this.boss || this.hp < this.maxHp) {
+      if ((this.boss || this.hp < this.maxHp) && (!G.Claridad || G.Claridad.barra(this))) {   // MOD nico: barra sólo tras un golpe reciente (js/entities/claridad.js)
         const w = this.boss ? 90 : Math.max(22, this.r * 2);
         const y = this.y - this.bodyH - 10;
         ctx.fillStyle = 'rgba(0,0,0,.6)';
