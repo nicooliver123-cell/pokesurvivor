@@ -105,7 +105,11 @@ const HOOKS = [
   ['js/entities/player.js', /this\.bodyH = G\.Sprites\.bodyHeight\(mon\.dex, this\.scale\)/, 'alto (nombre/números) a escala'],
   ['js/entities/player.js', /drawShadow\(ctx, this\.dex, this\.x, this\.y, this\.scale\)/, 'sombra a escala'],
   ['js/net/net.js', /const TURN_URL = '';/, 'TURN apagado'],
-  ['js/core/db.js', /\/jpter\/i\.test\(/, 'db.js rechaza el proyecto del original']
+  ['js/core/db.js', /\/jpter\/i\.test\(/, 'db.js rechaza el proyecto del original'],
+  ['js/entities/enemy.js', /if \(!G\.MODS \|\| G\.MODS\.predecirGolpe\(this\)\) this\.hp = /, 'invitado: sin predecir golpes con escudo'],
+  ['js/net/coop.js', /e\.hp = G\.MODS \? G\.MODS\.vidaDelAnfitrion\(e, a\[3\]\) :/, 'invitado: ventana sin subidas tras un golpe predicho'],
+  ['js/net/coop.js', /e\.behavior, Math\.ceil\(e\.hp\)\]\);/, "'ne' lleva la vida real (vuelta de la grieta)"],
+  ['js/net/coop.js', /beh: ev\[9\], vida: ev\[10\] \}\);/, "el invitado lee la vida real de 'ne'"]
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -170,17 +174,48 @@ try {
   else if (touched.length) bad('se reducen iniciales: ' + touched.join(', '));
 } catch (e) { bad('no se pudo calcular el tamaño: ' + (e && e.stack || e)); }
 
-// ---------------- 7. asignaciones de vida en el código de enemigos ----------------
-console.log('6. Vías de vida de enemigos (detección de curaciones nuevas de upstream)');
+// ---------------- 7. invitado del cooperativo: lógica de la ventana de vida ----------------
+console.log('6. Invitado del cooperativo: sin rebote de vida (lógica de js/core/mods.js)');
+try {
+  let now = 1000, rele = false;
+  const ctx = { performance: { now: () => now } };
+  vm.createContext(ctx);
+  ctx.G = { Net: { hostUid: 'H', slow: () => rele } };
+  vm.runInContext(rd('js/core/mods.js'), ctx, { filename: 'js/core/mods.js' });
+  const M = ctx.G.MODS, W = M.ventanaVidaMs, WR = M.ventanaVidaReleMs;
+  const e = { maxHp: 100, hp: 100, net: { st: 0 } };
+  const r = [];
+  // Golpe predicho de 10; el anfitrión aún manda 100 (todavía no le ha llegado): no sube.
+  r.push(['predice el golpe sin escudo', M.predecirGolpe(e) === true]); e.hp = 90;
+  now += 100; r.push(['dentro de la ventana no acepta una vida mayor', M.vidaDelAnfitrion(e, 100) === 90]);
+  r.push(['dentro de la ventana sí acepta una menor', M.vidaDelAnfitrion(e, 85) === 85]);
+  now += W; r.push(['pasada la ventana acepta la del anfitrión', M.vidaDelAnfitrion(e, 100) === 100]);
+  rele = true; e.hp = 90; M.predecirGolpe(e); now += W + 1;
+  r.push([`por el relé la ventana es mayor (${WR} ms)`, WR > W && M.vidaDelAnfitrion(e, 100) === 90]);
+  now += WR; r.push(['por el relé, pasada su ventana, acepta', M.vidaDelAnfitrion(e, 100) === 100]);
+  const s = { maxHp: 100, hp: 100, net: { st: 4 } };
+  r.push(['con escudo (bit 4) no predice', M.predecirGolpe(s) === false && s.golpePredichoT === undefined]);
+  r.push(['sin golpe predicho acepta la del anfitrión', M.vidaDelAnfitrion({ maxHp: 100, hp: 50 }, 60) === 60]);
+  r.push(['nunca por encima de la vida máxima', M.vidaDelAnfitrion({ maxHp: 100, hp: 50 }, 130) === 100]);
+  M.curacionEnemiga = true;
+  const o = { maxHp: 100, hp: 90, golpePredichoT: now, net: { st: 4 } };
+  r.push(['con curacionEnemiga=true, como el original', M.predecirGolpe(o) === true && M.vidaDelAnfitrion(o, 100) === 100]);
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`ventana ${W} ms directo / ${WR} ms por el relé: ${r.length} casos bien`);
+  else failed.forEach(x => bad('ventana de vida: ' + x[0]));
+} catch (e) { bad('no se pudo probar la ventana de vida: ' + (e && e.stack || e)); }
+
+// ---------------- 8. asignaciones de vida en el código de enemigos ----------------
+console.log('7. Vías de vida de enemigos (detección de curaciones nuevas de upstream)');
 const KNOWN = new Set([
   'js/entities/enemy.js|this.hp = this.maxHp;',                                   // constructor (enemigo nuevo)
   'js/entities/enemy.js|this.maxHp *= 2; this.hp = this.maxHp;',                  // makeShiny (sólo enemigos nuevos)
-  'js/entities/enemy.js|this.hp = Math.max(1, this.hp - d);',                     // golpe predicho en el invitado
+  'js/entities/enemy.js|if (!G.MODS || G.MODS.predecirGolpe(this)) this.hp = Math.max(1, this.hp - d);', // golpe predicho en el invitado (baja)
   'js/entities/enemy.js|e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.07);',        // healAround (bloqueado por el gancho B)
-  'js/net/coop.js|e.hp = Math.min(e.maxHp, a[3]);',                               // sincronización del invitado
+  'js/net/coop.js|e.hp = G.MODS ? G.MODS.vidaDelAnfitrion(e, a[3]) : Math.min(e.maxHp, a[3]);', // sincronización del invitado (ventana en mods.js)
   'js/systems/interact.js|pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.14 * dt);', // manantial: cura al JUGADOR
   'js/entities/enemy.js|if (this.pt <= 0) { this.hp = 0; this.die(); }',          // mecha del bomber: muere
-  'js/entities/enemy.js|e.maxHp = o.hp; e.hp = o.hp;',                            // copia nueva en el invitado ('ne')
+  'js/entities/enemy.js|e.maxHp = o.hp; e.hp = o.vida > 0 && o.vida < o.hp ? o.vida : o.hp;', // copia nueva en el invitado ('ne'), nunca por encima de la máxima
   "js/data/enemies.js|if (behavior === 'bomber') { d.spd = Math.round(d.spd * 1.25); d.hp = Math.round(d.hp * 0.8); }", // definición, no instancia
   "js/data/enemies.js|if (r) { r.behavior = 'runner'; r.spd = Math.round(r.spd * 1.6); r.hp = Math.round(r.hp * 0.7); }", // definición
   'js/systems/spawner.js|if (G.EnemyMgr.count >= CAP * ELITE_FROM) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }' // élite, antes de add

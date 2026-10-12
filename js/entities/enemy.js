@@ -104,7 +104,7 @@
       // quien decide si cae. Aquí sólo se ve (número, destello y animación).
       if (this.remote) {
         G.Coop.hit(this, d, color, dirX, dirY, knock);
-        this.hp = Math.max(1, this.hp - d);
+        if (!G.MODS || G.MODS.predecirGolpe(this)) this.hp = Math.max(1, this.hp - d);   // MOD nico: sin predecir con escudo (js/core/mods.js)
         this.showHurt(d, color, dirX, dirY, eff);
         return;
       }
@@ -754,7 +754,7 @@
       e.id = o.id;
       e.remote = true;
       if (o.shiny) e.makeShiny();
-      e.maxHp = o.hp; e.hp = o.hp;
+      e.maxHp = o.hp; e.hp = o.vida > 0 && o.vida < o.hp ? o.vida : o.hp;   // MOD nico: vida real si llega en 'ne' (al volver de la grieta)
       e.net = { x: o.x, y: o.y, vx: 0, vy: 0, age: 0, dir: 0, anim: 0, st: 0 };
       list.push(e);
       byId.set(e.id, e);
