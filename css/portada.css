@@ -122,7 +122,7 @@ html.estilo-dex #scr-login .logo .t1 { font-size: var(--fs-5); }
 html.estilo-dex #scr-login :is(.logo .t2, .login-tag) { display: none; }
 html.estilo-dex #scr-login .tabs {
   grid-column: 4 / 7; grid-row: 1; justify-self: end; align-self: center; margin: 0 0 var(--space-4);
-  display: flex; gap: 0; padding: 2px; background: rgba(2, 8, 11, .35);
+  display: flex; gap: 0; padding: var(--space-1); background: rgba(2, 8, 11, .35);   /* radio 10 − 4 = 6: el de las pestañas */
   border: 1px solid var(--color-borde-control); border-radius: var(--radius-2);
 }
 html.estilo-dex #scr-login .tab {
@@ -345,10 +345,11 @@ html.estilo-dex #scr-result .row { margin-top: var(--space-4) !important; gap: v
   html.estilo-dex .tc-stats b { font-size: var(--fs-2); }
   /* La fila, del ancho de sus botones (cada uno, el de su nombre): icono encima y nombre debajo, 44 px de alto. */
   html.estilo-dex #scr-menu > .menu-right { width: auto; max-width: 100%; }
-  html.estilo-dex #scr-menu .menu-list { gap: 6px; }
-  html.estilo-dex #scr-menu .menu-item { flex: 0 1 auto; min-width: var(--tap-min); gap: 2px; padding: 2px var(--space-1); line-height: 1.1; }
+  html.estilo-dex #scr-menu .menu-list { gap: var(--space-2); }
+  html.estilo-dex #scr-menu .menu-item { flex: 0 1 auto; min-width: var(--tap-min); gap: var(--space-1); padding: 0 var(--space-1); line-height: 1.1; }
   html.estilo-dex #scr-menu .menu-item.play { flex: 0 1 auto; padding: 0 var(--space-4); font-size: var(--fs-3); }
   html.estilo-dex #scr-menu .menu-item.play .mi-ico img { width: 24px; height: 24px; }
+  html.estilo-dex #scr-menu .menu-item:has(> small.gold)::after { top: var(--space-1); right: var(--space-1); }
   html.estilo-dex .pill { min-height: 28px; }
   html.estilo-dex .topbar .btn.small { min-width: 28px; min-height: 28px; }
   html.estilo-dex .topbar .btn.small::after { inset: -8px; }   /* 28 + 16 = 44 de toque */

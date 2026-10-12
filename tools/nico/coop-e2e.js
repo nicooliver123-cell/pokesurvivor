@@ -292,16 +292,16 @@ async function legalNotice(P) {
   await page.click('#scr-login [data-legal]');
   await waitVisible(page, '#scr-legal');
   await sleep(900);   // que termine la transición, para la captura
-  const r = await page.evaluate(([repo, base]) => {
+  const r = await page.evaluate(([repo, base, nombreBase]) => {
     const m = document.getElementById('legal-mail'), rp = document.getElementById('legal-repo'), box = document.getElementById('scr-legal');
     return { contacto: m.href, textoContacto: m.textContent, abreAparte: m.target === '_blank', repo: rp.href,
       correo: /mailto:|@gmail\.com/i.test(box.innerHTML), donaciones: /donaci[oó]n/i.test(box.textContent),
       // Ningún enlace a otro repositorio que el nuestro (salvo los sprites de SpriteCollab), ni el nombre anterior.
       ajenos: [...box.querySelectorAll('a[href*="github.com/"]')].map(a => a.href).filter(h => !h.startsWith(repo) && !h.startsWith('https://github.com/PMDCollab/')),
-      nombre: /PokéSwarm/.test(box.textContent) && !/Pok[ée]Survivor/i.test(box.textContent),
+      nombre: /PokéSwarm/.test(box.textContent) && !new RegExp(nombreBase).test(box.textContent),   // el nombre anterior, de tools/nico/base.js
       licencia: !!box.querySelector('a[href="https://creativecommons.org/licenses/by-nc/4.0/"]'),
       rechazaOriginal: G.FIREBASE_PERMITIDA({ projectId: base }) === false };
-  }, [FORK_REPO, SENAS.FIREBASE]);
+  }, [FORK_REPO, SENAS.FIREBASE, SENAS.VIGILADO[5][0].source]);
   report.capturaAvisoLegal = await shot(page, P.tag + '_aviso_legal');
   await page.click('#legal-close');
   await waitVisible(page, '#scr-login');
