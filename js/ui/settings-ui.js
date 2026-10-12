@@ -6,8 +6,8 @@
 G.SettingsUI = (() => {
   const $ = G.UI.$;
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const VERSION = '1.2 · 2026-10-09';
-  const REPO = 'https://github.com/nicooliver123-cell/pokesurvivor';   // MOD nico: repo del fork
+  const VERSION = '1.0';   // MOD nico: numeración propia de PokéSwarm
+  const REPO = 'https://github.com/nicooliver123-cell/pokesurvivor';   // MOD nico: repo de PokéSwarm
   let tab = 'sound';
 
   function init() {
@@ -93,13 +93,12 @@ G.SettingsUI = (() => {
            </div>`;
     } else if (tab === 'acc') {
       renderAccount(box);
-      if (G.ImportarUI) box.insertAdjacentHTML('beforeend', G.ImportarUI.html());   // MOD nico: traer la partida del juego oficial (js/ui/importar-ui.js)
+      if (G.ImportarUI) box.insertAdjacentHTML('beforeend', G.ImportarUI.html());   // MOD nico: traer una partida guardada (js/ui/importar-ui.js)
     } else {
-      box.innerHTML = `<div class="about-logo">PokéSurvivor</div><p class="sub center">Versión ${esc(VERSION)}</p>`
-        + `<p class="sub">Juego de fans <b>gratuito y sin ánimo de lucro</b>: sin anuncios ni compras. Pokémon y sus personajes son propiedad de Nintendo, Creatures y GAME FREAK; este proyecto no está afiliado a ellos.</p>`
+      box.innerHTML = `<div class="about-logo" translate="no">PokéSwarm</div><p class="sub center">Versión ${esc(VERSION)}</p>`   // MOD nico: el nombre
+        + `<p class="sub">Juego de fans <b>gratuito y sin ánimo de lucro</b>: sin anuncios ni compras. Pokémon y sus personajes son propiedad de Nintendo, Creatures, GAME FREAK y The Pokémon Company; este proyecto no está afiliado a ellos.</p>`   // MOD nico: con The Pokémon Company
         + section('Créditos')
         + `<ul class="credits">
-             <li><b>Versión modificada no oficial</b> basada en <a href="https://github.com/JPTER78/pokesurvivor" target="_blank" rel="noopener">PokéSurvivor de JPTER78</a> (MIT).</li><!-- MOD nico: atribución -->
              <li><b>Sprites:</b> PMD SpriteCollab y sus artistas (CC BY-NC 4.0).</li>
              <li><b>Datos de los Pokémon:</b> PokéAPI.</li>
              <li><b>Música y sonidos:</b> originales, generados por el propio juego.</li>

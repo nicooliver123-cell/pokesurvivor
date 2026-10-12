@@ -1,7 +1,7 @@
 {
-  "name": "PokéSurvivor (versión modificada)",
-  "short_name": "PokéSurvivor mod",
-  "description": "Fan game gratuito: sobrevive a las hordas con tu compañero Pokémon. Sin anuncios.",
+  "name": "PokéSwarm",
+  "short_name": "PokéSwarm",
+  "description": "Roguelite de hordas Pokémon: sobrevive al enjambre con tu compañero. Fan game gratuito y sin anuncios.",
   "lang": "es",
   "start_url": "./",
   "scope": "./",

@@ -1,6 +1,6 @@
-/* ============ importar-ui.js — Ajustes > Cuenta: traer la partida del juego oficial (MOD nico) ============
+/* ============ importar-ui.js — Ajustes > Cuenta: traer una partida guardada (MOD nico) ============
  * La lógica está en js/core/importar.js. Aquí sólo la sección de Ajustes: los pasos, el código
- * para la consola del juego oficial (con botón Copiar), elegir el archivo, la vista previa y
+ * para la consola de la web donde está la partida (con botón Copiar), elegir el archivo, la vista previa y
  * Confirmar. js/ui/settings-ui.js la añade con dos ganchos "// MOD nico": html() al pintar la
  * pestaña Cuenta y wire() al conectar sus botones. El inglés va en js/data/lang-en-mod.js.
  */
@@ -40,25 +40,25 @@ G.ImportarUI = (() => {
   function html() { css(); return `<div id="imp-box">${cuerpo()}</div>`; }
 
   function cuerpo() {
-    let h = `<h3 class="set-h">Traer partida del juego oficial</h3>`
-      + `<p class="sub">Suma aquí tu colección, shinies, mejoras, logros, Pokémonedas y tickets del juego oficial. No se borra nada de lo que ya tienes.</p>`;
+    let h = `<h3 class="set-h">Traer partida guardada</h3>`
+      + `<p class="sub">Suma aquí tu colección, shinies, mejoras, logros, Pokémonedas y tickets de una partida guardada en otra web. No se borra nada de lo que ya tienes.</p>`;
     if (G.DB.guest) h += `<p class="note imp-err">Estás jugando como invitado: lo que traigas no se guardará al salir. Mejor crea una cuenta antes (botón de arriba) y tráela después.</p>`;
     // El resultado (o el error) va aquí arriba y se centra en la pantalla (repintar con `ver`): los avisos
     // flotantes (logros, «Partida traída») salen arriba o abajo y no lo tapan, tampoco en un móvil en horizontal.
     if (aviso) h += `<div class="imp-msg ${aviso.ok ? 'imp-ok' : 'imp-err'}">${aviso.textos.map(t => `<p>${esc(t)}</p>`).join('')}</div>`;
     h += `<ol class="imp-pasos">
-        <li>Abre pokesurvivor.com en un PC e inicia sesión con tu cuenta.</li>
+        <li>Abre en un PC la web donde tienes tu partida, con tu cuenta iniciada.</li>
         <li>Pulsa F12 y ve a la pestaña Consola. Si Chrome te pide escribir «permitir pegar» (o «allow pasting»), escríbelo y pulsa Enter.</li>
         <li>Copia este código, pégalo en la consola y pulsa Enter: se descargará un archivo con tu partida.</li>
         <li>Vuelve aquí, pulsa «Elegir archivo» y elige ese archivo.</li>
       </ol>
-      <textarea id="imp-code" class="imp-code" readonly spellcheck="false" translate="no" aria-label="${esc(tr('Código para la consola del juego oficial'))}">${esc(G.Importar.EXPORTADOR)}</textarea>
+      <textarea id="imp-code" class="imp-code" readonly spellcheck="false" translate="no" aria-label="${esc(tr('Código para la consola de esa web'))}">${esc(G.Importar.EXPORTADOR)}</textarea>
       <div class="row wrap" style="gap:8px;margin-top:8px">
         <button class="btn small" id="imp-copy">Copiar</button>
         <button class="btn small gold" id="imp-pick" ${enRun() || trabajando ? 'disabled' : ''}>Elegir archivo</button>
         <input type="file" id="imp-file" accept=".json,application/json" hidden>
       </div>
-      <p class="note">Los pasos 1 a 3 necesitan un PC: en el móvil no hay consola. Vale cualquier PC, porque tu partida oficial está en su nube: basta con entrar con tu cuenta. El código sólo lee tu partida y la descarga; no envía nada a ninguna parte.</p>
+      <p class="note">Los pasos 1 a 3 necesitan un PC: en el móvil no hay consola. Vale cualquier PC, porque tu partida está en la nube de esa web: basta con entrar con tu cuenta. El código sólo lee tu partida y la descarga; no envía nada a ninguna parte.</p>
       <p class="note">Pega sólo este código, copiado de esta página: nunca pegues en la consola código que te pase otra persona. <a href="tools/nico/exportar-oficial.js" target="_blank" rel="noopener">Ver el código comentado</a></p>`;
     if (enRun()) h += `<p class="note imp-err">Para traer la partida, vuelve al menú: termina o abandona la run.</p>`;
     if (analisis && G.DB.save) h += previa();
@@ -74,7 +74,7 @@ G.ImportarUI = (() => {
     const si = (n, label) => (n > 0 ? fila(label, mas(n)) : '');
     const favs = C.favs && C.favs.length ? C.favs.map(f => esc(nombrePk(f.dex)) + (f.shiny ? ' ★' : '')).join(', ') : '';
     let h = `<div class="imp-prev"><h3 class="set-h">Vista previa</h3>`
-      + fila('Partida oficial', `<span translate="no">${esc(R.nombre || '?')}</span>`)
+      + fila('Partida que traes', `<span translate="no">${esc(R.nombre || '?')}</span>`)
       + (R.exportado ? fila('Exportada el', fechaDMA(R.exportado)) : '')
       + fila('Pokémon en esa partida', R.pokemon.toLocaleString('es'))
       + fila('Pokémon nuevos', mas(C.pokemon))
@@ -155,14 +155,14 @@ G.ImportarUI = (() => {
     const r = G.Importar.aplicar(analisis.save);
     if (!r.ok) { trabajando = false; aviso = { ok: false, textos: [r.error] }; return repintar(true); }
     analisis = null;
-    const t = ['¡Hecho! Tu partida del juego oficial ya está aquí.'];
+    const t = ['¡Hecho! Tu partida ya está aquí.'];
     if (r.invitado) t.push('Como eres invitado, se perderá al salir: crea una cuenta y vuelve a traerla.');
     else if (!r.nube) t.push(r.guardada ? 'Guardada en este navegador.' : 'No se ha podido guardar en este navegador (¿modo incógnito o sin espacio?).');
     else t.push('Subiendo a la nube…');
     t.push('Si vuelves a traerla más adelante, sólo se sumará lo nuevo.');
     aviso = { ok: r.guardada || r.invitado, textos: t };
     repintar(true);   // antes del aviso «Partida traída» y de los logros que salgan al repintar el menú
-    if (G.UI && G.UI.toast) G.UI.toast('Partida del juego oficial traída');
+    if (G.UI && G.UI.toast) G.UI.toast('Partida traída');
     // El menú de detrás (compañero, colección, monedas) se vuelve a pintar.
     if (G.UI && G.UI.isOpen && G.UI.isOpen('scr-menu') && G.MenuUI) { try { G.MenuUI.open(); } catch (e) { /* nada */ } }
     if (r.nube && !r.invitado) {

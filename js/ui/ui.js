@@ -101,8 +101,8 @@ G.UI = (() => {
 
   // ---------------- aviso legal ----------------
 
-  const CONTACT = 'https://github.com/nicooliver123-cell/pokesurvivor/issues';   // MOD nico: avisos del fork, sin correo personal
-  const REPO = 'https://github.com/nicooliver123-cell/pokesurvivor';   // MOD nico: repo del fork (el original sale como atribución)
+  const CONTACT = 'https://github.com/nicooliver123-cell/pokesurvivor/issues';   // MOD nico: avisos del repositorio de PokéSwarm, sin correo personal
+  const REPO = 'https://github.com/nicooliver123-cell/pokesurvivor';   // MOD nico: repo de PokéSwarm
   let legalBack = null;
 
   function openLegal() {

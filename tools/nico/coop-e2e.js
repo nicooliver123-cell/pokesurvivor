@@ -291,18 +291,21 @@ async function legalNotice(P) {
   await page.click('#scr-login [data-legal]');
   await waitVisible(page, '#scr-legal');
   await sleep(900);   // que termine la transición, para la captura
-  const r = await page.evaluate(() => {
+  const r = await page.evaluate(repo => {
     const m = document.getElementById('legal-mail'), rp = document.getElementById('legal-repo'), box = document.getElementById('scr-legal');
     return { contacto: m.href, textoContacto: m.textContent, abreAparte: m.target === '_blank', repo: rp.href,
-      correo: /mailto:|@gmail\.com/i.test(box.innerHTML), donaciones: /donaciones voluntarias/i.test(box.textContent),
-      atribucion: !!box.querySelector('a[href="https://github.com/JPTER78/pokesurvivor"]'),
+      correo: /mailto:|@gmail\.com/i.test(box.innerHTML), donaciones: /donaci[oó]n/i.test(box.textContent),
+      // Ningún enlace a otro repositorio que el nuestro (salvo los sprites de SpriteCollab), ni el nombre anterior.
+      ajenos: [...box.querySelectorAll('a[href*="github.com/"]')].map(a => a.href).filter(h => !h.startsWith(repo) && !h.startsWith('https://github.com/PMDCollab/')),
+      nombre: /PokéSwarm/.test(box.textContent) && !/Pok[ée]Survivor/i.test(box.textContent),
+      licencia: !!box.querySelector('a[href="https://creativecommons.org/licenses/by-nc/4.0/"]'),
       rechazaOriginal: G.FIREBASE_PERMITIDA({ projectId: 'pokesurvivor-jpter' }) === false };
-  });
+  }, FORK_REPO);
   report.capturaAvisoLegal = await shot(page, P.tag + '_aviso_legal');
   await page.click('#legal-close');
   await waitVisible(page, '#scr-login');
-  check('Aviso legal: contacto = avisos del fork, código = repo del fork, original sólo como atribución, sin correo ni donaciones',
-    r.contacto === FORK_ISSUES && r.abreAparte && r.repo === FORK_REPO && !r.correo && !r.donaciones && r.atribucion, r);
+  check('Aviso legal: contacto = avisos del repositorio, código = el repositorio, PokéSwarm sin el nombre anterior, ningún enlace a otro repositorio (salvo SpriteCollab), la licencia de los sprites enlazada, sin correo ni donaciones',
+    r.contacto === FORK_ISSUES && r.abreAparte && r.repo === FORK_REPO && !r.correo && !r.donaciones && !r.ajenos.length && r.nombre && r.licencia, r);
   check('En la página, G.FIREBASE_PERMITIDA rechaza el proyecto del original', r.rechazaOriginal);
 }
 
@@ -458,7 +461,7 @@ async function importOfficial(P) {
   }
   report.capturaImportarPropia = await shot(page, tag + '_importar_partida_propia');
   check('Elegir la partida de la propia cuenta (con y sin el registro) da error, sin vista previa ni Confirmar, y no suma nada',
-    propias.length === 2 && propias.every(p => /partida de esta versión, no del juego oficial/.test(p.msg) && !p.previa && !p.confirmar && p.coins === r.coins), propias);
+    propias.length === 2 && propias.every(p => /es una partida de PokéSwarm/.test(p.msg) && !p.previa && !p.confirmar && p.coins === r.coins), propias);
   await page.click('#set-close');
   await page.setViewportSize({ width: 1280, height: 720 });
 }

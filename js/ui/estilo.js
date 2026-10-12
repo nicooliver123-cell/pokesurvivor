@@ -189,7 +189,7 @@ G.Estilo = (() => {
   // 3. Ajustes: la sección «Estilo» (la primera de Gráficos), créditos y controles
   // ===================================================================
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const TEXTO_ESTILO = 'Dex: menús y HUD de Pokédex y letra redondeada. Clásico: el aspecto del juego original.';
+  const TEXTO_ESTILO = 'Dex: menús y HUD de Pokédex y letra redondeada. Clásico: menús de pixel art y letra pixelada.';
   const ABAJO = 'Toca un ataque de abajo para cambiarlo', DERECHA = 'Toca un ataque de la derecha para cambiarlo';
   /** «Se juega en horizontal» ya no es del todo cierto: un plegable abierto o una tableta juegan en vertical
    *  (G.MODS.pedirGiro). En los dos estilos. */

@@ -1,9 +1,9 @@
-/* ============ importar.js — traer la partida del juego oficial (MOD nico) ============
- * El jugador saca su partida del juego oficial con un fragmento que pega ÉL MISMO en la consola
- * de su navegador, en la web oficial y con su sesión iniciada (EXPORTADOR, igual que
+/* ============ importar.js — traer una partida guardada (MOD nico) ============
+ * El jugador saca su partida de la web del proyecto base con un fragmento que pega ÉL MISMO en la
+ * consola de su navegador, en esa web y con su sesión iniciada (EXPORTADOR, igual que
  * tools/nico/exportar-oficial.js). Ese fragmento sólo lee la partida que ya tiene su navegador
  * y la descarga como archivo; no envía nada ni cambia nada.
- * Esta versión NUNCA habla con la infraestructura del original: sólo lee el archivo .json que
+ * PokéSwarm NUNCA habla con la infraestructura del proyecto base: sólo lee el archivo .json que
  * elige el jugador (Ajustes > Cuenta, js/ui/importar-ui.js).
  *
  *   analizar(texto)                  -> { ok:false, error } | { ok:true, resumen, avisos, save }   (pura)
@@ -15,7 +15,7 @@
  *                                       otro cambio: en local, en este navegador; en la nube, con
  *                                       la subida normal de js/core/db.js (transacción con merge()).
  *
- * Sólo se aceptan partidas del juego oficial. Una partida de ESTA versión (el fragmento pegado en
+ * Sólo se aceptan partidas del proyecto base. Una partida de PokéSwarm (el fragmento pegado en
  * su propia consola, o un ps.save.* / ps.cloud.* suyo) se rechaza: sus monedas ya incluyen lo
  * acreditado antes y traerla otra vez lo volvería a sumar. Se reconoce porque lleva el registro
  * `importOficial` (sólo lo escribe esta versión), porque el archivo dice que se exportó desde esta
@@ -35,7 +35,7 @@ G.Importar = (() => {
   const MAX_FECHA = Date.UTC(2100, 0, 1);
   const REGISTRO = 'importOficial';           // en la partida: created de la oficial -> lo ya acreditado
 
-  // El fragmento para la consola del juego oficial. Una línea, sin dependencias, sin red. Es
+  // El fragmento para la consola de la web del proyecto base. Una línea, sin dependencias, sin red. Es
   // tools/nico/exportar-oficial.js (la versión comentada) sin comentarios ni sangría: tools/nico/check.js
   // comprueba que coinciden, que no usa fetch/XMLHttpRequest/sendBeacon/WebSocket ni URLs (de navigator,
   // sólo el idioma) y que no modifica la partida.
@@ -45,15 +45,15 @@ G.Importar = (() => {
     vacio: 'El archivo está vacío.',
     grande: 'El archivo es demasiado grande para ser una partida (máximo 2 MB).',
     json: 'El archivo no es un JSON válido: usa el que descarga el código, sin editarlo.',
-    tipo: 'Este archivo no es una partida de PokéSurvivor.',
+    tipo: 'Este archivo no es una partida guardada.',
     version: 'Este archivo es de una versión más nueva del exportador: actualiza esta página y vuelve a probar.',
     creada: 'La partida no tiene una fecha de creación válida.',
-    propia: 'Este archivo es una partida de esta versión, no del juego oficial: el código hay que pegarlo en la consola de pokesurvivor.com, con tu cuenta iniciada.',
+    propia: 'Este archivo es una partida de PokéSwarm: el código hay que pegarlo en la consola de la web donde tienes la partida que quieres traer, con tu cuenta iniciada.',
     sinPartida: 'No hay ninguna partida abierta.',
     enRun: 'Para traer la partida, vuelve al menú: termina o abandona la run.',
     descartados: '{x} datos no reconocidos se han descartado.',
     ajustados: '{x} números fuera de rango se han ajustado.',
-    nueva: 'La partida es de una versión más nueva del juego oficial: se trae lo que esta versión reconoce.'
+    nueva: 'La partida es de una versión más nueva del juego: se trae lo que PokéSwarm reconoce.'
   };
 
   const esObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);

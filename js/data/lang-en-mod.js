@@ -3,31 +3,36 @@
  * textos en español tal y como salen en la página (los espacios se juntan).
  */
 G.I18n.add({
-  'PokéSurvivor (versión modificada no oficial)': 'PokéSurvivor (unofficial modified version)',
-  'Versión modificada no oficial': 'Unofficial modified version',
-  ', basada en': ', based on',
-  'basada en': 'based on',
-  'PokéSurvivor de JPTER78': 'PokéSurvivor by JPTER78',
-  '(licencia MIT; sprites CC BY-NC 4.0). Cambios: los enemigos no se curan, los Pokémon más grandes son más pequeños en partida (sus sprites se muestran a escala reducida), en cada partida se abre una grieta antes de los 2 minutos, con un legendario más débil, los tickets que ganas cuentan doble, los shiny salen un 50 % más y en el gacha un Pokémon repetido desbloquea su evolución. Sus cuentas y partidas son independientes de las del juego original, pero puedes traer aquí tu partida oficial desde Ajustes > Cuenta. El autor del juego original no mantiene esta versión ni responde de ella.':
-    '(MIT licence; sprites CC BY-NC 4.0). Changes: enemies don\'t heal, the biggest Pokémon are smaller in a run (their sprites are shown scaled down), every run opens a rift before the 2-minute mark, with a weaker legendary, the tickets you earn count double, shinies are 50% more common and in the gacha a duplicate Pokémon unlocks its evolution. Its accounts and saves are separate from the original game\'s, but you can bring your official save here from Settings > Account. The author of the original game does not maintain this version and is not responsible for it.',
-  '. No tiene anuncios, compras ni donaciones.': '. It has no ads, purchases or donations.',
-  'Si eres titular de derechos y quieres que retiremos algo, abre un aviso en el repositorio de esta versión y lo quitaremos lo antes posible:':
-    'If you are a rights holder and want something removed, open an issue in this version\'s repository and we\'ll take it down as soon as possible:',
-  // Ajustes > Cuenta: traer la partida del juego oficial (js/ui/importar-ui.js y js/core/importar.js)
-  'Traer partida del juego oficial': 'Bring your save from the official game',
-  'Suma aquí tu colección, shinies, mejoras, logros, Pokémonedas y tickets del juego oficial. No se borra nada de lo que ya tienes.':
-    'Adds your collection, shinies, upgrades, achievements, PokéCoins and tickets from the official game. Nothing you already have here is removed.',
+  // PokéSwarm: el nombre, el lema, la portada y el aviso legal (dev.html, js/ui/settings-ui.js, js/ui/portada.js).
+  'PokéSwarm se juega en horizontal.': 'PokéSwarm is played in landscape.',
+  'PokéSwarm necesita JavaScript para funcionar. Actívalo para jugar.': 'PokéSwarm needs JavaScript to work. Please enable it to play.',
+  'Roguelite de hordas Pokémon': 'A Pokémon horde roguelite',
+  '. No tiene anuncios ni compras.': '. It has no ads or purchases.',
+  '; créditos completos en': '; full credits in',
+  '). Datos de la Pokédex de': '). Pokédex data from',
+  'Proyecto de fan sin ánimo de lucro · Sprites: SpriteCollab (CC BY-NC 4.0) · Pokémon © Nintendo/Creatures/GAME FREAK/The Pokémon Company ·':
+    'Non-profit fan project · Sprites: SpriteCollab (CC BY-NC 4.0) · Pokémon © Nintendo/Creatures/GAME FREAK/The Pokémon Company ·',
+  'Juego de fans {x}: sin anuncios ni compras. Pokémon y sus personajes son propiedad de Nintendo, Creatures, GAME FREAK y The Pokémon Company; este proyecto no está afiliado a ellos.':
+    'Fan game {x}: no ads or purchases. Pokémon and its characters are owned by Nintendo, Creatures, GAME FREAK and The Pokémon Company; this project is not affiliated with them.',
+  ': sin anuncios ni compras. Pokémon y sus personajes son propiedad de Nintendo, Creatures, GAME FREAK y The Pokémon Company; este proyecto no está afiliado a ellos.':
+    ': no ads or purchases. Pokémon and its characters are owned by Nintendo, Creatures, GAME FREAK and The Pokémon Company; this project is not affiliated with them.',
+  'Si eres titular de derechos y quieres que retiremos algo, abre un aviso en el repositorio de PokéSwarm y lo quitaremos lo antes posible:':
+    'If you are a rights holder and want something removed, open an issue in the PokéSwarm repository and we\'ll take it down as soon as possible:',
+  // Ajustes > Cuenta: traer una partida guardada (js/ui/importar-ui.js y js/core/importar.js)
+  'Traer partida guardada': 'Bring a saved game',
+  'Suma aquí tu colección, shinies, mejoras, logros, Pokémonedas y tickets de una partida guardada en otra web. No se borra nada de lo que ya tienes.':
+    'Adds your collection, shinies, upgrades, achievements, PokéCoins and tickets from a save on another website. Nothing you already have here is removed.',
   'Estás jugando como invitado: lo que traigas no se guardará al salir. Mejor crea una cuenta antes (botón de arriba) y tráela después.':
     'You\'re playing as a guest: whatever you bring won\'t be saved when you leave. Better create an account first (button above) and bring it afterwards.',
-  'Abre pokesurvivor.com en un PC e inicia sesión con tu cuenta.': 'Open pokesurvivor.com on a computer and sign in with your account.',
+  'Abre en un PC la web donde tienes tu partida, con tu cuenta iniciada.': 'On a computer, open the website where your save is, signed in to your account.',
   'Pulsa F12 y ve a la pestaña Consola. Si Chrome te pide escribir «permitir pegar» (o «allow pasting»), escríbelo y pulsa Enter.':
     'Press F12 and go to the Console tab. If Chrome asks you to type “allow pasting”, type it and press Enter.',
   'Copia este código, pégalo en la consola y pulsa Enter: se descargará un archivo con tu partida.':
     'Copy this code, paste it into the console and press Enter: a file with your save will download.',
   'Vuelve aquí, pulsa «Elegir archivo» y elige ese archivo.': 'Come back here, press “Choose file” and pick that file.',
-  'Código para la consola del juego oficial': 'Code for the official game\'s console',
-  // El código de la sección pegado en la consola de esta versión: su alert() pasa por G.I18n.
-  // (En el juego oficial, el propio código elige español o inglés según el idioma del navegador.)
+  'Código para la consola de esa web': 'Code for that website\'s console',
+  // El código de la sección pegado en la consola de PokéSwarm: su alert() pasa por G.I18n. (En la web del
+  // proyecto base, el propio código elige español o inglés según el idioma del navegador.) El fragmento no cambia.
   'Esta página es la versión modificada, no el juego oficial. Pega este código en la consola del juego oficial, con tu cuenta iniciada.':
     'This page is the modified version, not the official game. Paste this code into the console of the official game, signed in to your account.',
   'Copiar': 'Copy',
@@ -36,14 +41,14 @@ G.I18n.add({
   'Elegir archivo': 'Choose file',
   'Confirmar': 'Confirm',
   'Trayendo…': 'Bringing…',
-  'Los pasos 1 a 3 necesitan un PC: en el móvil no hay consola. Vale cualquier PC, porque tu partida oficial está en su nube: basta con entrar con tu cuenta. El código sólo lee tu partida y la descarga; no envía nada a ninguna parte.':
-    'Steps 1 to 3 need a computer: phones have no console. Any computer works, because your official save is in its cloud: just sign in with your account. The code only reads your save and downloads it; it sends nothing anywhere.',
+  'Los pasos 1 a 3 necesitan un PC: en el móvil no hay consola. Vale cualquier PC, porque tu partida está en la nube de esa web: basta con entrar con tu cuenta. El código sólo lee tu partida y la descarga; no envía nada a ninguna parte.':
+    'Steps 1 to 3 need a computer: phones have no console. Any computer works, because your save is in that website\'s cloud: just sign in with your account. The code only reads your save and downloads it; it sends nothing anywhere.',
   'Pega sólo este código, copiado de esta página: nunca pegues en la consola código que te pase otra persona.':
     'Only paste this code, copied from this page: never paste code someone else gives you into the console.',
   'Ver el código comentado': 'See the commented code',
   'Para traer la partida, vuelve al menú: termina o abandona la run.': 'To bring your save, go back to the menu: finish or quit the run.',
   'Vista previa': 'Preview',
-  'Partida oficial': 'Official save',
+  'Partida que traes': 'Save you\'re bringing',
   'Exportada el': 'Exported on',
   'Pokémon en esa partida': 'Pokémon in that save',
   'Pokémon nuevos': 'New Pokémon',
@@ -67,7 +72,7 @@ G.I18n.add({
   'Tu apodo, tus misiones de hoy, tu personalidad y tu inicial no cambian.':
     'Your nickname, today\'s missions, your personality and your starter don\'t change.',
   'No se ha podido leer el archivo.': 'Couldn\'t read the file.',
-  '¡Hecho! Tu partida del juego oficial ya está aquí.': 'Done! Your save from the official game is here now.',
+  '¡Hecho! Tu partida ya está aquí.': 'Done! Your save is here now.',
   'Como eres invitado, se perderá al salir: crea una cuenta y vuelve a traerla.':
     'As you\'re a guest, it will be lost when you leave: create an account and bring it again.',
   'Guardada en este navegador.': 'Saved in this browser.',
@@ -78,22 +83,22 @@ G.I18n.add({
   'Guardada en este dispositivo; se subirá a la nube en cuanto se pueda.':
     'Saved on this device; it will upload to the cloud as soon as possible.',
   'Si vuelves a traerla más adelante, sólo se sumará lo nuevo.': 'If you bring it again later, only what is new will be added.',
-  'Partida del juego oficial traída': 'Save from the official game brought over',
+  'Partida traída': 'Save brought over',
   'El archivo está vacío.': 'The file is empty.',
   'El archivo es demasiado grande para ser una partida (máximo 2 MB).': 'The file is too big to be a save (2 MB max).',
   'El archivo no es un JSON válido: usa el que descarga el código, sin editarlo.':
     'The file isn\'t valid JSON: use the one the code downloads, without editing it.',
-  'Este archivo no es una partida de PokéSurvivor.': 'This file isn\'t a PokéSurvivor save.',
+  'Este archivo no es una partida guardada.': 'This file isn\'t a saved game.',
   'Este archivo es de una versión más nueva del exportador: actualiza esta página y vuelve a probar.':
     'This file comes from a newer version of the exporter: reload this page and try again.',
   'La partida no tiene una fecha de creación válida.': 'The save doesn\'t have a valid creation date.',
-  'Este archivo es una partida de esta versión, no del juego oficial: el código hay que pegarlo en la consola de pokesurvivor.com, con tu cuenta iniciada.':
-    'This file is a save from this version, not from the official game: the code has to be pasted into the console on pokesurvivor.com, signed in to your account.',
+  'Este archivo es una partida de PokéSwarm: el código hay que pegarlo en la consola de la web donde tienes la partida que quieres traer, con tu cuenta iniciada.':
+    'This file is a PokéSwarm save: the code has to be pasted into the console of the website where the save you want to bring is, signed in to your account.',
   'No hay ninguna partida abierta.': 'No save is open.',
   '{x} datos no reconocidos se han descartado.': '{x} unrecognised entries were discarded.',
   '{x} números fuera de rango se han ajustado.': '{x} out-of-range numbers were adjusted.',
-  'La partida es de una versión más nueva del juego oficial: se trae lo que esta versión reconoce.':
-    'The save is from a newer version of the official game: whatever this version recognises is brought over.',
+  'La partida es de una versión más nueva del juego: se trae lo que PokéSwarm reconoce.':
+    'The save is from a newer version of the game: whatever PokéSwarm recognises is brought over.',
   // Tickets ganados ×ticketsMult (js/core/mods.js, textoTicket): lo que flota al coger uno. '+2 tickets' es igual.
   '¡{x} tickets ×10!': '{x} ×10 tickets!',
   // Gacha: un repetido desbloquea su evolución (js/core/mods.js, textoEvolucion y NOTA_REPETIDOS). El shiny, antes.
@@ -104,7 +109,7 @@ G.I18n.add({
   // Identidad visual «Dex de Expedición» (js/ui/estilo.js): Ajustes > Gráficos > Estilo, créditos y controles.
   'Estilo': 'Style',
   'Clásico': 'Classic',
-  'Dex: menús y HUD de Pokédex y letra redondeada. Clásico: el aspecto del juego original.': 'Dex: Pokédex menus and HUD and a rounded font. Classic: the look of the original game.',
+  'Dex: menús y HUD de Pokédex y letra redondeada. Clásico: menús de pixel art y letra pixelada.': 'Dex: Pokédex menus and HUD and a rounded font. Classic: pixel-art menus and a pixel font.',
   'Letra del estilo Dex:': 'Dex style font:',
   'Letra del estilo Dex: M PLUS Rounded 1c (OFL).': 'Dex style font: M PLUS Rounded 1c (OFL).',
   // Controles: un plegable abierto o una tableta también juegan en vertical (y, con las ranuras en columna, «de la derecha»).

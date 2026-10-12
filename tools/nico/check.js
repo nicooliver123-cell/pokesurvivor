@@ -872,7 +872,7 @@ async function importChecks() {
     const hTraducida = UI.html();
     delete UG.T;
     t('Ajustes: el aria-label del cuadro del código (translate="no") se traduce al pintarlo',
-      /<textarea[^>]*translate="no"[^>]*aria-label="EN:Código para la consola del juego oficial"/.test(hTraducida));
+      /<textarea[^>]*translate="no"[^>]*aria-label="EN:Código para la consola de esa web"/.test(hTraducida));
     const elegir = async txt => { el('imp-file').files = [{ size: Buffer.byteLength(txt), text: async () => txt }]; await el('imp-file').onchange(); return el('imp-box').innerHTML; };
     const hPropia = await elegir(store['ps.save.nicoui']);   // su propia partida, tal cual de localStorage
     t('Ajustes: elegir la partida de esta misma cuenta da el error, sin vista previa ni Confirmar',
@@ -2802,7 +2802,7 @@ function identidadChecks() {
     for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
     const EN = c.G.I18n.t;
     const leg = /<span>([^<]+)<\/span><!-- MOD nico -->/.exec(rd('dev.html'));
-    const textos = ['Estilo', 'Dex', 'Clásico', 'Dex: menús y HUD de Pokédex y letra redondeada. Clásico: el aspecto del juego original.', 'Letra del estilo Dex:',
+    const textos = ['Estilo', 'Dex', 'Clásico', 'Dex: menús y HUD de Pokédex y letra redondeada. Clásico: menús de pixel art y letra pixelada.', 'Letra del estilo Dex:',
       'Probabilidades', 'Cerrar', leg ? leg[1] : '(falta el texto legal)',
       'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de abajo para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).',
       'Pon el dedo en cualquier parte y arrastra para moverte: el joystick aparece donde tocas. Toca un ataque de la derecha para cambiarlo y el botón de arriba a la derecha para pausar. Se juega en horizontal (en un plegable abierto o en una tableta, también en vertical).'];
