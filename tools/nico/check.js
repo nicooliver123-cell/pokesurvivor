@@ -251,6 +251,7 @@ const HOOKS = [
   // Arreglos de upstream
   ['js/game.js', /G\.World\.setBiome\(G\.MODS && G\.MODS\.biomaNormal \? G\.MODS\.biomaNormal\(b\) : b\);\s*\/\/ MOD nico/, 'biomas: desde el minuto 12, el mapa sigue en sus biomas normales'],
   ['js/game.js', /if \(state !== 'playing' && flashT > 0 && G\.MODS && G\.MODS\.destelloSinCongelar\) flashT -= dt;\s*\/\/ MOD nico/, 'fogonazo de la grieta: se apaga también al elegir fusión'],
+  ['css/style.css', /body:has\(#pull-fx:not\(\.hidden\)\) \.ach-pop \{ top: 8px; bottom: auto; \}/, 'gacha en móvil: el aviso de logro no tapa «Continuar»']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 

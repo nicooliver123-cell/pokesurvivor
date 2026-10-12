@@ -702,6 +702,8 @@ a.btn { text-decoration: none; display: inline-block; color: var(--ink); }
   .menu-right > .box:last-child { display: none; }
   .menu-right > :first-child { margin-top: 0; }
   .ach-pop { top: auto; bottom: 8px; }
+  /* MOD nico: con el resultado del gacha abierto, el aviso de logro va arriba (abajo tapaba «Continuar»). */
+  body:has(#pull-fx:not(.hidden)) .ach-pop { top: 8px; bottom: auto; }
   .menu-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 4px; }
   .menu-item { font-size: 15px; padding: 4px 6px; grid-template-columns: 22px 1fr; column-gap: 6px; }
   .menu-item small { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
