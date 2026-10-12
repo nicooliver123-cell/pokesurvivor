@@ -47,7 +47,14 @@
  *      y lluvia (p10 ≥ 3:1, mediana ≥ 4,5:1); el HUD Dex cuesta de media como mucho 0,3 ms más que el de upstream en la misma escena (escritorio); capturas con 4 jugadores; y
  *      con movimiento reducido no parpadea nada. Con la letra de verdad, cada bioma y cada arena salen enteros en el
  *      sensor de Rotom y la pista de controles del principio sale entera; el aviso de logro en partida va bajo la banda
- *      de arriba del HUD (también el que salió en el menú); y en el plegable abierto nada pisa el pliegue.
+ *      de arriba del HUD (también el que salió en el menú); en el plegable abierto nada pisa el pliegue; y las flechas
+ *      del mismo cuadrante (jefe y tres compañeros, uno caído) no se pisan y sus etiquetas quedan en la zona libre.
+ *  11. Arreglos de la verificación de los lotes 1 y 2: el Magic V6 con la barra del navegador (724x740 a 640 y 784x700
+ *      a 640, con `screen` de la pantalla entera): el menú entero sin desplazar y sin los créditos encima, el pliegue
+ *      vertical a 724x700 sin nada encima (tampoco un aviso largo) y las tiradas a 724x640 y 784x640; la ×10 de 640x360
+ *      y 667x375; la barra superior compacta a 640, 600, 520 y 400 de ancho; el aviso flotante del menú, al empezar la
+ *      partida, por encima de las ranuras; «…» con los puntos en la línea base; y zonas seguras simuladas (cada
+ *      env(safe-area-inset-*) de lo que se sirve, cambiado por píxeles: 844x390 con 47/24/47/21).
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
@@ -87,7 +94,7 @@ const VP = {
   // Otros plegables o tabletas casi cuadrados.
   pleg3: { w: 1000, h: 900, dpr: 2.5, tactil: true }, pleg4: { w: 900, h: 1000, dpr: 2.5, tactil: true }
 };
-const nombreVp = v => `${v.w}x${v.h}${v.dpr ? '@' + v.dpr : ''}`;
+const nombreVp = v => `${v.w}x${v.h}${v.dpr ? '@' + v.dpr : ''}${v.seguras ? '-muesca' : ''}`;
 const CON_CAPTURAS = ['pc', 'movil', 'pleg2'];
 const GACHA_MOVIL = ['movil', 'movilBajo', 'exterior', 'pleg1', 'pleg2', 'pleg3', 'pleg4'];
 const TIRADAS = ['movil', 'movilBajo', 'exterior', 'pc', 'pleg1', 'pleg2'];
@@ -115,8 +122,10 @@ async function captura(page, nombre) {
 
 // ---------------- arranque de un jugador (invitado, modo local) ----------------
 async function nuevo(browser, v, { sw = false } = {}) {
+  // v.pantalla: [ancho, alto] de la pantalla entera si no es la ventana (el plegable con la barra del navegador).
   const ctx = await browser.newContext({ viewport: { width: v.w, height: v.h }, deviceScaleFactor: v.dpr || 1, hasTouch: !!v.tactil, isMobile: !!v.tactil,
-    serviceWorkers: sw ? 'allow' : 'block', locale: 'es-ES' });
+    serviceWorkers: sw ? 'allow' : 'block', locale: 'es-ES', ...(v.pantalla ? { screen: { width: v.pantalla[0], height: v.pantalla[1] } } : {}) });
+  if (v.seguras) await simularSeguras(ctx, v.seguras);
   const page = await ctx.newPage();
   const P = { ctx, page, v, consola: [], fuera: [] };
   page.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !AVISOS_ENTORNO.some(re => re.test(m.text()))) P.consola.push(`${m.type()}: ${m.text()}`); });
@@ -242,10 +251,20 @@ async function recorrerPantallas(P) {
 }
 
 /** Menú principal: las 8 opciones a la vista sin desplazar nada (ni la pantalla ni una caja), el logotipo libre
- *  de la barra superior y la línea de créditos sin pisar ninguna caja. */
+ *  de la barra superior y la línea de créditos sin pisar ninguna caja (lo que se ve de ella: el menú acaba por encima
+ *  de la línea y, si no cabe, se desplaza por encima de ella). sobra: lo que habría que desplazar para verlo todo. */
 const MEDIR_MENU = () => {
   const H = innerHeight, W = innerWidth, rr = el => el.getBoundingClientRect();
   const cruza = (a, b) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+  /** Lo que se ve de un elemento: su caja recortada por los contenedores que recortan (con desplazamiento). */
+  const visto = el => {
+    const r = rr(el); let x0 = r.left, y0 = r.top, x1 = r.right, y1 = r.bottom;
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const cs = getComputedStyle(p);
+      if (/(auto|scroll|hidden|clip)/.test(cs.overflowY + ' ' + cs.overflowX)) { const q = rr(p); x0 = Math.max(x0, q.left); y0 = Math.max(y0, q.top); x1 = Math.min(x1, q.right); y1 = Math.min(y1, q.bottom); }
+    }
+    return { left: x0, top: y0, right: Math.max(x0, x1), bottom: Math.max(y0, y1) };
+  };
   const visible = el => !!el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden';
   const items = [...document.querySelectorAll('#scr-menu .menu-item')];
   const mal = items.filter(it => {
@@ -258,9 +277,9 @@ const MEDIR_MENU = () => {
     return false;
   }).map(it => it.dataset.go);
   const scr = document.getElementById('scr-menu'), tb = document.getElementById('topbar'), cl = document.getElementById('credits-line'), logo = document.querySelector('#scr-menu .logo');
-  const cajas = [...document.querySelectorAll('#scr-menu .menu-right > .box')].filter(visible);
-  return { opciones: items.length, mal, desplazada: scr.scrollTop + document.querySelector('#scr-menu .menu-right').scrollTop,
-    logoTapado: visible(tb) && cruza(rr(tb), rr(logo)), creditosPisan: visible(cl) && cajas.some(b => cruza(rr(b), rr(cl))),
+  const cajas = [...document.querySelectorAll('#scr-menu .menu-right > .box')].filter(visible), mr = document.querySelector('#scr-menu .menu-right');
+  return { opciones: items.length, mal, desplazada: scr.scrollTop + mr.scrollTop, sobra: Math.max(scr.scrollHeight - scr.clientHeight, mr.scrollHeight - mr.clientHeight),
+    logoTapado: visible(tb) && cruza(rr(tb), rr(logo)), creditosPisan: visible(cl) && cajas.some(b => cruza(visto(b), rr(cl))),
     logo: [Math.round(rr(logo).top), Math.round(rr(logo).bottom)], barra: visible(tb) ? [Math.round(rr(tb).top), Math.round(rr(tb).bottom)] : null };
 };
 
@@ -658,6 +677,31 @@ const TEXTOS_ENTEROS = async () => {
   } finally { G.Spawner.banner = ban; G.HudDex.Avisos.reiniciar(); }
   return { n, malos, pista };
 };
+/** Las flechas del mismo cuadrante: el jefe y los tres compañeros simulados (ESCENA_HUD con compañeros) arriba a la
+ *  derecha y lejos; el HUD pintado en un lienzo aparte con la letra de verdad, apuntando cada etiqueta. Devuelve los
+ *  problemas: flechas o etiquetas que se pisan, o etiquetas fuera de la zona libre o de la pantalla. */
+const FLECHAS_CUADRANTE = () => {
+  const pl = G.Game.player, cam = G.Camera, W = innerWidth, H = innerHeight, k = 1 / cam.scale;
+  for (const e of G.EnemyMgr.all()) if (e.boss && !e.dead) { e.x = pl.x + 1.4 * W * k; e.y = pl.y - 0.9 * H * k; }
+  const m = window.__hudCoop && window.__hudCoop.mates;
+  if (m) [[2.0, -0.4], [0.9, -1.5], [2.5, -1.1]].forEach(([dx, dy], i) => { m[i].pl.x = pl.x + dx * W * k; m[i].pl.y = pl.y + dy * H * k; });
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), ft = ctx.fillText, textos = [];
+  ctx.fillText = function (t, x, y) {
+    const tm = ctx.getTransform(), w = ctx.measureText(t).width, al = ctx.textAlign, x0 = al === 'center' ? x - w / 2 : al === 'right' ? x - w : x;
+    const tam = +(/(\d+)px/.exec(ctx.font) || [0, 11])[1];
+    textos.push({ t: String(t), x: tm.a * x0 + tm.e, y: tm.d * (y - tam * 0.75) + tm.f, w, h: tam * 0.95 });
+    return ft.call(this, t, x, y);
+  };
+  G.HUD.draw(ctx, W, H, pl, G.Game.st);
+  const B = G.HudDex.bandas(), Z = B.zona, F = B.flechas;
+  const cruzan = (a, b) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+  const et = textos.filter(o => /· \d+ m$/.test(o.t)), mal = [];
+  for (let i = 0; i < F.length; i++) for (let j = i + 1; j < F.length; j++) if (F[i].cajas.some(a => F[j].cajas.some(b => cruzan(a, b)))) mal.push(F[i].tipo + '/' + F[j].tipo);
+  for (let i = 0; i < et.length; i++) for (let j = i + 1; j < et.length; j++) if (cruzan(et[i], et[j])) mal.push('«' + et[i].t + '» y «' + et[j].t + '»');
+  for (const o of et) if (o.x < Z.x - 0.5 || o.y < Z.y - 0.5 || o.x + o.w > Z.x + Z.w + 0.5 || o.y + o.h > Z.y + Z.h + 0.5) mal.push('«' + o.t + '» fuera de la zona libre');
+  return { flechas: F.length, tipos: F.map(f => f.tipo), etiquetas: et.map(o => ({ t: o.t, x: Math.round(o.x), y: Math.round(o.y), w: Math.round(o.w) })), zona: Z, mal };
+};
 /** Un aviso de logro (el elemento de progress.js) en plena partida: dónde sale con el HUD Dex. */
 const LOGRO = () => {
   let el = document.getElementById('ach-pop');
@@ -784,12 +828,21 @@ async function pruebaHud(browser) {
       check(`${nv}: el HUD Dex cuesta de media ${ms.media} ms por fotograma (p95 ${ms.p95}) y el de upstream ${msC.media} ms en la misma escena: como mucho 0,3 ms más`,
         ms.n > 60 && msC.n > 60 && ms.media <= msC.media + 0.3, { dex: ms, clasico: msC });
     }
-    if (clave === 'pc' || clave === 'movil' || clave === 'pleg2') {
+    if (clave === 'pc' || clave === 'movil' || clave === 'pleg2' || clave === 'tab') {
       // Cuatro jugadores (tres compañeros simulados en el HUD: uno caído y lejos, otro a la vista y otro lejos) y el jefe lejos.
       await page.evaluate(() => { for (const e of G.EnemyMgr.all()) if (e.boss) { e.x += 3000; e.y -= 400; } });
       await page.evaluate(ESCENA_HUD, { companeros: true, jefe: false, aviso: false });
       await sleep(600);
-      await captura(page, `hud-4-jugadores-dex-${nv}`);
+      if (clave !== 'tab') await captura(page, `hud-4-jugadores-dex-${nv}`);
+      // Flechas del mismo cuadrante (el jefe y los tres compañeros, arriba a la derecha y lejos) con la letra de verdad:
+      // ni las flechas ni sus etiquetas se pisan, y cada etiqueta, entera dentro de la zona libre.
+      const fq = await page.evaluate(FLECHAS_CUADRANTE);
+      report.medidas['hud-flechas-' + nv] = fq;
+      await sleep(300);
+      await captura(page, `hud-flechas-dex-${nv}`);
+      check(`${nv}: flechas del mismo cuadrante (jefe, compañero caído y dos compañeros, arriba a la derecha) con la letra de verdad: ${fq.flechas} flechas y ${fq.etiquetas.length} etiquetas, sin pisarse y enteras dentro de la zona libre`,
+        fq.flechas === 4 && fq.etiquetas.length === 4 && !fq.mal.length, fq);
+      await page.evaluate(() => { const m = window.__hudCoop && window.__hudCoop.mates, pl = G.Game.player; if (m) { [[-1800, 200], [60, 40], [300, 2200]].forEach(([dx, dy], i) => { m[i].pl.x = pl.x + dx; m[i].pl.y = pl.y + dy; }); } });
       // Movimiento reducido: con PS bajos, un compañero caído, flechas y la grieta, dos fotogramas a 400 ms son iguales.
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.evaluate(() => { if (G.Game.state === 'playing') G.Game.togglePause(); });
@@ -809,6 +862,244 @@ async function pruebaHud(browser) {
         igual.dif === 0 && igual.flechas.includes('caido'), igual);
     }
     check(`${nv}: HUD Dex: consola sin errores ni avisos`, !P.consola.length, P.consola.slice(0, 5));
+    await P.ctx.close();
+  }
+}
+
+// ---------------- 11. Arreglos de la verificación de los lotes 1 y 2 ----------------
+/** Zonas seguras simuladas: Playwright no emula env(safe-area-inset-*), así que en lo que se sirve (las hojas de estilo,
+ *  los scripts y la página) cada env(safe-area-inset-X) pasa a los píxeles de `s` ({sup, der, inf, izq}). Sólo en la
+ *  prueba: así se ven las reglas que los usan (gacha y tiradas en pantallas bajas) y lo que lee G.Estilo.zonasSeguras(). */
+async function simularSeguras(ctx, s) {
+  const px = { top: s.sup, right: s.der, bottom: s.inf, left: s.izq };
+  await ctx.route(/\/(css\/[^?]+\.css|js\/[^?]+\.js|index\.html|dev\.html)(\?.*)?$/, async route => {
+    const r = await route.fetch();
+    const body = (await r.text()).replace(/env\(\s*safe-area-inset-(top|right|bottom|left)\s*(?:,[^)]*)?\)/g, (_, k) => px[k] + 'px');
+    await route.fulfill({ response: r, body });
+  });
+}
+/** ¿Está el rectángulo r dentro de la ventana menos las zonas seguras s? */
+const dentroSeguro = (r, s, W, H) => r.left >= s.izq - 0.5 && r.top >= s.sup - 0.5 && r.right <= W - s.der + 0.5 && r.bottom <= H - s.inf + 0.5;
+/** El Magic V6 con la barra del navegador (la ventana, más baja que la pantalla; tamaños estimados por Nico). */
+const VP_BARRA = {
+  v740: { w: 724, h: 740, dpr: 3, tactil: true, pantalla: [724, 784] }, v700: { w: 724, h: 700, dpr: 3, tactil: true, pantalla: [724, 784] },
+  v680: { w: 724, h: 680, dpr: 3, tactil: true, pantalla: [724, 784] }, v660: { w: 724, h: 660, dpr: 3, tactil: true, pantalla: [724, 784] },
+  v640: { w: 724, h: 640, dpr: 3, tactil: true, pantalla: [724, 784] }, g700: { w: 784, h: 700, dpr: 3, tactil: true, pantalla: [784, 724] },
+  g680: { w: 784, h: 680, dpr: 3, tactil: true, pantalla: [784, 724] }, g640: { w: 784, h: 640, dpr: 3, tactil: true, pantalla: [784, 724] }
+};
+/** La barra superior: dentro de la ventana, sin partirse en dos filas (con 480 px de ancho o más) y sin tapar el logotipo. */
+const MEDIR_BARRA = () => {
+  const tb = document.getElementById('topbar'), q = tb.getBoundingClientRect(), logo = document.querySelector('#scr-menu .logo').getBoundingClientRect();
+  const hijos = [...tb.children].filter(c => c.offsetParent !== null).map(c => c.getBoundingClientRect());
+  const filas = [];
+  for (const r of hijos) { const c = (r.top + r.bottom) / 2; if (!filas.some(f => Math.abs(f - c) < 12)) filas.push(c); }
+  return { barra: [Math.round(q.left), Math.round(q.top), Math.round(q.right), Math.round(q.bottom)], filas: filas.length,
+    fuera: hijos.filter(r => r.left < -0.5 || r.right > innerWidth + 0.5 || r.top < -0.5).length,
+    logoTapado: q.bottom > logo.top + 0.5 && q.top < logo.bottom && q.left < logo.right && q.right > logo.left, pagina: document.documentElement.scrollWidth - innerWidth };
+};
+/** «…» con la letra del lienzo en Dex: sus puntos, en la línea base (como el de «.»), no a media altura (M PLUS); y las
+ *  caras de M PLUS de la página (DOM y lienzo), sin U+2026 en su unicode-range. */
+const PUNTOS = () => {
+  const cv = document.createElement('canvas'); cv.width = 200; cv.height = 100;
+  const c = cv.getContext('2d', { willReadFrequently: true });
+  const tinta = t => {
+    c.clearRect(0, 0, 200, 100); c.font = '700 48px Pixelify, "Segoe UI", sans-serif'; c.fillStyle = '#000'; c.textBaseline = 'alphabetic'; c.fillText(t, 20, 70);
+    const d = c.getImageData(0, 0, 200, 100).data; let y0 = 100, y1 = -1;
+    for (let y = 0; y < 100; y++) for (let x = 0; x < 200; x++) if (d[(y * 200 + x) * 4 + 3] > 40) { if (y < y0) y0 = y; y1 = y; }
+    return { arriba: y0, abajo: y1, fuente: c.font };
+  };
+  const caras = [...document.fonts].filter(f => /M PLUS/.test(f.family)).map(f => f.unicodeRange);
+  return { elipsis: tinta('…'), punto: tinta('.'), caras };
+};
+/** El aviso flotante (toast) al empezar la partida: ¿pisa la fila de ranuras? Clásico: la de upstream (54 px a 18 del
+ *  borde, la activa 6 más arriba y su nombre encima: hasta unos 94 px); Dex: la banda de abajo del HUD Dex. */
+const TOAST_PARTIDA = () => {
+  const t = document.querySelector('.toast'), r = t.getBoundingClientRect(), H = innerHeight;
+  const dex = G.Estilo.actual === 'dex', inf = dex ? G.HudDex.bandaInf() : 94;
+  return { estado: G.Game.state, estilo: G.Estilo.actual, toast: [Math.round(r.top), Math.round(r.bottom)], limite: Math.round(H - inf), visible: getComputedStyle(t).display !== 'none',
+    pisa: r.bottom > H - inf + 0.5 };
+};
+
+/** Tiradas ×1, ×10 y la ×10 de repetidos en los dos estilos (como en la sección 2, para las pantallas de la sección 11). */
+async function comprobarTiradas(P, nv) {
+  const { page } = P;
+  for (const e of ESTILOS) {
+    await estilo(page, e);
+    await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
+    const x1 = await tirar(P, 'pull-1');
+    await page.click('#pull-close'); await sleep(200);
+    const x10 = await tirar(P, 'pull-10');
+    await page.click('#pull-close'); await sleep(200);
+    check(`${nv} ${e}: tiradas ×1 y ×10 sin desplazar, con «Continuar» a la vista sin tapar ninguna carta y el premio sin cortes`,
+      x1.cartas === 1 && x10.cartas === 10 && [x1, x10].every(x => x.desplaza <= 1 && x.continuarVisible && !x.pisa && !x.fuera && x.escalaCss && !x.premioCortado.length), { x1, x10 });
+    const ev = await tirarRepetidos(P);
+    await captura(page, `tirada-x10-repetidos-${e}-${nv}`);
+    await page.click('#pull-close'); await sleep(200);
+    check(`${nv} ${e}: ×10 de diez repetidos (nombres largos): cada etiqueta entera, cada carta a la vista sin «Continuar» encima y sin desplazar`,
+      ev.cartas === 10 && !ev.malas.length && !ev.nuncaEnteras && ev.desplaza <= 1, ev);
+  }
+}
+
+async function pruebaArreglos(browser) {
+  // 11a. Menú del plegable con la barra del navegador: los créditos no pisan la caja de estadísticas y todo cabe.
+  for (const [clave, v] of Object.entries(VP_BARRA)) {
+    const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: se entra (barra del navegador)`, false); await P.ctx.close(); continue; }
+    for (const e of ESTILOS) {
+      await estilo(page, e);
+      await page.evaluate(() => { G.MenuUI.open(); document.getElementById('scr-menu').scrollTop = 0; for (const x of document.querySelectorAll('.ach-pop, .toast')) x.classList.add('hidden'); });
+      await sleep(300);
+      const m = await page.evaluate(MEDIR_MENU);
+      report.medidas[`menu-barra-${e}-${nv}`] = m;
+      check(`${nv} ${e} (plegable con la barra del navegador): menú principal con las 8 opciones a la vista, entero sin desplazar (${m.sobra} px de más) y la línea de créditos sin pisar ninguna caja`,
+        m.opciones === 8 && !m.mal.length && m.sobra <= 1 && !m.logoTapado && !m.creditosPisan, m);
+      if (clave === 'v680' || clave === 'g680') await captura(page, `menu-barra-${e}-${nv}`);
+    }
+    // El pliegue sale de la pantalla: en vertical con la barra (724x700), vertical en x = 362; y nada del HUD encima,
+    // tampoco un aviso largo junto al jefe.
+    if (clave === 'v700') {
+      await page.evaluate(() => { G.Estilo.set('dex'); G.Flow.play(); });
+      await sleep(1000);
+      await page.evaluate(ESCENA_HUD, { aviso: false });
+      await page.evaluate(() => G.Spawner.say('Guardas el vínculo: aprende otro movimiento para usarlo', 600, true));
+      await sleep(2400);
+      const pg = await page.evaluate(() => {
+        const W = innerWidth, H = innerHeight, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        const ctx = cv.getContext('2d'), ft = ctx.fillText, textos = [];
+        ctx.fillText = function (t, x, y) {
+          const m = ctx.getTransform(), w = ctx.measureText(t).width, al = ctx.textAlign, x0 = al === 'center' ? x - w / 2 : al === 'right' ? x - w : x;
+          textos.push({ t: String(t), x0: m.a * x0 + m.e, x1: m.a * (x0 + w) + m.e, y: m.d * y + m.f });
+          return ft.call(this, t, x, y);
+        };
+        G.HudDex.draw(ctx, W, H, G.Game.player, G.Game.st);
+        const B = G.HudDex.bandas(), P = B.piezas, g = B.pliegue, A = P.aviso, L = [];
+        for (const k of ['ficha', 'contador', 'rotom', 'pausa', 'jefe', 'aviso', 'objeto', 'vinculo']) if (P[k]) L.push({ n: k, ...P[k] });
+        ['ranuras', 'chips', 'companeros'].forEach(k => (P[k] || []).forEach((r, i) => L.push({ n: k + i, ...r })));
+        const pisa = g ? L.filter(p => g.eje === 'x' ? p.x < g.pos + g.ancho / 2 && p.x + p.w > g.pos - g.ancho / 2 : p.y < g.pos + g.ancho / 2 && p.y + p.h > g.pos - g.ancho / 2).map(p => p.n) : null;
+        const tx = A ? textos.filter(o => o.y >= A.y - 1 && o.y <= A.y + A.h + 1 && o.x0 >= A.x - 1 && o.x1 <= A.x + A.w + 1) : [];
+        return { pliegue: g, pisa, aviso: A, textos: tx.map(o => o.t), cruzan: g ? tx.filter(o => o.x0 < g.pos + g.ancho / 2 && o.x1 > g.pos - g.ancho / 2).map(o => o.t) : [] };
+      });
+      report.medidas['hud-pliegue-barra-' + nv] = pg;
+      await captura(page, `hud-pliegue-barra-dex-${nv}`);
+      check(`${nv} (Magic V6 en vertical con la barra del navegador; pantalla 724x784): el pliegue sigue siendo vertical en x = 362 y ninguna pieza del HUD Dex lo pisa, ni el aviso largo junto al jefe («${pg.textos.join(' / ')}», entero)`,
+        pg.pliegue && pg.pliegue.eje === 'x' && pg.pliegue.pos === 362 && pg.pisa && !pg.pisa.length && !pg.cruzan.length && pg.textos.length >= 1 && !pg.textos.some(t => /…$/.test(t)), pg);
+      await page.evaluate(salirDePartida);
+    }
+    // Tiradas ×1 y ×10 (también la de repetidos) con la barra del navegador.
+    if (clave === 'v640' || clave === 'g640') await comprobarTiradas(P, nv);
+    check(`${nv}: consola sin errores ni avisos (barra del navegador)`, !P.consola.length, P.consola.slice(0, 5));
+    await P.ctx.close();
+  }
+
+  // 11b. ×10 en un móvil pequeño en horizontal (640x360, 667x375): seis y cuatro, «Continuar» en su esquina libre.
+  for (const v of [{ w: 640, h: 360, dpr: 3, tactil: true }, { w: 667, h: 375, dpr: 2, tactil: true }]) {
+    const P = await nuevo(browser, v), nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: se entra`, false); await P.ctx.close(); continue; }
+    await comprobarTiradas(P, nv);
+    check(`${nv}: consola sin errores ni avisos`, !P.consola.length, P.consola.slice(0, 5));
+    await P.ctx.close();
+  }
+
+  // 11c. Barra superior en anchos de menos de 680 (en vertical): compacta, en una fila (dos, sin salirse, por debajo de 480).
+  for (const v of [{ w: 640, h: 780, dpr: 3, tactil: true }, { w: 600, h: 740, dpr: 3, tactil: true }, { w: 520, h: 640 }, { w: 400, h: 700 }]) {
+    const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: se entra`, false); await P.ctx.close(); continue; }
+    for (const e of ESTILOS) {
+      await estilo(page, e);
+      await page.evaluate(() => { G.MenuUI.open(); for (const x of document.querySelectorAll('.ach-pop, .toast')) x.classList.add('hidden'); });
+      await sleep(250);
+      const b = await page.evaluate(MEDIR_BARRA);
+      report.medidas[`barra-${e}-${nv}`] = b;
+      check(`${nv} ${e}: barra superior compacta: dentro de la ventana, ${v.w >= 480 ? 'en una fila' : 'en dos filas como mucho'}, sin desplazamiento horizontal y sin tapar el logotipo`,
+        !b.fuera && b.filas <= (v.w >= 480 ? 1 : 2) && b.pagina <= 0 && !b.logoTapado, b);
+      if (v.w === 600) await captura(page, `barra-${e}-${nv}`);
+    }
+    await P.ctx.close();
+  }
+
+  // 11d. El aviso flotante (toast) del menú, si sigue en pantalla al empezar la partida, no pisa la fila de ranuras.
+  for (const v of [VP.pc, VP.tab, VP.movil]) {
+    const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: se entra`, false); await P.ctx.close(); continue; }
+    for (const e of ESTILOS) {
+      await estilo(page, e);
+      await page.evaluate(() => { G.UI.toast('¡Bulbasaur se une a ti!', 5000); G.Flow.play(); });
+      await sleep(700);
+      const t = await page.evaluate(TOAST_PARTIDA);
+      report.medidas[`toast-${e}-${nv}`] = t;
+      if (v === VP.pc) await captura(page, `toast-partida-${e}-${nv}`);
+      check(`${nv} ${e}: el aviso «¡Bulbasaur se une a ti!» del menú, al empezar la partida, queda por encima de la fila de ranuras (${t.toast[1]} ≤ ${t.limite} px)`,
+        t.estado === 'playing' && t.visible && !t.pisa, t);
+      await page.evaluate(salirDePartida);
+    }
+    // Y «…» con los puntos abajo en Dex (la letra de reserva), en el lienzo y en las caras de M PLUS de la página.
+    if (v === VP.pc) {
+      await estilo(page, 'dex');
+      const p = await page.evaluate(PUNTOS);
+      report.medidas['puntos-suspensivos'] = p;
+      check(`Dex: «…» con los puntos en la línea base (su tinta acaba a ${p.elipsis.abajo} px y la de «.» a ${p.punto.abajo}; empieza a ${p.elipsis.arriba}), no a media altura como en M PLUS; las ${p.caras.length} caras de M PLUS sin U+2026 (${p.caras[0]})`,
+        Math.abs(p.elipsis.abajo - p.punto.abajo) <= 2 && p.elipsis.arriba >= p.punto.arriba - 3 && p.caras.length >= 2 && p.caras.every(u => /2025/.test(u) && /2027/.test(u)), p);
+    }
+    check(`${nv}: consola sin errores ni avisos (aviso flotante en partida)`, !P.consola.length, P.consola.slice(0, 5));
+    await P.ctx.close();
+  }
+
+  // 11e. Zonas seguras simuladas (muesca de 47 px a los lados, 24 arriba y 21 abajo) en un móvil en horizontal: las reglas
+  //      que usan env(safe-area-inset-*) (gacha, tiradas, avisos de logro en el gacha) y lo que lee el HUD Dex.
+  {
+    const s = { sup: 24, der: 47, inf: 21, izq: 47 }, v = { w: 844, h: 390, dpr: 3, tactil: true, seguras: s };
+    const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) check(`${nv}: se entra`, false);
+    else {
+      const leidas = await page.evaluate(() => G.Estilo.zonasSeguras());
+      check(`${nv}: la simulación llega al juego: G.Estilo.zonasSeguras() lee ${JSON.stringify(leidas)}`, leidas.sup === s.sup && leidas.der === s.der && leidas.inf === s.inf && leidas.izq === s.izq, leidas);
+      for (const e of ESTILOS) {
+        await estilo(page, e);
+        await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
+        await sleep(400);
+        const g = await page.evaluate(() => {
+          const r = el => { const q = el.getBoundingClientRect(); return { left: q.left, top: q.top, right: q.right, bottom: q.bottom }; };
+          let a = document.getElementById('ach-pop'), creado = false;
+          if (!a) { a = document.createElement('div'); a.id = 'ach-pop'; a.className = 'box ach-pop'; a.innerHTML = '<div><b>Logro</b></div>'; document.body.appendChild(a); creado = true; }
+          a.classList.remove('hidden');
+          const out = { caja: r(document.querySelector('#scr-gacha > .box')), botones: ['pull-1', 'pull-10', 'pull-10b'].map(id => r(document.getElementById(id))), logro: r(a) };
+          if (creado) a.remove(); else a.classList.add('hidden');
+          return out;
+        });
+        await page.evaluate(() => { if (!G.Slots.__play) G.Slots.__play = G.Slots.play; G.Slots.play = () => Promise.resolve(); });
+        await page.click('#pull-10');
+        for (let i = 0; i < 130 && !(await page.locator('#pull-close').isVisible().catch(() => false)); i++) await sleep(150);
+        await sleep(500);
+        const tiradas = await page.evaluate(() => {
+          const r = el => { const q = el.getBoundingClientRect(); return { left: q.left, top: q.top, right: q.right, bottom: q.bottom }; };
+          return { continuar: r(document.getElementById('pull-close')), cartas: [...document.querySelectorAll('#pull-results .pcard')].map(r) };
+        });
+        if (e === 'dex') await captura(page, `tirada-x10-muesca-${e}-${nv}`);
+        await page.click('#pull-close');
+        await page.evaluate(() => { if (G.Slots.__play) G.Slots.play = G.Slots.__play; });
+        await sleep(200);
+        const W = v.w, H = v.h;
+        const fuera = [['caja del gacha', g.caja], ...g.botones.map((b, i) => ['botón ' + i, b]), ['aviso de logro', g.logro], ['Continuar', tiradas.continuar], ...tiradas.cartas.map((c, i) => ['carta ' + i, c])]
+          .filter(([, r]) => !dentroSeguro(r, s, W, H)).map(([n, r]) => `${n} ${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.right)},${Math.round(r.bottom)}`);
+        check(`${nv} ${e} (muesca simulada de 47/24/47/21): el gacha, sus botones, el aviso de logro, las diez cartas de la ×10 y «Continuar», dentro de las zonas seguras`,
+          !fuera.length && tiradas.cartas.length === 10, fuera.slice(0, 6));
+        await page.evaluate(salirDePartida);
+      }
+      // El HUD Dex en partida, con todo a la vez, dentro de las zonas seguras.
+      await page.evaluate(() => { G.Estilo.set('dex'); G.Flow.play(); });
+      await sleep(900);
+      await page.evaluate(ESCENA_HUD, { companeros: true });
+      await sleep(1800);
+      const h = await page.evaluate(sg => {
+        const B = G.HudDex.bandas(), P = B.piezas, L = [];
+        for (const k of ['ficha', 'contador', 'rotom', 'pausa', 'jefe', 'aviso', 'objeto', 'vinculo']) if (P[k]) L.push({ n: k, ...P[k] });
+        ['ranuras', 'chips', 'companeros'].forEach(k => (P[k] || []).forEach((r, i) => L.push({ n: k + i, ...r })));
+        return L.filter(p => p.x < sg.izq - 0.5 || p.y < sg.sup - 0.5 || p.x + p.w > innerWidth - sg.der + 0.5 || p.y + p.h > innerHeight - sg.inf + 0.5).map(p => p.n);
+      }, s);
+      await captura(page, `hud-muesca-dex-${nv}`);
+      check(`${nv} (muesca simulada): todas las piezas del HUD Dex, dentro de las zonas seguras`, !h.length, h);
+    }
+    check(`${nv}: consola sin errores ni avisos (zonas seguras simuladas)`, !P.consola.length, P.consola.slice(0, 5));
     await P.ctx.close();
   }
 }
@@ -1046,6 +1337,10 @@ function hojaDeContactos() {
 
     // 10. HUD Dex en partida (lote 2).
     await pruebaHud(browser);
+
+    // 11. Arreglos de la verificación de los lotes 1 y 2 (barra del navegador, móviles pequeños, barra superior estrecha,
+    //     el aviso flotante al empezar, «…» y zonas seguras simuladas).
+    if (!SOLO_HUD) await pruebaArreglos(browser);
 
     // 8. Sin internet: con el service worker y en Clásico, se cargan las fuentes en reposo; luego, sin red, a Dex.
     if (!SOLO_HUD) {
