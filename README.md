@@ -2,9 +2,10 @@
 
 > **Versión modificada no oficial.** Esta copia está basada en
 > [PokéSurvivor de JPTER78](https://github.com/JPTER78/pokesurvivor) (web oficial:
-> pokesurvivor.com) y no la mantiene su autor. Cambios: los enemigos no se curan y
+> pokesurvivor.com) y no la mantiene su autor. Cambios: los enemigos no se curan,
 > los Pokémon más grandes son más pequeños en partida (sus sprites se muestran a
-> escala reducida). No usa la infraestructura del juego original. Detalles en
+> escala reducida) y en cada partida se abre una grieta antes de los 2 minutos, con
+> un legendario más débil. No usa la infraestructura del juego original. Detalles en
 > [CLAUDE.md](CLAUDE.md); licencias y créditos en [LICENSE](LICENSE) y [CREDITS.md](CREDITS.md).
 >
 > **Jugar:** https://nicooliver123-cell.github.io/pokesurvivor/ · Fallos, sugerencias
@@ -63,7 +64,10 @@ agua frena y la lava quema (también a los enemigos).
 En el mapa hay **altares de poder**, **manantiales** que curan, **cofres con
 candado** (quédate a su lado unos segundos) y **trampas** que también dañan a
 los enemigos. A veces se abre una **grieta**: entra y lucharás contra un
-**legendario** en una arena aparte.
+**legendario** en una arena aparte. En esta versión siempre se abre una antes de
+los 2 minutos de juego, con el legendario al 60 % de su vida, para que consigas el
+**vínculo** y fusiones movimientos; si no entras antes de que se cierre, no vuelve.
+Las demás grietas salen como en el original.
 
 Hay **tabla de tipos** (un Rayo Burbuja le quita más a un Charmander) y,
 de vez en cuando, **climas** (sol, lluvia, arena, nieve, niebla) que potencian
@@ -106,13 +110,14 @@ partida la sacas tú de tu navegador, con un código que pegas en la web oficial
 3. En esta versión, abre **Ajustes > Cuenta > Traer partida del juego oficial**,
    pulsa **Copiar**, pega el código en la consola del juego oficial y pulsa Enter.
    Se descarga `pokesurvivor-partida-<nombre>-<fecha>.json`. El mismo código está,
-   comentado, en [tools/nico/exportar-oficial.js](tools/nico/exportar-oficial.js).
+   comentado línea a línea, en [tools/nico/exportar-oficial.js](tools/nico/exportar-oficial.js).
    Pega sólo este código, copiado de esta versión: nunca pegues en la consola
    código que te pase otra persona.
 4. Vuelve aquí, pulsa **Elegir archivo**, mira la vista previa y pulsa **Confirmar**.
 
 El código sólo lee la partida que ya tiene tu navegador y la descarga: no envía
-nada a ninguna parte ni cambia nada. Esta versión sólo lee el archivo que eliges.
+nada a ninguna parte ni cambia nada. Sus avisos salen en español o en inglés,
+según el idioma del navegador. Esta versión sólo lee el archivo que eliges.
 
 Se suma a lo que ya tengas aquí, sin borrar nada:
 

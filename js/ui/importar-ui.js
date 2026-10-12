@@ -7,6 +7,8 @@
 G.ImportarUI = (() => {
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Lo que lleva translate="no" (el código) no lo traduce el DOM, tampoco sus atributos: su aria-label, aquí.
+  const tr = s => (G.T ? G.T(s) : s);
   let analisis = null;        // resultado de G.Importar.analizar() a la espera de Confirmar
   let aviso = null;           // { ok: bool, textos: [...] } (resultado o error)
   let trabajando = false;
@@ -41,13 +43,16 @@ G.ImportarUI = (() => {
     let h = `<h3 class="set-h">Traer partida del juego oficial</h3>`
       + `<p class="sub">Suma aquí tu colección, shinies, mejoras, logros, Pokémonedas y tickets del juego oficial. No se borra nada de lo que ya tienes.</p>`;
     if (G.DB.guest) h += `<p class="note imp-err">Estás jugando como invitado: lo que traigas no se guardará al salir. Mejor crea una cuenta antes (botón de arriba) y tráela después.</p>`;
+    // El resultado (o el error) va aquí arriba y se centra en la pantalla (repintar con `ver`): los avisos
+    // flotantes (logros, «Partida traída») salen arriba o abajo y no lo tapan, tampoco en un móvil en horizontal.
+    if (aviso) h += `<div class="imp-msg ${aviso.ok ? 'imp-ok' : 'imp-err'}">${aviso.textos.map(t => `<p>${esc(t)}</p>`).join('')}</div>`;
     h += `<ol class="imp-pasos">
         <li>Abre pokesurvivor.com en un PC e inicia sesión con tu cuenta.</li>
         <li>Pulsa F12 y ve a la pestaña Consola. Si Chrome te pide escribir «permitir pegar» (o «allow pasting»), escríbelo y pulsa Enter.</li>
         <li>Copia este código, pégalo en la consola y pulsa Enter: se descargará un archivo con tu partida.</li>
         <li>Vuelve aquí, pulsa «Elegir archivo» y elige ese archivo.</li>
       </ol>
-      <textarea id="imp-code" class="imp-code" readonly spellcheck="false" translate="no" aria-label="Código para la consola del juego oficial">${esc(G.Importar.EXPORTADOR)}</textarea>
+      <textarea id="imp-code" class="imp-code" readonly spellcheck="false" translate="no" aria-label="${esc(tr('Código para la consola del juego oficial'))}">${esc(G.Importar.EXPORTADOR)}</textarea>
       <div class="row wrap" style="gap:8px;margin-top:8px">
         <button class="btn small" id="imp-copy">Copiar</button>
         <button class="btn small gold" id="imp-pick" ${enRun() || trabajando ? 'disabled' : ''}>Elegir archivo</button>
@@ -57,7 +62,6 @@ G.ImportarUI = (() => {
       <p class="note">Pega sólo este código, copiado de esta página: nunca pegues en la consola código que te pase otra persona. <a href="tools/nico/exportar-oficial.js" target="_blank" rel="noopener">Ver el código comentado</a></p>`;
     if (enRun()) h += `<p class="note imp-err">Para traer la partida, vuelve al menú: termina o abandona la run.</p>`;
     if (analisis && G.DB.save) h += previa();
-    if (aviso) h += `<div class="imp-msg ${aviso.ok ? 'imp-ok' : 'imp-err'}">${aviso.textos.map(t => `<p>${esc(t)}</p>`).join('')}</div>`;
     return h;
   }
 
@@ -111,7 +115,15 @@ G.ImportarUI = (() => {
     if (no) no.onclick = () => { analisis = null; aviso = null; repintar(); };
   }
 
-  function repintar() { const box = $('imp-box'); if (!box) return; box.innerHTML = cuerpo(); wire(); }
+  /** Vuelve a pintar la sección. Con `ver`, centra en la pantalla el resultado o el error (si no hay,
+   *  acerca la vista previa): así no queda pegado al borde, donde salen los avisos flotantes. */
+  function repintar(ver) {
+    const box = $('imp-box'); if (!box) return;
+    box.innerHTML = cuerpo(); wire();
+    if (!ver) return;
+    const m = document.querySelector('#imp-box > .imp-msg'), el = m || document.querySelector('#imp-box .imp-prev');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: m ? 'center' : 'nearest' });
+  }
 
   async function copiar(btn, code) {
     let ok = false;
@@ -124,17 +136,15 @@ G.ImportarUI = (() => {
   async function elegido(f) {
     if (!f) return;
     analisis = null; aviso = null;
-    if (f.size > G.Importar.MAX_BYTES) { aviso = { ok: false, textos: [G.Importar.TEXTOS.grande] }; return repintar(); }
+    if (f.size > G.Importar.MAX_BYTES) { aviso = { ok: false, textos: [G.Importar.TEXTOS.grande] }; return repintar(true); }
     let texto;
     try { texto = await f.text(); }
-    catch (e) { aviso = { ok: false, textos: ['No se ha podido leer el archivo.'] }; return repintar(); }
+    catch (e) { aviso = { ok: false, textos: ['No se ha podido leer el archivo.'] }; return repintar(true); }
     const r = G.Importar.analizar(texto);
     // Una partida de esta misma cuenta (exportada desde aquí) no se trae: se dice ya, sin vista previa.
     if (r.ok && G.DB.save && G.Importar.esLaMisma(G.DB.save, r.save)) aviso = { ok: false, textos: [G.Importar.TEXTOS.propia] };
     else if (r.ok) analisis = r; else aviso = { ok: false, textos: [r.error] };
-    repintar();
-    const p = document.querySelector('#imp-box .imp-prev, #imp-box .imp-msg');
-    if (p && p.scrollIntoView) p.scrollIntoView({ block: 'nearest' });
+    repintar(true);
   }
 
   async function confirmar() {
@@ -143,7 +153,7 @@ G.ImportarUI = (() => {
     const btn = $('imp-ok');
     if (btn) { btn.disabled = true; btn.textContent = 'Trayendo…'; }
     const r = G.Importar.aplicar(analisis.save);
-    if (!r.ok) { trabajando = false; aviso = { ok: false, textos: [r.error] }; return repintar(); }
+    if (!r.ok) { trabajando = false; aviso = { ok: false, textos: [r.error] }; return repintar(true); }
     analisis = null;
     const t = ['¡Hecho! Tu partida del juego oficial ya está aquí.'];
     if (r.invitado) t.push('Como eres invitado, se perderá al salir: crea una cuenta y vuelve a traerla.');
@@ -151,7 +161,7 @@ G.ImportarUI = (() => {
     else t.push('Subiendo a la nube…');
     t.push('Si vuelves a traerla más adelante, sólo se sumará lo nuevo.');
     aviso = { ok: r.guardada || r.invitado, textos: t };
-    repintar();
+    repintar(true);   // antes del aviso «Partida traída» y de los logros que salgan al repintar el menú
     if (G.UI && G.UI.toast) G.UI.toast('Partida del juego oficial traída');
     // El menú de detrás (compañero, colección, monedas) se vuelve a pintar.
     if (G.UI && G.UI.isOpen && G.UI.isOpen('scr-menu') && G.MenuUI) { try { G.MenuUI.open(); } catch (e) { /* nada */ } }

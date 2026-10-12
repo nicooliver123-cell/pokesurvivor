@@ -32,6 +32,7 @@ G.Rift = (() => {
   // ---------------- grieta en el mapa ----------------
 
   function update(dt, pl, time) {
+    if (G.MODS && G.MODS.grietaGarantizada && G.MODS.grietaGarantizada(pl, time, !!(rift || arena), authority())) { open(); if (rift) { checkT = CHECK; G.MODS.grietaAbierta(pl, rift, time); } }   // MOD nico: grieta garantizada (js/core/mods.js)
     if (rift) {
       rift.t += dt;
       rift.ttl -= dt;
@@ -93,6 +94,7 @@ G.Rift = (() => {
       // La arena es la de uno de sus tipos, al azar.
       type: forceType || G.U.pick(mon.types)
     };
+    if (G.MODS && G.MODS.arenaGarantizada) cfg.forzada = G.MODS.arenaGarantizada(G.Game.player, rift, G.Game.st.time);   // MOD nico: ¿arena de la grieta garantizada?
     if (G.Coop.isHost) G.Coop.broadcast(['arena', cfg]);
     begin(cfg);
     spawnLegend();
@@ -139,6 +141,7 @@ G.Rift = (() => {
       shotDmg: Math.round(18 + t / 40), shotCd: 0.9, range: 300
     };
     const e = new G.Enemy(def, arena.x, arena.y - ts * 3.5, { hp: 1, spd: 1, dmg: 1 }, true);
+    if (G.MODS && G.MODS.vidaLegendario) G.MODS.vidaLegendario(e, arena);   // MOD nico: el de la grieta garantizada, con menos vida (js/core/mods.js)
     e.legend = true;
     // Choca con las paredes y columnas como tú: si volara por encima de las
     // rocas, tus disparos no podrían alcanzarle (bug de Celebi).

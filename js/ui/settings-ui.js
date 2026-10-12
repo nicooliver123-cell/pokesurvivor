@@ -93,6 +93,7 @@ G.SettingsUI = (() => {
            </div>`;
     } else if (tab === 'acc') {
       renderAccount(box);
+      if (G.ImportarUI) box.insertAdjacentHTML('beforeend', G.ImportarUI.html());   // MOD nico: traer la partida del juego oficial (js/ui/importar-ui.js)
     } else {
       box.innerHTML = `<div class="about-logo">PokéSurvivor</div><p class="sub center">Versión ${esc(VERSION)}</p>`
         + `<p class="sub">Juego de fans <b>gratuito y sin ánimo de lucro</b>: sin anuncios ni compras. Pokémon y sus personajes son propiedad de Nintendo, Creatures y GAME FREAK; este proyecto no está afiliado a ellos.</p>`
@@ -121,8 +122,7 @@ G.SettingsUI = (() => {
                    offline: 'Sin conexión: se subirá al volver', local: 'Guardado sólo en este navegador', guest: 'Invitado: no se guarda' };
     if (G.DB.guest) {
       box.innerHTML = section('Cuenta', 'Estás jugando como <b>invitado</b>: tu progreso no se guarda al salir.')
-        + `<button class="btn gold" id="set-login">Crear cuenta o entrar</button>`
-        + (G.ImportarUI ? G.ImportarUI.html() : '');   // MOD nico: traer la partida del juego oficial (js/ui/importar-ui.js)
+        + `<button class="btn gold" id="set-login">Crear cuenta o entrar</button>`;
       return;
     }
     const nick = G.Social.me ? G.Social.me.name : (G.DB.user || '');
@@ -134,8 +134,7 @@ G.SettingsUI = (() => {
       + `<div class="row wrap" style="gap:8px;margin-top:12px">
            <button class="btn" id="set-logout">Cerrar sesión</button>
            <button class="btn danger" id="set-delete">Borrar cuenta</button>
-         </div><p class="note" id="set-msg"></p>`
-      + (G.ImportarUI ? G.ImportarUI.html() : '');   // MOD nico: traer la partida del juego oficial (js/ui/importar-ui.js)
+         </div><p class="note" id="set-msg"></p>`;
   }
 
   function wire(box) {

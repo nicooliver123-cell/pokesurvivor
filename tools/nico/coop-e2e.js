@@ -35,10 +35,17 @@
  *   7. Falla si algún cliente habla con la infraestructura del juego original, si hay
  *      errores de JavaScript o si el aviso legal no lleva el contacto del fork.
  *   8. Antes de la partida, A trae una partida "oficial" sintética por Ajustes > Cuenta (elegir
- *      archivo, vista previa, Confirmar): tiene que sumarse y subirse a Firestore con la
- *      transacción normal, y traer otra vez el mismo archivo no puede sumar nada. El código
+ *      archivo, vista previa, Confirmar), con la ventana a 844x390 (móvil en horizontal): tiene
+ *      que sumarse y subirse a Firestore con la transacción normal, sin que los avisos flotantes
+ *      tapen el resultado; y traer otra vez el mismo archivo no puede sumar nada. El código
  *      de la sección, pegado en la consola de esta versión, avisa y no descarga; y elegir la
  *      partida de la propia cuenta (con o sin el registro de lo traído) da error.
+ *   9. Grieta garantizada (G.MODS.grietaGarantizadaAntesDe), al final de la partida: hasta
+ *      entonces está desactivada en los dos para que no interfiera. A (anfitrión) adelanta su
+ *      reloj hasta la hora elegida (ayuda de depuración: sólo en esta prueba; el juego nunca la
+ *      usa); B la recibe en las mismas x e y y no abre ninguna por su cuenta aunque también le
+ *      toque; B entra, los dos acaban en la arena, el legendario tiene el 60 % de la vida que
+ *      tendría sin el mod y, al vencerlo, los dos tienen un vínculo (bonds === 1).
  *
  * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
  * desde el último golpe que el propio invitado predijo en ella (lo mide la trampa):
@@ -342,6 +349,8 @@ async function importOfficial(P) {
   });
   fs.writeFileSync(file, JSON.stringify(env));
   const antes = await page.evaluate(() => ({ coins: G.DB.save.coins, t1: G.DB.save.tickets.t1, t10: G.DB.save.tickets.t10 }));
+  // Móvil en horizontal: ahí es donde los avisos flotantes (logros, «Partida traída») tapaban el resultado.
+  await page.setViewportSize({ width: 844, height: 390 });
   await page.click('#btn-settings');
   await waitVisible(page, '#scr-settings');
   await page.click('#set-tabs .gen-tab[data-t="acc"]');
@@ -351,8 +360,36 @@ async function importOfficial(P) {
   await page.locator('#imp-box .imp-prev').scrollIntoViewIfNeeded();
   report.capturaImportar = await shot(page, tag + '_importar_vista_previa');
   const previa = (await text(page, '#imp-box .imp-prev')).replace(/\s+/g, ' ');
+  // Desde Confirmar y durante 3,5 s (lo que duran el aviso «Partida traída» y uno de logro): ¿tapa alguno el
+  // resultado? ¿Se ve entero dentro de Ajustes?
+  await page.evaluate(() => {
+    const caja = el => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, r: b.right, b: b.bottom }; };
+    const visible = el => !!el && getComputedStyle(el).display !== 'none' && !el.classList.contains('hidden') && el.getBoundingClientRect().height > 0;
+    const cruza = (a, b) => a.x < b.r && b.x < a.r && a.y < b.b && b.y < a.b;
+    const M = window.__solape = { muestras: 0, conToast: 0, conLogro: 0, tapado: [], fuera: [] };
+    M.timer = setInterval(() => {
+      const m = document.querySelector('#imp-box .imp-msg');
+      if (!m) return;
+      const c = caja(m), cuerpo = caja(document.getElementById('set-body'));
+      M.muestras++;
+      if (!(c.y >= Math.max(0, cuerpo.y) - 1 && c.b <= Math.min(innerHeight, cuerpo.b) + 1)) M.fuera.push(c);
+      for (const [el, k] of [[document.querySelector('.toast'), 'conToast'], [document.getElementById('ach-pop'), 'conLogro']]) {
+        if (!visible(el)) continue;
+        M[k]++;
+        if (cruza(c, caja(el))) M.tapado.push({ aviso: k, msg: c, el: caja(el) });
+      }
+    }, 50);
+  });
+  const tConfirmar = Date.now();
   await page.click('#imp-ok');
+  await sleep(700);
+  report.capturaImportarResultado = await shot(page, tag + '_importar_resultado_844x390');
   await page.waitForFunction(() => /subida a la nube|se subirá/.test((document.querySelector('#imp-box .imp-msg') || {}).textContent || ''), null, { timeout: 20000 });
+  await sleep(Math.max(0, 3500 - (Date.now() - tConfirmar)));
+  const solape = await page.evaluate(() => { clearInterval(window.__solape.timer); const M = window.__solape; delete M.timer; return M; });
+  check('Importar a 844x390: tras Confirmar, ni el aviso «Partida traída» ni los de logros tapan el resultado, que se ve entero (3,5 s)',
+    solape.muestras >= 30 && solape.conToast > 0 && !solape.tapado.length && !solape.fuera.length,
+    { muestras: solape.muestras, conToast: solape.conToast, conLogro: solape.conLogro, tapado: solape.tapado.slice(0, 3), fuera: solape.fuera.slice(0, 3) });
   const r = await page.evaluate(async () => {
     const fb = G.DB.fb, snap = await fb.fs.collection('saves').doc(fb.uid).get({ source: 'server' });
     const nube = snap.data().save, s = G.DB.save;
@@ -407,6 +444,7 @@ async function importOfficial(P) {
   check('Elegir la partida de la propia cuenta (con y sin el registro) da error, sin vista previa ni Confirmar, y no suma nada',
     propias.length === 2 && propias.every(p => /partida de esta versión, no del juego oficial/.test(p.msg) && !p.previa && !p.confirmar && p.coins === r.coins), propias);
   await page.click('#set-close');
+  await page.setViewportSize({ width: 1280, height: 720 });
 }
 
 async function openFriends(P) {
@@ -495,6 +533,98 @@ async function trapSummary(P) {
   });
 }
 
+/**
+ * Grieta garantizada en grupo (estaba desactivada en los dos para no interferir). Primero sólo B, el invitado,
+ * la tiene activa y su reloj (que manda A) pasa de su hora sin grieta: no puede abrir ninguna. Después A la
+ * activa con su reloj 0,3 s antes de su hora (G.Game.debugTime, ayuda de depuración: sólo aquí, en la
+ * prueba) y tiene que abrirla al llegar a ella. B entra en la que recibe; el legendario sale con el 60 % de
+ * la vida; al vencerlo, un vínculo cada uno.
+ */
+async function guaranteedRift(A, B) {
+  const LIM = 120, TTL = 45;
+  // Lo que ve cada cliente: las grietas que aparecen, las veces que G.MODS pide abrir una y, en el anfitrión,
+  // el legendario al crearlo (antes de añadirlo a los enemigos), con el reloj y los jugadores de ese momento.
+  const VIGIA = `(() => {
+    const V = window.__grieta = { grietas: [], pide: 0, legendario: null };
+    const vistas = new WeakSet(), gg = G.MODS.grietaGarantizada, add = G.EnemyMgr.add;
+    // Que exista ya el estado de esta partida (su hora): sin grieta y sin mandar, no abre nada.
+    const lim0 = G.MODS.grietaGarantizadaAntesDe;
+    G.MODS.grietaGarantizadaAntesDe = 120; gg.call(G.MODS, G.Game.player, 0, false, false); G.MODS.grietaGarantizadaAntesDe = lim0;
+    G.MODS.grietaGarantizada = function (...a) { const x = gg.apply(this, a); if (x) V.pide++; return x; };
+    G.EnemyMgr.add = function (e) {
+      if (e && e.legend && !V.legendario) V.legendario = { id: e.id, max: e.maxHp, hp: e.hp, shiny: !!e.shiny, t: G.Game.st.time, n: G.Game.everyone().length };
+      return add.apply(this, arguments);
+    };
+    V.timer = setInterval(() => {
+      const r = G.Rift.rift;
+      if (r && !vistas.has(r)) { vistas.add(r); V.grietas.push({ x: r.x, y: r.y, t: Math.round(G.Game.st.time * 100) / 100 }); }
+    }, 20);
+    return 'vigilando';
+  })()`;
+  const leer = P => P.page.evaluate(() => { const V = window.__grieta; return { grietas: V.grietas, pide: V.pide, legendario: V.legendario, t: G.Game.st.time }; });
+  for (const P of [A, B]) await P.page.evaluate(VIGIA);
+  const hora = P => P.page.evaluate(() => G.MODS.grietaGarantizadaHora(G.Game.player));
+  const horaA = await hora(A), horaB = await hora(B);
+  // 1. Sólo B la tiene activa; A pone el reloj de los dos medio segundo después de la hora de B.
+  await B.page.evaluate(lim => { G.MODS.grietaGarantizadaAntesDe = lim; }, LIM);
+  await A.page.evaluate(h => G.Game.debugTime(h), horaB + 0.5);
+  await B.page.waitForFunction(h => G.Game.st.time > h + 1, horaB, { timeout: 10000 });
+  const soloB = await leer(B), soloA = await leer(A);
+  check('Grieta garantizada: el invitado, pasada su hora y sin ninguna grieta, no abre ninguna por su cuenta',
+    horaB >= LIM - 45 && horaB <= LIM - 10 && soloB.t > horaB && soloB.pide === 0 && !soloB.grietas.length && !soloA.grietas.length,
+    { horaB, relojB: soloB.t, pideB: soloB.pide, grietasB: soloB.grietas.length });
+  // 2. A pone su reloj 0,3 s antes de su hora (hacia delante o, si la de B era más tarde, hacia atrás) y,
+  // en el mismo instante, la activa: tiene que abrirla al llegar a su hora, ni antes ni mucho después.
+  const aEnHora = await A.page.evaluate(({ lim, h }) => {
+    G.Game.debugTime(h - 0.3);
+    G.MODS.grietaGarantizadaAntesDe = lim;
+    return G.Game.st.time;
+  }, { lim: LIM, h: horaA });
+  await A.page.waitForFunction(() => !!G.Rift.rift, null, { timeout: 10000 });
+  await B.page.waitForFunction(() => !!G.Rift.rift, null, { timeout: 10000 });
+  await sleep(300);
+  const ga = await leer(A), gb = await leer(B);
+  const a0 = ga.grietas[0], b0 = gb.grietas[0];
+  check('Grieta garantizada: A (anfitrión) la abre a su hora, antes de los 120 s, y B la recibe en las mismas x e y; B no abre ninguna',
+    a0 && b0 && ga.grietas.length === 1 && gb.grietas.length === 1 && a0.t >= horaA - 0.01 && a0.t < horaA + 1 && a0.t < LIM &&
+    b0.x === Math.round(a0.x) && b0.y === Math.round(a0.y) && ga.pide === 1 && gb.pide === 0,
+    { horaA, relojAlActivar: aEnHora, abierta: a0, recibida: b0, pideA: ga.pide, pideB: gb.pide });
+  report.capturasGrieta = [await shot(A.page, 'A_grieta_garantizada'), await shot(B.page, 'B_grieta_garantizada')];
+  // 3. B entra (el invitado pide entrar y el anfitrión crea la arena para los dos).
+  await B.page.evaluate(() => { const r = G.Rift.rift, p = G.Game.player; p.x = r.x; p.y = r.y - 10; });
+  await Promise.all([A, B].map(P => P.page.waitForFunction(() => G.Rift.inArena, null, { timeout: 10000 })));
+  await A.page.waitForFunction(() => !!window.__grieta.legendario, null, { timeout: 5000 });
+  const leg = (await leer(A)).legendario;
+  await B.page.waitForFunction(id => { const e = G.EnemyMgr.get(id); return !!e && e.maxHp > 0; }, leg.id, { timeout: 5000 });
+  const enArena = P => P.page.evaluate(id => {
+    const a = G.Rift.arena, p = G.Game.player, ts = G.Tiles.T * G.Sprites.PX, e = G.EnemyMgr.get(id);
+    return { forzada: a.forzada, dentro: Math.hypot(p.x - a.x, p.y - a.y) < a.r * ts, copia: e ? e.maxHp : null };
+  }, leg.id);
+  const arA = await enArena(A), arB = await enArena(B);
+  check('Grieta garantizada: entra B y los dos están en la arena, marcada como la de la grieta garantizada',
+    arA.dentro && arB.dentro && arA.forzada === 1 && arB.forzada === 1, { A: arA, B: arB });
+  const sinMod = Math.round((3200 + leg.t * 9) * (1 + 0.3 * Math.max(0, leg.n - 1)) * (leg.n > 1 ? 1.4 : 1));   // spawnLegend
+  const esperada = Math.round(sinMod * 0.6) * (leg.shiny ? 2 : 1);
+  check('Grieta garantizada: el legendario tiene el 60 % de la vida que tendría sin el mod (y B recibe la del anfitrión)',
+    leg.n === 2 && leg.max === esperada && leg.hp === leg.max && arB.copia === leg.max,
+    { reloj: Math.round(leg.t * 100) / 100, jugadores: leg.n, vida: leg.max, sinMod: sinMod * (leg.shiny ? 2 : 1), proporcion: +(leg.max / (sinMod * (leg.shiny ? 2 : 1))).toFixed(4), enB: arB.copia });
+  await sleep(1300);   // que pase el destello del viaje a la arena
+  report.capturasArena = [await shot(A.page, 'A_arena_garantizada'), await shot(B.page, 'B_arena_garantizada')];
+  // 4. Lo vence el anfitrión (es quien decide); 'aw' llega al invitado.
+  await A.page.evaluate(() => { const e = G.EnemyMgr.get(G.Rift.arena.bossId); e.shield = 0; e.hurt(e.hp + 10); });
+  const vinculo = P => P.page.waitForFunction(() => G.Rift.arena && G.Rift.arena.phase === 'won', null, { timeout: 8000 })
+    .then(() => P.page.evaluate(() => G.Game.player.bonds));
+  const [bA, bB] = await Promise.all([vinculo(A), vinculo(B)]);   // a la vez: la fase 'won' dura 5 s
+  const bonds = { A: bA, B: bB };
+  check('Grieta garantizada: al vencer al legendario, los dos tienen un vínculo (bonds === 1)', bonds.A === 1 && bonds.B === 1, bonds);
+  await Promise.all([A, B].map(P => P.page.waitForFunction(() => !G.Rift.inArena, null, { timeout: 15000 })));
+  const fin = { A: await leer(A), B: await leer(B) };
+  for (const P of [A, B]) await P.page.evaluate(() => clearInterval(window.__grieta.timer));
+  check('Grieta garantizada: los dos vuelven al mapa y no se ha abierto ninguna otra', fin.A.grietas.length === 1 && fin.B.grietas.length === 1 && fin.B.pide === 0,
+    { A: fin.A.grietas.length, B: fin.B.grietas.length });
+  report.grietaGarantizada = { horaA, horaB, abierta: a0, recibida: b0, legendario: leg, sinMod, esperada, bonds, ttl: TTL };
+}
+
 (async () => {
   let emu = null, srv = null, browser = null, A = null, B = null, code = 0;
   try {
@@ -558,8 +688,9 @@ async function trapSummary(P) {
     const uidA = await A.page.evaluate(() => G.DB.fb.uid), uidB = await B.page.evaluate(() => G.DB.fb.uid);
     await A.page.click('#lobby-start');
     await Promise.all([A, B].map(P => P.page.waitForFunction(() => G.Coop.active && G.Game.state !== 'ui', null, { timeout: 25000 })));
-    // Instrumentación de prueba: cartas automáticas y sin morir (la prueba no va de esquivar).
-    for (const P of [A, B]) await P.page.evaluate(`${UNBLOCK}; G.Coop.local.hurt = function () {}; window.__hpTrap.fase = 'partida';`);
+    // Instrumentación de prueba: cartas automáticas y sin morir (la prueba no va de esquivar). La grieta
+    // garantizada, desactivada hasta su fase, al final (si no, a partir de los 75 s podría abrirse en medio).
+    for (const P of [A, B]) await P.page.evaluate(`${UNBLOCK}; G.Coop.local.hurt = function () {}; window.__hpTrap.fase = 'partida'; G.MODS.grietaGarantizadaAntesDe = 0;`);
     // Contadores de golpes del invitado: los que B manda ('h') y los que le llegan a A.
     await B.page.evaluate(() => {
       window.__hEnv = 0;
@@ -755,6 +886,9 @@ async function trapSummary(P) {
     const rec = await A.page.evaluate(() => window.__hRec), env2 = await B.page.evaluate(() => window.__hEnv);
     check('Todos los golpes que manda el invitado le llegan al anfitrión', env1 > 0 && rec >= env1 && rec <= env2,
       { enviadosAntes: env1, recibidos: rec, enviadosDespues: env2 });
+
+    // ---- Grieta garantizada, al final (hasta aquí, desactivada) ----
+    await guaranteedRift(A, B);
 
     // Relé: nada por la base de datos durante la partida.
     const rele1 = { A: (await transport(A, uidB)).rele, B: (await transport(B, uidA)).rele };

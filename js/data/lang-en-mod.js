@@ -8,8 +8,8 @@ G.I18n.add({
   ', basada en': ', based on',
   'basada en': 'based on',
   'PokéSurvivor de JPTER78': 'PokéSurvivor by JPTER78',
-  '(licencia MIT; sprites CC BY-NC 4.0). Cambios: los enemigos no se curan y los Pokémon más grandes son más pequeños en partida (sus sprites se muestran a escala reducida). Sus cuentas y partidas son independientes de las del juego original, pero puedes traer aquí tu partida oficial desde Ajustes > Cuenta. El autor del juego original no mantiene esta versión ni responde de ella.':
-    '(MIT licence; sprites CC BY-NC 4.0). Changes: enemies don\'t heal and the biggest Pokémon are smaller in a run (their sprites are shown scaled down). Its accounts and saves are separate from the original game\'s, but you can bring your official save here from Settings > Account. The author of the original game does not maintain this version and is not responsible for it.',
+  '(licencia MIT; sprites CC BY-NC 4.0). Cambios: los enemigos no se curan, los Pokémon más grandes son más pequeños en partida (sus sprites se muestran a escala reducida) y en cada partida se abre una grieta antes de los 2 minutos, con un legendario más débil. Sus cuentas y partidas son independientes de las del juego original, pero puedes traer aquí tu partida oficial desde Ajustes > Cuenta. El autor del juego original no mantiene esta versión ni responde de ella.':
+    '(MIT licence; sprites CC BY-NC 4.0). Changes: enemies don\'t heal, the biggest Pokémon are smaller in a run (their sprites are shown scaled down) and every run opens a rift before the 2-minute mark, with a weaker legendary. Its accounts and saves are separate from the original game\'s, but you can bring your official save here from Settings > Account. The author of the original game does not maintain this version and is not responsible for it.',
   '. No tiene anuncios, compras ni donaciones.': '. It has no ads, purchases or donations.',
   'Si eres titular de derechos y quieres que retiremos algo, abre un aviso en el repositorio de esta versión y lo quitaremos lo antes posible:':
     'If you are a rights holder and want something removed, open an issue in this version\'s repository and we\'ll take it down as soon as possible:',
@@ -25,6 +25,11 @@ G.I18n.add({
   'Copia este código, pégalo en la consola y pulsa Enter: se descargará un archivo con tu partida.':
     'Copy this code, paste it into the console and press Enter: a file with your save will download.',
   'Vuelve aquí, pulsa «Elegir archivo» y elige ese archivo.': 'Come back here, press “Choose file” and pick that file.',
+  'Código para la consola del juego oficial': 'Code for the official game\'s console',
+  // El código de la sección pegado en la consola de esta versión: su alert() pasa por G.I18n.
+  // (En el juego oficial, el propio código elige español o inglés según el idioma del navegador.)
+  'Esta página es la versión modificada, no el juego oficial. Pega este código en la consola del juego oficial, con tu cuenta iniciada.':
+    'This page is the modified version, not the official game. Paste this code into the console of the official game, signed in to your account.',
   'Copiar': 'Copy',
   'Copiado': 'Copied',
   'Selecciónalo y cópialo a mano': 'Select it and copy it by hand',

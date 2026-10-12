@@ -5,7 +5,8 @@
  *
  * Se carga justo después de util.js (dev.html), antes de cualquiera que lo use.
  * Si tras un merge faltara este fichero, los ganchos se comportan de forma
- * segura: los enemigos siguen sin curarse y el tamaño queda como el original.
+ * segura: los enemigos siguen sin curarse, el tamaño queda como el original y
+ * no hay grieta garantizada.
  *
  * COOPERATIVO: los dos jugadores tienen que usar la MISMA versión (mismos
  * valores). El anfitrión decide los enemigos (curación) y cada cliente calcula
@@ -59,6 +60,86 @@ G.MODS = {
    * NO cambia el alcance de los ataques (salen de los pies con el radio de cada
    * movimiento) ni el tamaño de los enemigos, los jefes o los menús. */
   anchoMaxJugador: 56,
+
+  /* Grieta garantizada: en cada partida se abre UNA grieta (la del vínculo, para
+   * fusionar movimientos) antes de este segundo de juego. La hora se elige al
+   * azar entre 45 y 10 s antes del límite (con 120: entre 75 y 110 s; el reloj
+   * de juego se para en las cartas, en la pausa en solitario y al elegir fusión).
+   *   - Sólo si en la partida aún no ha habido ninguna (natural o ésta): si la
+   *     tirada normal de rift.js ya abrió una, no se fuerza otra.
+   *   - Una por partida: si no entráis antes de que se cierre, NO se reabre.
+   *   - No con un jefe vivo (espera a que caiga, hasta el límite) y, si no hay
+   *     sitio libre cerca, lo vuelve a intentar cada segundo.
+   *   - La decide quien manda en rift.js: el jugador en solitario, el anfitrión
+   *     en grupo (el invitado la recibe como cualquier otra).
+   *   - Las grietas naturales siguen igual (después de ésta, la tirada de cada
+   *     30 s vuelve a empezar cuando se cierra).
+   * 0 = desactivado (como el original). */
+  grietaGarantizadaAntesDe: 120,
+
+  /* Vida del legendario de ESA grieta (la garantizada), sobre la normal: 0,6 =
+   * el 60 %. A los 110 s son unos 2.500 en solitario y 4.600 en dúo (sin rebaja,
+   * 4.200 y 7.600). Las grietas naturales no cambian. En grupo lo decide el
+   * anfitrión y el invitado recibe su vida. 1 = sin rebaja. */
+  grietaGarantizadaVida: 0.6,
+
+  /** Estado de la grieta garantizada de cada partida. La clave es el jugador local,
+   *  que es nuevo en cada startRun: { hora, hecha, intentoT, grieta, usada, cierreT }. */
+  _grietas: new WeakMap(),
+
+  /** rift.js, update(), en cada fotograma: ¿hay que abrir ya la grieta garantizada?
+   *  `hayGrieta`: hay una grieta o una arena; `manda`: este cliente decide las grietas. */
+  grietaGarantizada(pl, time, hayGrieta, manda) {
+    const lim = +this.grietaGarantizadaAntesDe;
+    if (!(lim > 0) || !isFinite(lim) || !pl || typeof pl !== 'object') return false;
+    let st = this._grietas.get(pl);
+    if (!st) {
+      const a = Math.max(0, lim - 45), b = Math.max(a, lim - 10);
+      st = { hora: a + Math.random() * (b - a), hecha: false, intentoT: -Infinity, grieta: null, usada: false, cierreT: 0 };
+      this._grietas.set(pl, st);
+    }
+    if (hayGrieta) { st.hecha = true; return false; }   // ya hay (o hubo) una: natural o ésta
+    if (st.hecha || !manda || !(time >= st.hora) || !(time < lim)) return false;
+    if (G.EnemyMgr && G.EnemyMgr.bossAlive && G.EnemyMgr.bossAlive()) return false;
+    if (time - st.intentoT < 1) return false;           // open() no encontró sitio: otra vez en 1 s
+    st.intentoT = time;
+    return true;
+  },
+
+  /** Hora elegida para la grieta garantizada de esta partida (null si aún no hay). Para pruebas. */
+  grietaGarantizadaHora(pl) {
+    const st = pl && typeof pl === 'object' ? this._grietas.get(pl) : null;
+    return st ? st.hora : null;
+  },
+
+  /** rift.js, update(): se acaba de abrir la grieta garantizada (`rift`, con su ttl). */
+  grietaAbierta(pl, rift, time) {
+    const st = pl && typeof pl === 'object' ? this._grietas.get(pl) : null;
+    if (!st || !rift) return;
+    st.grieta = rift; st.usada = false; st.cierreT = time + (+rift.ttl || 0);
+  },
+
+  /** rift.js, start(), en quien manda: 1 si la arena que empieza es la de la grieta
+   *  garantizada (la marca se gasta: una sola arena) y 0 si es otra. Se reconoce por la
+   *  propia grieta; si aquí ya se cerró (el invitado entró en sus últimos instantes y su
+   *  reloj va algo por detrás), hasta 5 s después. Una grieta natural no puede abrirse
+   *  hasta 30 s después de que se cierre ésta. */
+  arenaGarantizada(pl, rift, time) {
+    const st = pl && typeof pl === 'object' ? this._grietas.get(pl) : null;
+    if (!st || !st.grieta || st.usada) return 0;
+    if (rift ? rift !== st.grieta : !(time <= st.cierreT + 5)) return 0;
+    st.usada = true;
+    return 1;
+  },
+
+  /** rift.js, spawnLegend(), antes de añadirlo: el legendario de la arena de la grieta
+   *  garantizada (arena.forzada) sale con grietaGarantizadaVida de su vida. Es al crearlo,
+   *  no una curación (tools/nico/check.js la tiene revisada). */
+  vidaLegendario(e, arena) {
+    const f = +this.grietaGarantizadaVida;
+    if (!e || !arena || !arena.forzada || !(f > 0) || !isFinite(f) || f === 1) return;
+    e.maxHp = e.hp = Math.max(1, Math.round(e.maxHp * f));
+  },
 
   /** Escala del Pokémon de un jugador (1 = tamaño original). Usa la geometría
    *  normal (nunca la shiny) para que todos los clientes calculen lo mismo. */

@@ -18,12 +18,17 @@
  *   6. Invitado del cooperativo: la ventana que evita el rebote de vida (js/core/mods.js).
  *   7. Busca en TODO js/ (menos js/app.min.js) asignaciones de vida que no estén en la
  *      lista de conocidas: una nueva es FALLO hasta revisarla (posible curación de upstream).
- *   8. Traer la partida del juego oficial: el exportador (sin red, una línea, igual que
- *      tools/nico/exportar-oficial.js, no modifica nada, respaldo a localStorage, se niega
- *      en la consola de esta versión) y el importador de js/core/importar.js (saneado,
- *      fusión, monedas sin duplicar, rechazo de la partida de esta versión, pity, compañero
- *      y perfil sólo la primera vez, aplicar() en modo local e invitado con el db.js real,
- *      y la vista previa de js/ui/importar-ui.js con datos hostiles).
+ *   8. Traer la partida del juego oficial: el exportador (sin red, una línea que es
+ *      tools/nico/exportar-oficial.js, la versión comentada, sin comentarios ni sangría; no
+ *      modifica nada, respaldo a localStorage, se niega en la consola de esta versión, avisos
+ *      en español o inglés según el navegador y fecha local en el nombre del archivo) y el
+ *      importador de js/core/importar.js (saneado, fusión, monedas sin duplicar, rechazo de la
+ *      partida de esta versión, pity, compañero y perfil sólo la primera vez, aplicar() en modo
+ *      local e invitado con el db.js real, la vista previa de js/ui/importar-ui.js con datos
+ *      hostiles y que todos sus textos tienen inglés).
+ *   9. Grieta garantizada: la lógica de js/core/mods.js (hora, una por partida, reintentos, jefe,
+ *      quién manda) y js/systems/rift.js real con el juego simulado, en solitario y en grupo
+ *      (anfitrión e invitado): el legendario de esa grieta con el 60 % y las naturales intactas.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -164,7 +169,8 @@ if (!process.argv.includes('--sin-paquete')) {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 const minS = min.toString('utf8');
-if (minS.includes('curacionEnemiga') && minS.includes('anchoMaxJugador')) ok('el paquete incluye js/core/mods.js'); else bad('el paquete no incluye js/core/mods.js');
+if (minS.includes('curacionEnemiga') && minS.includes('anchoMaxJugador') && minS.includes('grietaGarantizadaAntesDe')) ok('el paquete incluye js/core/mods.js');
+else bad('el paquete no incluye js/core/mods.js (o una versión vieja)');
 if (minS.includes('pokesurvivor-partida') && minS.includes('imp-box')) ok('el paquete incluye el importador (js/core/importar.js y js/ui/importar-ui.js)');
 else bad('el paquete no incluye js/core/importar.js o js/ui/importar-ui.js');
 
@@ -192,9 +198,16 @@ const HOOKS = [
   ['dev.html', /src="js\/core\/db\.js"><\/script>\r?\n<script defer src="js\/core\/importar\.js">/, 'importar.js se carga justo después de db.js'],
   ['dev.html', /src="js\/ui\/settings-ui\.js"><\/script>\r?\n<script defer src="js\/ui\/importar-ui\.js">/, 'importar-ui.js se carga justo después de settings-ui.js'],
   ['js/core/db.js', /newSave, migrate, applyInPlace,\s*\/\/ MOD nico/, 'db.js expone newSave, migrate y applyInPlace al importador'],
-  ['js/ui/settings-ui.js', /Crear cuenta o entrar<\/button>`\r?\n\s*\+ \(G\.ImportarUI \? G\.ImportarUI\.html\(\) : ''\);/, 'Ajustes > Cuenta (invitado) pinta la sección de importar'],
-  ['js/ui/settings-ui.js', /id="set-msg"><\/p>`\r?\n\s*\+ \(G\.ImportarUI \? G\.ImportarUI\.html\(\) : ''\);/, 'Ajustes > Cuenta (con cuenta) pinta la sección de importar'],
-  ['js/ui/settings-ui.js', /if \(G\.ImportarUI\) G\.ImportarUI\.wire\(box\);/, 'Ajustes conecta los botones de importar']
+  ['js/ui/settings-ui.js', /renderAccount\(box\);\r?\n\s*if \(G\.ImportarUI\) box\.insertAdjacentHTML\('beforeend', G\.ImportarUI\.html\(\)\);\s*\/\/ MOD nico/, 'Ajustes > Cuenta pinta la sección de importar detrás de lo de upstream (gancho aditivo)'],
+  ['js/ui/settings-ui.js', /Crear cuenta o entrar<\/button>`;\r?\n\s*return;/, 'Ajustes > Cuenta (invitado): la línea de upstream, intacta'],
+  ['js/ui/settings-ui.js', /id="set-msg"><\/p>`;\r?\n\s*\}/, 'Ajustes > Cuenta (con cuenta): la línea de upstream, intacta'],
+  ['js/ui/settings-ui.js', /if \(G\.ImportarUI\) G\.ImportarUI\.wire\(box\);/, 'Ajustes conecta los botones de importar'],
+  ['js/systems/rift.js', /function update\(dt, pl, time\) \{\r?\n\s*if \(G\.MODS && G\.MODS\.grietaGarantizada && G\.MODS\.grietaGarantizada\(pl, time, !!\(rift \|\| arena\), authority\(\)\)\) \{ open\(\); if \(rift\) \{ checkT = CHECK; G\.MODS\.grietaAbierta\(pl, rift, time\); \} \}\s*\/\/ MOD nico/,
+    'grieta garantizada: gancho al principio de update()'],
+  ['js/systems/rift.js', /\};\r?\n\s*if \(G\.MODS && G\.MODS\.arenaGarantizada\) cfg\.forzada = G\.MODS\.arenaGarantizada\(G\.Game\.player, rift, G\.Game\.st\.time\);\s*\/\/ MOD nico[^\n]*\r?\n\s*if \(G\.Coop\.isHost\) G\.Coop\.broadcast\(\['arena', cfg\]\);/,
+    'grieta garantizada: start() marca su arena antes de anunciarla'],
+  ['js/systems/rift.js', /const e = new G\.Enemy\(def, [^\n]*\r?\n\s*if \(G\.MODS && G\.MODS\.vidaLegendario\) G\.MODS\.vidaLegendario\(e, arena\);\s*\/\/ MOD nico/,
+    'grieta garantizada: spawnLegend() rebaja la vida de su legendario']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -310,6 +323,8 @@ const KNOWN = [
   ['js/systems/spawner.js|function scaled(sc, k) { return k === 1 ? sc : Object.assign({}, sc, { hp: sc.hp * k }); }', 1, 'escala de la definición, antes de crear'],
   ['js/systems/spawner.js|if (G.EnemyMgr.count >= CAP * ELITE_FROM) { e.maxHp = e.hp = Math.round(e.maxHp * 1.6); e.dmg *= 1.25; e.xp = Math.round(e.xp * 1.6); }', 1, 'élite, antes de add'],
   ['js/systems/weather.js|e.hp -= e.maxHp * 0.02 + 1;', 1, 'clima: daño a enemigos (baja)'],
+  ['js/core/mods.js|e.maxHp = e.hp = Math.max(1, Math.round(e.maxHp * f));', 1,
+    'legendario de la grieta garantizada (vidaLegendario): su vida al crearlo, antes de añadirlo; no es una curación'],
   // jugador, compañero perdido y objetos del mapa (no son enemigos)
   ['js/entities/player.js|this.hp = this.maxHp;', 1, 'jugador: constructor'],
   ['js/entities/player.js|this.hp = Math.max(1, this.hp - Math.max(1, this.maxHp * 0.01));', 1, 'jugador: daño'],
@@ -361,7 +376,7 @@ function loadImporter(extra = {}) {
   return ctx;
 }
 /** Ejecuta el fragmento exportador como en la consola del juego oficial, con un navegador simulado. */
-function runExporter(frag, { G: g, storage = {}, host = 'juego-oficial.test' } = {}) {
+function runExporter(frag, { G: g, storage = {}, host = 'juego-oficial.test', nav, Fecha } = {}) {
   const out = { alerts: [], downloads: [], logs: [], escrituras: 0 };
   const blobs = [], keys = Object.keys(storage);
   const ctx = {
@@ -379,6 +394,8 @@ function runExporter(frag, { G: g, storage = {}, host = 'juego-oficial.test' } =
       setItem() { out.escrituras++; }, removeItem() { out.escrituras++; }, clear() { out.escrituras++; } }
   };
   if (g !== undefined) ctx.G = g;
+  if (nav !== undefined) ctx.navigator = nav;      // sin él, el código no sabe el idioma: español
+  if (Fecha) ctx.Date = Fecha;                     // reloj simulado (fecha local distinta de la UTC)
   ctx.window = ctx;
   vm.createContext(ctx);
   vm.runInContext(frag, ctx, { filename: 'exportador' });
@@ -394,13 +411,22 @@ async function importChecks() {
 
   // ---- el exportador ----
   const frag = I.EXPORTADOR;
-  const fileLines = rd('tools/nico/exportar-oficial.js').split(/\r?\n/).filter(l => l.trim() && !l.startsWith('//'));
-  t('tools/nico/exportar-oficial.js es la misma línea que G.Importar.EXPORTADOR (la que se copia en Ajustes)', fileLines.length === 1 && fileLines[0] === frag);
-  t('el exportador es una sola línea de JavaScript válido', !/[\r\n]/.test(frag) && (() => { try { new vm.Script(frag); return true; } catch (e) { return false; } })());
-  const NET = [/\b(fetch|XMLHttpRequest|sendBeacon|WebSocket|EventSource|RTCPeerConnection|postMessage|importScripts|navigator|eval|Function)\b/,
-    /\bimport\s*\(/, /:\/\//, /\bhttps?\b/i, /\bwss?\b/i, /www\./i, /\.(com|net|org|io|app|dev|es|co)\b/i, /\.src\b/, /new\s+Image\b/, /\bopen\s*\(/];
+  const compila = c => { try { new vm.Script(c); return true; } catch (e) { return false; } };
+  // tools/nico/exportar-oficial.js es la versión comentada: sus líneas de código, sin sangría y unidas con
+  // un espacio, son exactamente la línea de Ajustes. Los comentarios van en líneas propias (//).
+  const legible = rd('tools/nico/exportar-oficial.js'), lineas = legible.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const codigo = lineas.filter(l => !l.startsWith('//'));
+  const i0 = lineas.indexOf(codigo[0]), i1 = lineas.lastIndexOf(codigo[codigo.length - 1]);
+  const comentadas = lineas.slice(i0, i1).filter(l => l.startsWith('//')).length;
+  t('tools/nico/exportar-oficial.js es G.Importar.EXPORTADOR (la línea que se copia en Ajustes) comentado: sin comentarios ni sangría, idéntico',
+    codigo.join(' ') === frag && codigo.length >= 20 && comentadas >= 10 && compila(legible), { lineasDeCodigo: codigo.length, comentariosDentro: comentadas });
+  t('el exportador es una sola línea de JavaScript válido', !/[\r\n]/.test(frag) && compila(frag));
+  // De navigator sólo puede leer el idioma (navigator.language); nada de sendBeacon ni otras vías.
+  const NET = [/\b(fetch|XMLHttpRequest|sendBeacon|WebSocket|EventSource|RTCPeerConnection|postMessage|importScripts|eval|Function)\b/,
+    /\bnavigator\s*(\.\s*(?!language\b)\w|\[)/, /\bimport\s*\(/, /:\/\//, /\bhttps?\b/i, /\bwss?\b/i, /www\./i, /\.(com|net|org|io|app|dev|es|co)\b/i,
+    /\.src\b/, /new\s+Image\b/, /\bopen\s*\(/];
   const netHit = NET.filter(re => re.test(frag));
-  t('el exportador no usa fetch, XMLHttpRequest, sendBeacon, WebSocket ni otra vía de red, ni lleva URLs', !netHit.length, netHit.map(String));
+  t('el exportador no usa fetch, XMLHttpRequest, sendBeacon, WebSocket ni otra vía de red, ni lleva URLs (de navigator, sólo el idioma)', !netHit.length, netHit.map(String));
   const WRITE = [/setItem|removeItem|\.clear\s*\(/, /\b(commit|flush|logout|deleteAccount|register|login|applyInPlace|grant)\b/, /\.save\s*=[^=]/];
   const wHit = WRITE.filter(re => re.test(frag));
   t('el exportador no escribe en localStorage ni llama a nada que guarde o cambie la partida', !wHit.length, wHit.map(String));
@@ -430,18 +456,43 @@ async function importChecks() {
 
   // Exportador con la partida viva (G.DB.save es un getter, como en el juego).
   const dbVivo = { guest: false }; Object.defineProperty(dbVivo, 'save', { get: () => of, enumerable: true });
+  const hoy = new Date(), dd = n => String(n).padStart(2, '0');
   const e1 = runExporter(frag, { G: { DB: dbVivo } });
+  const hoyLocal = `${hoy.getFullYear()}-${dd(hoy.getMonth() + 1)}-${dd(hoy.getDate())}`;
   const d1 = e1.downloads[0], env1 = d1 && JSON.parse(d1.blob.parts.join(''));
-  t('exportador: descarga pokesurvivor-partida-<nombre>-<fecha>.json con el envoltorio y una copia exacta de G.DB.save',
-    e1.downloads.length === 1 && /^pokesurvivor-partida-AshOficial-\d{4}-\d{2}-\d{2}\.json$/.test(d1.nombre) && d1.blob.type === 'application/json' &&
+  t('exportador: descarga pokesurvivor-partida-<nombre>-<fecha local>.json con el envoltorio y una copia exacta de G.DB.save',
+    e1.downloads.length === 1 && d1.nombre === `pokesurvivor-partida-AshOficial-${hoyLocal}.json` && d1.blob.type === 'application/json' &&
     env1.tipo === 'pokesurvivor-partida' && env1.version === 1 && env1.origen === 'juego-oficial.test' && typeof env1.exportado === 'number' &&
-    J(env1.save) === ofJSON && !e1.alerts.length, d1 && d1.nombre);
+    J(env1.save) === ofJSON && !e1.alerts.length && /^Partida exportada: \d+ Pokémon en /.test(e1.logs[0] || ''), d1 && d1.nombre);
   t('exportador: no modifica la partida ni localStorage', J(of) === ofJSON && e1.escrituras === 0);
+  // La fecha del nombre es la del reloj del PC, no la UTC: a las 01:30 del 13-10 en España (23:30 UTC del 12).
+  class Madrugada { getFullYear() { return 2026; } getMonth() { return 9; } getDate() { return 13; }
+    toISOString() { return '2026-10-12T23:30:00.000Z'; } static now() { return Date.UTC(2026, 9, 12, 23, 30); } }
+  const eF = runExporter(frag, { G: { DB: dbVivo }, Fecha: Madrugada }), dF = eF.downloads[0];
+  t('exportador: la fecha del nombre del archivo es la local (no la UTC de toISOString)',
+    dF && dF.nombre === 'pokesurvivor-partida-AshOficial-2026-10-13.json' && JSON.parse(dF.blob.parts.join('')).exportado === Madrugada.now(), dF && dF.nombre);
+  // La versión comentada hace exactamente lo mismo si se pega tal cual.
+  const eL = runExporter(legible, { G: { DB: dbVivo } }), dL = eL.downloads[0];
+  t('exportador: la versión comentada, pegada tal cual, descarga lo mismo', dL && dL.nombre === d1.nombre && JSON.parse(dL.blob.parts.join('')).save.name === 'AshOficial' && !eL.alerts.length);
   const e2 = runExporter(frag, { G: { DB: { guest: true, save: DB.newSave('Invitado') } } });
   t('exportador: como invitado avisa en español y no descarga nada', e2.downloads.length === 0 && e2.alerts.length === 1 && /invitado/i.test(e2.alerts[0]));
   const sinSesion = { guest: false }; Object.defineProperty(sinSesion, 'save', { get: () => null });
   const e3 = runExporter(frag, { G: { DB: sinSesion }, storage: { 'ps.cloud.x': ofJSON } });
   t('exportador: sin sesión iniciada avisa y no descarga (no tira de copias viejas)', e3.downloads.length === 0 && e3.alerts.length === 1 && /inicia sesi/i.test(e3.alerts[0]));
+  // Idioma de los avisos: el del navegador (español si empieza por "es"; si no, inglés).
+  const nav = language => ({ language });
+  const en2 = runExporter(frag, { G: { DB: { guest: true, save: DB.newSave('Guest') } }, nav: nav('en-US') });
+  const en3 = runExporter(frag, { G: { DB: sinSesion }, nav: nav('fr-FR') });
+  const en7 = runExporter(frag, { G: { Importar: { TIPO: 'pokesurvivor-partida' } }, nav: nav('en-GB') });
+  const en1 = runExporter(frag, { G: { DB: dbVivo }, nav: nav('en-US') });
+  const es2 = runExporter(frag, { G: { DB: { guest: true, save: DB.newSave('Invitado') } }, nav: nav('es-MX') });
+  const es7 = runExporter(frag, { G: { Importar: { TIPO: 'pokesurvivor-partida' } }, nav: nav('ES') });
+  t('exportador: con el navegador en otro idioma, los avisos y el mensaje final salen en inglés; en español (es, es-MX...), en español',
+    /playing as a guest/.test(en2.alerts[0] || '') && /save was not found/.test(en3.alerts[0] || '') && /modified version, not the official game/.test(en7.alerts[0] || '') &&
+    /^Save exported: \d+ Pokémon in /.test(en1.logs[0] || '') && en1.downloads.length === 1 && en1.downloads[0].nombre === d1.nombre &&
+    /jugando como invitado/.test(es2.alerts[0] || '') && /versión modificada, no el juego oficial/.test(es7.alerts[0] || '') &&
+    [en2, en3, en7, es2, es7].every(x => x.downloads.length === 0 && x.alerts.length === 1),
+    { en: [en2.alerts[0], en3.alerts[0], en7.alerts[0], en1.logs[0]], es: [es2.alerts[0], es7.alerts[0]] });
   const viejo = Object.assign(DB.newSave('Viejo'), { updated: 100 }), nuevo = Object.assign(JSON.parse(ofJSON), { updated: 200 });
   const almacen = { 'ps.cloud.uidViejo': J(viejo), 'ps.save.ash': J(nuevo), 'ps.lang': 'es', 'ps.cloud.roto': '{no es json', 'otra.cosa': J(Object.assign(DB.newSave('Otro'), { updated: 999 })) };
   const e4 = runExporter(frag, { storage: almacen });
@@ -677,10 +728,25 @@ async function importChecks() {
     const els = {};
     const el = id => els[id] || (els[id] = { id, innerHTML: '', textContent: '', disabled: false, value: '', files: null, isConnected: true,
       click() {}, select() {}, focus() {} });
-    U.document = { getElementById: el, createElement: () => ({}), head: { appendChild() {} }, querySelector: () => null };
+    // querySelector: lo que se acerca a la vista tras repintar (el resultado, centrado; la vista previa, lo justo).
+    const vistos = [];
+    const qs = sel => {
+      const h = el('imp-box').innerHTML;
+      if (sel === '#imp-box > .imp-msg' && /class="imp-msg/.test(h)) return { scrollIntoView: o => vistos.push('msg-' + o.block) };
+      if (sel === '#imp-box .imp-prev' && /class="imp-prev/.test(h)) return { scrollIntoView: o => vistos.push('prev-' + o.block) };
+      return null;
+    };
+    U.document = { getElementById: el, createElement: () => ({}), head: { appendChild() {} }, querySelector: qs };
     vm.runInContext(rd('js/ui/importar-ui.js'), U, { filename: 'js/ui/importar-ui.js' });
     const UI = UG.ImportarUI;
     el('imp-box').innerHTML = UI.html(); UI.wire();
+    const hInicial = el('imp-box').innerHTML;
+    // El cuadro del código lleva translate="no" y el DOM no traduce ni sus atributos: su aria-label pasa por G.T.
+    UG.T = s => 'EN:' + s;
+    const hTraducida = UI.html();
+    delete UG.T;
+    t('Ajustes: el aria-label del cuadro del código (translate="no") se traduce al pintarlo',
+      /<textarea[^>]*translate="no"[^>]*aria-label="EN:Código para la consola del juego oficial"/.test(hTraducida));
     const elegir = async txt => { el('imp-file').files = [{ size: Buffer.byteLength(txt), text: async () => txt }]; await el('imp-file').onchange(); return el('imp-box').innerHTML; };
     const hPropia = await elegir(store['ps.save.nicoui']);   // su propia partida, tal cual de localStorage
     t('Ajustes: elegir la partida de esta misma cuenta da el error, sin vista previa ni Confirmar',
@@ -699,9 +765,41 @@ async function importChecks() {
     const hOk = el('imp-box').innerHTML, guardadaUI = JSON.parse(store['ps.save.nicoui']);
     t('Ajustes: Confirmar trae la partida y la guarda en este navegador', /¡Hecho!/.test(hOk) && /Guardada en este navegador/.test(hOk) &&
       guardadaUI.coins === UG.DB.START_COINS + 48210 && guardadaUI.name === 'NicoUI', { coins: guardadaUI.coins });
+    // Los avisos flotantes (logros, «Partida traída») salen arriba o abajo de la pantalla: el resultado va arriba de
+    // la sección, antes de los pasos, y se centra en la pantalla (en el navegador lo mide el E2E a 844x390).
+    t('Ajustes: el resultado de Confirmar va arriba de la sección (antes de los pasos) y se centra en la pantalla; la vista previa sólo se acerca',
+      hOk.indexOf('class="imp-msg') > 0 && hOk.indexOf('class="imp-msg') < hOk.indexOf('class="imp-pasos"') && vistos[vistos.length - 1] === 'msg-center' &&
+      vistos.includes('prev-nearest') && hPropia.indexOf('class="imp-msg') < hPropia.indexOf('class="imp-pasos"'), vistos);
     const hPropia2 = await elegir(store['ps.save.nicoui']);
     t('Ajustes: después, su propia partida (ya con el registro) también da el error y no suma nada',
       hPropia2.includes(I.TEXTOS.propia) && !/id="imp-ok"/.test(hPropia2) && JSON.parse(store['ps.save.nicoui']).coins === guardadaUI.coins);
+
+    // Inglés: cada texto que enseña la sección (en los estados de arriba: inicial, error, vista previa y
+    // resultado), sus errores, sus avisos flotantes y el alert del código pegado en esta versión tiene su
+    // entrada en js/data/lang-en*.js (frase exacta o patrón con {x}). Lo marcado translate="no" no cuenta.
+    const claves = new Set(), patrones = [];
+    const reEsc = x => x.replace(/[.*+?^${}()|[\]\\]/g, m => '\\' + m);
+    const ctxI = { G: { I18n: { add: d => Object.keys(d).forEach(k => {
+      const n = k.replace(/\s+/g, ' ').trim();
+      if (n.includes('{x}')) patrones.push(new RegExp('^' + n.split('{x}').map(reEsc).join('.+?') + '$', 'u'));
+      else claves.add(n);
+    }) } } };
+    vm.createContext(ctxI);
+    for (const f of ['js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), ctxI, { filename: f });
+    const ENT = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+    const textos = h => {
+      // Fuera el código del textarea (no se traduce), pero no la etiqueta: su aria-label sí cuenta.
+      const limpio = h.replace(/(<textarea[^>]*>)[\s\S]*?(<\/textarea>)/g, (m, a, b) => a + b).replace(/<span translate="no">[\s\S]*?<\/span>/g, '');
+      const out = [...limpio.matchAll(/(?:aria-label|title|placeholder)="([^"]*)"/g)].map(m => m[1]);
+      out.push(...limpio.split(/<[^>]*>/));
+      return out.map(x => x.replace(/&(amp|lt|gt|quot|#39);/g, m => ENT[m]).replace(/\s+/g, ' ').trim()).filter(x => /\p{L}/u.test(x));
+    };
+    const toasts = [...rd('js/ui/importar-ui.js').matchAll(/toast\('([^']+)'\)/g)].map(m => m[1]);
+    const enFork = runExporter(frag, { G: Object.assign(Object.create(GG), { DB: { guest: false } }) }).alerts;
+    const todos = new Set([...[hInicial, hPropia, hHostil, hOk].flatMap(textos), ...Object.values(I.TEXTOS), ...toasts, ...enFork]);
+    const sinIngles = [...todos].filter(x => !claves.has(x) && !patrones.some(p => p.test(x)));
+    t(`Ajustes: los ${todos.size} textos de la sección, sus errores y el aviso del código pegado aquí tienen inglés`,
+      todos.size >= 40 && toasts.length > 0 && enFork.length === 1 && !sinIngles.length, sinIngles);
   } catch (e) { t('Ajustes (js/ui/importar-ui.js) con un DOM mínimo', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
@@ -709,7 +807,224 @@ async function importChecks() {
   for (const [name, , detail] of failed) bad(`importar: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 9. grieta garantizada ----------------
+// A: la lógica de js/core/mods.js, fotograma a fotograma. B: js/systems/rift.js real con el juego simulado
+// (sin navegador): solitario, anfitrión e invitado. Nada de esto usa las ayudas de depuración del juego.
+function grietaChecks() {
+  console.log('9. Grieta garantizada (js/core/mods.js y js/systems/rift.js con el código real)');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const DT = 1 / 30, CERCA = (a, b, e = 1e-6) => Math.abs(a - b) < e;
+
+  // ---- A. lógica de mods.js ----
+  let jefe = false;
+  const cm = { performance: { now: () => 0 } };
+  vm.createContext(cm);
+  cm.G = { EnemyMgr: { bossAlive: () => jefe } };
+  vm.runInContext(rd('js/core/mods.js'), cm, { filename: 'js/core/mods.js' });
+  const M = cm.G.MODS, LIM = M.grietaGarantizadaAntesDe;
+  const azar = v => vm.runInContext(`Math.random = () => ${v}`, cm);
+  t('por defecto: antes de los 120 s y el legendario con el 60 % de la vida', LIM === 120 && M.grietaGarantizadaVida === 0.6);
+  const horas = [0, 0.5, 0.999].map(v => { azar(v); const pl = {}; M.grietaGarantizada(pl, 0, false, true); return M.grietaGarantizadaHora(pl); });
+  t('la hora cae en [límite-45, límite-10] = [75, 110] s (azar 0, 0,5 y 0,999)',
+    horas.every(h => h >= LIM - 45 && h <= LIM - 10) && CERCA(horas[0], 75) && CERCA(horas[1], 92.5) && CERCA(horas[2], 109.965), horas);
+
+  /** Fotogramas de 0 a `hasta` s. Devuelve los instantes en que pide abrirla. `fallos`: veces que open() no
+   *  encuentra sitio; la grieta dura `ttl` s. `natural`: [desde, hasta) con una grieta natural; `jefes`: con un jefe. */
+  function simular({ v = 0.5, manda = true, fallos = 0, ttl = 45, natural = null, jefes = null, hasta = 130, pl = {} } = {}) {
+    azar(v);
+    const pide = [];
+    let fin = -1;
+    for (let k = 0; k * DT <= hasta; k++) {
+      const time = k * DT;
+      jefe = !!(jefes && time >= jefes[0] && time < jefes[1]);
+      const hay = !!(natural && time >= natural[0] && time < natural[1]) || time < fin;
+      if (M.grietaGarantizada(pl, time, hay, manda)) { pide.push(time); if (fallos-- <= 0) fin = time + ttl; }
+    }
+    jefe = false;
+    return { pide, hora: M.grietaGarantizadaHora(pl) };
+  }
+  const s1 = simular(), s2 = simular({ v: 0.999 });
+  t('se abre una sola vez, en el primer fotograma tras su hora y antes de los 120 s',
+    [s1, s2].every(s => s.pide.length === 1 && s.pide[0] >= s.hora && s.pide[0] < s.hora + DT + 1e-9 && s.pide[0] < LIM), { s1: s1.pide, s2: s2.pide });
+  const corta = simular({ ttl: 2 });
+  t('si no entráis antes de que se cierre, no se reabre (cerrada a los 94,5 s, nada hasta los 130)', corta.pide.length === 1, corta.pide);
+  const invitado = simular({ manda: false });
+  M.grietaGarantizadaAntesDe = 0;
+  const apagada = simular();
+  M.grietaGarantizadaAntesDe = LIM;
+  t('nunca si no manda este cliente (invitado) ni con el ajuste a 0', invitado.pide.length === 0 && apagada.pide.length === 0 && apagada.hora === null);
+  const nat1 = simular({ natural: [80, 125] }), nat2 = simular({ natural: [76, 78] }), nat3 = simular({ natural: [95, 140] });
+  t('si ya hubo una natural (abierta o ya cerrada), no se fuerza otra', nat1.pide.length === 0 && nat2.pide.length === 0 && nat3.pide.length === 1 && nat3.pide[0] < 95,
+    { nat1: nat1.pide, nat2: nat2.pide, nat3: nat3.pide });
+  const sinSitio = simular({ fallos: 1e9 }), huecos = sinSitio.pide.slice(1).map((x, i) => x - sinSitio.pide[i]);
+  t('si open() no encuentra sitio, lo reintenta cada segundo (nunca antes) hasta el límite',
+    sinSitio.pide.length >= 25 && huecos.every(h => h >= 1 - 1e-9 && h < 1 + DT + 1e-6) && sinSitio.pide[sinSitio.pide.length - 1] < LIM,
+    { veces: sinSitio.pide.length, minimo: Math.min(...huecos), maximo: Math.max(...huecos) });
+  const dosFallos = simular({ fallos: 2 });
+  t('tras dos intentos sin sitio, al tercero se abre y ya no pide más', dosFallos.pide.length === 3 && CERCA(dosFallos.pide[2] - dosFallos.pide[0], 2, DT + 1e-6), dosFallos.pide);
+  const conJefe = simular({ jefes: [80, 100] }), jefeSiempre = simular({ jefes: [80, 130] });
+  t('con un jefe vivo no: espera a que caiga (si cae antes del límite)', conJefe.pide.length === 1 && conJefe.pide[0] >= 100 && conJefe.pide[0] < 100 + DT + 1e-9 &&
+    jefeSiempre.pide.length === 0, { conJefe: conJefe.pide, jefeSiempre: jefeSiempre.pide });
+  const plA = {}, plB = {};
+  const pA = simular({ v: 0, pl: plA }), pB = simular({ v: 0.999, pl: plB });
+  t('otra partida (otro jugador local) vuelve a elegir hora y vuelve a tener su grieta', CERCA(pA.hora, 75) && CERCA(pB.hora, 109.965) &&
+    pA.pide.length === 1 && pB.pide.length === 1 && CERCA(M.grietaGarantizadaHora(plA), 75), { A: pA, B: pB });
+  // La marca de su arena y la vida del legendario.
+  const plM = {}; M.grietaGarantizada(plM, 0, false, true);
+  const forzada = { ttl: 45 }, otra = { ttl: 45 };
+  M.grietaAbierta(plM, forzada, 92.5);
+  const a1 = M.arenaGarantizada(plM, forzada, 93), a2 = M.arenaGarantizada(plM, forzada, 93.5), a3 = M.arenaGarantizada(plM, otra, 200);
+  t('la arena de la grieta garantizada sale marcada una vez; otra grieta (natural) no', a1 === 1 && a2 === 0 && a3 === 0 && M.arenaGarantizada({}, otra, 100) === 0);
+  const plT = {}, plU = {}; M.grietaGarantizada(plT, 0, false, true); M.grietaGarantizada(plU, 0, false, true);
+  M.grietaAbierta(plT, { ttl: 45 }, 92.5); M.grietaAbierta(plU, { ttl: 45 }, 92.5);
+  t('si aquí ya se cerró (el invitado entró en sus últimos instantes), vale hasta 5 s después; luego no',
+    M.arenaGarantizada(plT, null, 92.5 + 45 + 4.9) === 1 && M.arenaGarantizada(plU, null, 92.5 + 45 + 5.1) === 0);
+  const eF = { maxHp: 4190, hp: 4190 }, eN = { maxHp: 4190, hp: 4190 };
+  M.vidaLegendario(eF, { forzada: 1 }); M.vidaLegendario(eN, { forzada: 0 });
+  t('vidaLegendario: el de su arena, con el 60 % (4.190 -> 2.514); el de otra, igual', eF.maxHp === 2514 && eF.hp === 2514 && eN.maxHp === 4190 && eN.hp === 4190);
+
+  // ---- B. js/systems/rift.js real ----
+  const scaleHp = n => 1 + 0.3 * Math.max(0, n - 1);
+  const vidaNormal = (t, n) => Math.round((3200 + t * 9) * scaleHp(n) * (n > 1 ? 1.4 : 1));   // la fórmula de spawnLegend
+  function juego({ papel = 'solo' } = {}) {
+    const S = { time: 0, rnd: 0.5, enemigos: new Map(), creados: [], banderas: [], enviados: [], alHost: [], vinculos: 0, grietas: [], pide: 0 };
+    const c = { console };
+    vm.createContext(c);
+    c.window = c; c.G = {}; c.__rnd = () => S.rnd;
+    for (const f of ['js/core/util.js', 'js/core/mods.js']) vm.runInContext(rd(f), c, { filename: f });
+    vm.runInContext('Math.random = () => __rnd()', c);
+    const G = c.G, nop = () => {};
+    const pl = { x: 2000, y: 2000, dead: false, bonds: 0, bodyH: 30, revive: nop }, mate = { x: 2040, y: 2000, dead: false };
+    let nid = 0;
+    Object.assign(G, {
+      Tiles: { T: 16, arenaBiome: () => 0, ARENA_THEMES: {}, propSprite: () => ({ width: 1, height: 1 }) },
+      Sprites: { PX: 2, hasShiny: () => false },
+      Coop: { active: papel !== 'solo', isHost: papel === 'anfitrion', scaleHp,
+        broadcast: m => S.enviados.push(JSON.parse(JSON.stringify(m))), toHost: m => S.alHost.push(m) },
+      Game: { get player() { return pl; }, st: { get time() { return S.time; } }, everyone: () => (papel === 'solo' ? [pl] : [pl, mate]), flash: nop,
+        offerBond: () => { S.vinculos++; } },
+      EnemyMgr: { bossAlive: () => [...S.enemigos.values()].some(e => e.boss && !e.dead), stash: nop, restore: nop, clearRemote: nop,
+        add: e => { S.enemigos.set(e.id, e); S.creados.push({ e, t: S.time }); }, get: id => S.enemigos.get(id), all: () => [...S.enemigos.values()] },
+      World: { isFree: () => true, setArena: nop, setBiome: nop, biome: 0 },
+      Projectiles: { clear: nop }, Combat: { clearFields: nop }, Hazards: { clear: nop }, Weather: { force: nop, clear: nop },
+      Camera: { x: 0, y: 0, kick: nop }, Audio: { sfx: nop }, FX: { ring: nop, dmgText: nop, px: nop }, Spawner: { say: nop },
+      Progress: { event: nop }, Pickups: { pullAll: nop }, Guard: { flag: w => S.banderas.push(w) },
+      DEX: [{ dex: 150, name: 'Mewtwo', leg: true, types: ['psychic'], spd: 130 }], SPRITE_META: { 150: {} },
+      Enemy: class { constructor(def, x, y, sc, boss) { this.id = ++nid; this.def = def; this.name = def.name; this.x = x; this.y = y; this.boss = boss;
+        this.maxHp = Math.round(def.hp * sc.hp); this.hp = this.maxHp; this.dead = false; } makeShiny() { this.maxHp *= 2; this.hp = this.maxHp; } }
+    });
+    G.DEX_BY = { 150: G.DEX[0] };
+    vm.runInContext(rd('js/systems/rift.js'), c, { filename: 'js/systems/rift.js' });
+    const R = G.Rift, M2 = G.MODS, gg = M2.grietaGarantizada;
+    M2.grietaGarantizada = function (...a) { const x = gg.apply(this, a); if (x) S.pide++; return x; };
+    const paso = () => {
+      S.time += DT; R.update(DT, pl, S.time);
+      if (R.rift && !S.grietas.includes(R.rift)) S.grietas.push(R.rift);
+    };
+    const hastaQue = (cond, max) => { while (!cond() && S.time < max) paso(); return cond(); };
+    const entrar = () => { pl.x = R.rift.x; pl.y = R.rift.y - 10; paso(); };
+    const legendario = () => S.creados.length ? S.creados[S.creados.length - 1] : null;
+    return { S, R, pl, G, paso, hastaQue, entrar, legendario };
+  }
+
+  // Solitario: la garantizada a su hora, su legendario con el 60 %, el vínculo; después una natural intacta.
+  {
+    const J1 = juego(), { S, R } = J1;
+    J1.hastaQue(() => R.rift, 130);
+    const g0 = R.rift, tAbre = S.time, d = g0 ? Math.hypot(g0.x - J1.pl.x, (g0.y - J1.pl.y) / 0.85) : 0;
+    t('solitario: la grieta se abre a su hora (92,5 s con azar 0,5) a 380-560 px del jugador', g0 && tAbre >= 92.5 && tAbre < 92.5 + 2 * DT && d >= 380 && d <= 560,
+      { t: tAbre, distancia: Math.round(d) });
+    for (let i = 0; i < 60; i++) J1.paso();
+    J1.entrar();
+    const L1 = J1.legendario();
+    t('solitario: su legendario sale con el 60 % de la vida que tendría sin el mod (arena marcada)', R.inArena && R.arena.forzada === 1 && L1 &&
+      L1.e.maxHp === Math.round(vidaNormal(L1.t, 1) * 0.6) && L1.e.hp === L1.e.maxHp, L1 && { t: L1.t, vida: L1.e.maxHp, sinMod: vidaNormal(L1.t, 1) });
+    L1.e.dead = true; J1.paso();
+    const bonds = J1.pl.bonds;
+    J1.hastaQue(() => !R.inArena, S.time + 10);
+    const tFin = S.time;
+    t('solitario: al vencerlo, vínculo (bonds 1) y la fusión se ofrece al volver', bonds === 1 && !R.inArena && S.vinculos === 1, { bonds, vinculos: S.vinculos });
+    // Natural después: la tirada de cada 30 s empieza de nuevo al cerrarse la garantizada (si no, a los ~12,5 s).
+    S.rnd = 0.1;
+    J1.hastaQue(() => R.rift, tFin + 40);
+    const g1 = R.rift, tNat = S.time;
+    t('solitario: la siguiente natural sale 30 s después de volver de la arena (la tirada vuelve a empezar)', g1 && g1 !== g0 && tNat - tFin >= 30 - DT && tNat - tFin < 30 + 2 * DT,
+      { vuelta: tFin, natural: tNat });
+    J1.entrar();
+    const L2 = J1.legendario();
+    t('solitario: el legendario de una grieta natural posterior sale con su vida completa (arena sin marca)', R.inArena && R.arena.forzada === 0 && L2 && L2.e !== L1.e &&
+      L2.e.maxHp === vidaNormal(L2.t, 1), L2 && { t: L2.t, vida: L2.e.maxHp, normal: vidaNormal(L2.t, 1) });
+    L2.e.dead = true; J1.paso(); J1.hastaQue(() => !R.inArena, S.time + 10);
+    S.rnd = 0.5;
+    J1.hastaQue(() => false, 400);
+    t('solitario: en toda la partida (400 s) sólo la garantizada y la natural; se pidió abrir una vez y nada marcó la partida como debug',
+      S.grietas.length === 2 && S.pide === 1 && S.banderas.length === 0 && J1.pl.bonds === 2, { grietas: S.grietas.length, pide: S.pide, banderas: S.banderas });
+  }
+  // Solitario: una natural antes de la hora (hora 106,5 s; la tirada de los 105 s sale) -> no se fuerza.
+  {
+    const J2 = juego(), { S, R } = J2;
+    S.rnd = 0.9; J2.paso(); S.rnd = 0.1;
+    J2.hastaQue(() => R.rift, 130);
+    const tNat = S.time;
+    J2.entrar();
+    const L = J2.legendario();
+    L.e.dead = true; J2.paso(); J2.hastaQue(() => !R.inArena, S.time + 10);
+    S.rnd = 0.5; J2.hastaQue(() => false, 130);
+    t('solitario: si a los 105 s sale una natural (hora 106,5), no se fuerza ninguna; su legendario, entero',
+      tNat >= 105 - DT && tNat < 105 + 2 * DT && S.grietas.length === 1 && S.pide === 0 && R.arena === null && L.e.maxHp === vidaNormal(L.t, 1), { natural: tNat, grietas: S.grietas.length });
+  }
+  // Grupo: el anfitrión la abre y la anuncia; el invitado no abre ninguna, la recibe en el mismo sitio, entra,
+  // el anfitrión crea la arena marcada y su legendario (60 % de la vida de grupo); al vencerlo, los dos con vínculo.
+  {
+    const H = juego({ papel: 'anfitrion' }), I = juego({ papel: 'invitado' });
+    const reparte = () => {
+      for (const m of H.S.enviados.splice(0)) I.R.onEvent(m);
+      for (const m of I.S.alHost.splice(0)) if (m[0] === 're') H.R.enterRequest();
+    };
+    const ambos = () => { H.paso(); I.paso(); reparte(); };
+    let invitadoSolo = false;
+    while (!H.R.rift && H.S.time < 130) { ambos(); if (I.R.rift && !H.R.rift) invitadoSolo = true; }
+    const anuncio = H.S.grietas.length ? [Math.round(H.R.rift.x), Math.round(H.R.rift.y)] : null;
+    ambos();
+    t('grupo: el anfitrión abre la grieta a su hora y la anuncia; el invitado no abre ninguna y la recibe en las mismas x e y',
+      anuncio && I.R.rift && I.R.rift.x === anuncio[0] && I.R.rift.y === anuncio[1] && !invitadoSolo && I.S.pide === 0 && H.S.pide === 1,
+      { anfitrion: anuncio, invitado: I.R.rift && [I.R.rift.x, I.R.rift.y], pideInvitado: I.S.pide });
+    for (let i = 0; i < 30; i++) ambos();
+    I.entrar(); reparte(); ambos();
+    const L = H.legendario();
+    t('grupo: entra el invitado, la arena (marcada) es para los dos y el legendario lo crea sólo el anfitrión, con el 60 % de la vida de dos',
+      H.R.inArena && I.R.inArena && H.R.arena.forzada === 1 && I.R.arena.forzada === 1 && I.S.creados.length === 0 && L &&
+      L.e.maxHp === Math.round(vidaNormal(L.t, 2) * 0.6), L && { t: L.t, vida: L.e.maxHp, sinMod: vidaNormal(L.t, 2) });
+    L.e.dead = true; ambos();
+    t('grupo: al vencerlo, los dos tienen bonds === 1', H.pl.bonds === 1 && I.pl.bonds === 1, { anfitrion: H.pl.bonds, invitado: I.pl.bonds });
+    while ((H.R.inArena || I.R.inArena) && H.S.time < 200) ambos();
+    t('grupo: vuelven los dos y nada marca la partida como debug', !H.R.inArena && !I.R.inArena && !H.S.banderas.length && !I.S.banderas.length);
+  }
+  // Grupo: el invitado entra cuando en el anfitrión ya se ha cerrado (su reloj va algo por detrás).
+  {
+    const tarde = espera => {
+      const H = juego({ papel: 'anfitrion' });
+      H.hastaQue(() => H.R.rift, 130);
+      const fin = H.S.time + 45 + espera;
+      H.hastaQue(() => false, fin);
+      const sinGrieta = !H.R.rift;
+      H.R.enterRequest();
+      const L = H.legendario();
+      return { sinGrieta, forzada: H.R.arena && H.R.arena.forzada, vida: L && L.e.maxHp, normal: L && vidaNormal(L.t, 2) };
+    };
+    const t1 = tarde(1), t2 = tarde(8);
+    t('grupo: si el invitado entra justo cuando en el anfitrión ya se cerró, sigue siendo la garantizada (hasta 5 s); más tarde, no',
+      t1.sinGrieta && t1.forzada === 1 && t1.vida === Math.round(t1.normal * 0.6) && t2.sinGrieta && t2.forzada === 0 && t2.vida === t2.normal, { t1, t2 });
+  }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`grieta garantizada: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`grieta: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
+  try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });
