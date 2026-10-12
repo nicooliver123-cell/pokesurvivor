@@ -2,12 +2,13 @@
   "name": "pokesurvivor-nico-pruebas",
   "version": "1.0.0",
   "private": true,
-  "description": "Pruebas de la versión modificada de PokéSurvivor: comprobación del fork y E2E del cooperativo contra el emulador de Firebase.",
+  "description": "Pruebas de la versión modificada de PokéSurvivor: comprobación del fork, E2E del cooperativo contra el emulador de Firebase y E2E de la identidad visual.",
   "license": "MIT",
   "scripts": {
     "check": "node check.js",
     "e2e": "node coop-e2e.js",
-    "test": "node check.js && node coop-e2e.js"
+    "estilo": "node estilo-e2e.js",
+    "test": "node check.js && node coop-e2e.js && node estilo-e2e.js"
   },
   "devDependencies": {
     "firebase-tools": "15.33.0",
