@@ -134,6 +134,12 @@ body:has(#topbar.hidden) .toast { bottom: 104px; }
    animación, con el centrado dentro. */
 .toast, .ach-pop { animation-name: pop-centrado; }
 @keyframes pop-centrado { from { transform: translateX(-50%) scale(.94); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+/* Pantalla dividida (js/ui/pantalla-dividida.js; en los dos estilos, porque en esa mitad va el HUD Dex): el aviso de
+   logro y el flotante, centrados en la mitad del juego (--div-centro) y no a caballo de la división; el de logro bajo la
+   banda de arriba del HUD y el flotante por encima de lo que ocupa abajo (el panel de los mandos, si va debajo). */
+html.pantalla-dividida .toast, html.pantalla-dividida .ach-pop { left: var(--div-centro, 50%); }
+html.pantalla-dividida.hud-dex-logro .ach-pop { top: calc(var(--hud-dex-sup, 56px) + 8px); bottom: auto; }
+html.pantalla-dividida.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: calc(var(--hud-dex-inf, 0px) + 12px); }
 
 /* Pestañas de región del gacha, si no caben (una tira que se desplaza en horizontal: en un móvil en horizontal o en
    una pantalla estrecha): la elegida se ve siempre entera (estilo.js la trae a la vista, fuera del degradado) y un

@@ -136,8 +136,11 @@ G.Estilo = (() => {
    *  no pinta); con Clásico, false. Si el HUD Dex falla, lo dice una vez en la consola y devuelve false: ese
    *  fotograma lo pinta upstream (nunca una partida sin HUD). */
   let falloHud = false;
+  /** ¿Se pinta el HUD Dex? Con Dex, y también con Clásico mientras va la pantalla dividida (js/ui/pantalla-dividida.js):
+   *  su panel de mandos es Dex y el HUD de upstream no sabe quitar los ataques ni la ficha del rectángulo de juego. */
+  const hudDex = () => actual === 'dex' || !!(G.Dividida && G.Dividida.activa && G.Dividida.activa());
   function hud(ctx, w, h, pl, st) {
-    if (actual !== 'dex' || !G.HudDex || !pl) return false;
+    if (!hudDex() || !G.HudDex || !pl) return false;
     try { G.HudDex.draw(ctx, w, h, pl, st); colocarLogro(); return true; } catch (e) {
       if (!falloHud) { falloHud = true; console.warn('[Estilo] el HUD Dex ha fallado; se pinta el de upstream', e); }
       return false;
@@ -156,7 +159,7 @@ G.Estilo = (() => {
     if (!raiz || !raiz.classList) return;
     if (logro.raiz !== raiz) logro = { raiz, en: null, sup: null, inf: null };
     const st = G.Game && G.Game.state;
-    const en = actual === 'dex' && !!G.HudDex && (st === 'playing' || st === 'held');
+    const en = hudDex() && !!G.HudDex && (st === 'playing' || st === 'held');
     if (en !== logro.en) { raiz.classList.toggle('hud-dex-logro', en); logro.en = en; }
     if (en && raiz.style) {
       const v = Math.round(G.HudDex.bandaSup()) + 'px';
@@ -715,7 +718,7 @@ G.Estilo = (() => {
 
   return {
     get actual() { return actual; }, get dex() { return actual === 'dex'; },
-    set, porDefecto, hud, colocarLogro, fuenteCanvas, cargarFuentes, descargaEnReposo, ajustes, carta, tipoDeCarta, companero, premio,
+    set, porDefecto, hud, hudDex, colocarLogro, fuenteCanvas, cargarFuentes, descargaEnReposo, ajustes, carta, tipoDeCarta, companero, premio,
     destacado, encaje, animar, colocacion, disposicion, zonasSeguras, pantalla, plieguePantalla, ranurasEnColumna, capaProbabilidades, tabLibre,
     on(fn) { oyentes.add(fn); },
     TEXTO_ESTILO, TAM_COMPANERO, TAM_PREMIO, HORIZONTAL_PLEGABLE, tiraPestanas

@@ -15,7 +15,8 @@
  *     ancho y a lo alto: entonces hacia abajo (se ve algo más). Redondeando siempre al más cercano, a 1366x768 se
  *     perdía un 11 %.
  *   Ganchos: game.js resize() (la resolución, y el lienzo en el rectángulo de juego de la pantalla dividida) y
- *   camera.js resize() (la escala). Apagado, todo como upstream.
+ *   camera.js resize() (la escala). Apagado, todo como upstream. Con la pantalla dividida y el juego en una franja alta
+ *   (a un lado), el lado largo ve 768 de mundo en vez del ancho (escalaVertical).
  *
  * ENCUADRE (sólo con el HUD Dex en compacto y en partida): la cámara se corre para que tu Pokémon quede en el centro
  * de la zona libre (G.HudDex.bandas().zona: sin las filas de arriba ni la columna de los ataques), suavizado en unos
@@ -89,12 +90,20 @@ G.Encuadre = (() => {
     return d;
   }
 
-  /** camera.js resize(): la escala con píxel nítido (s0 = la de upstream; dpr = la resolución interna). */
+  /** Pantalla dividida con el juego en una franja alta (a un lado: 392x724 en el plegable): upstream ve siempre 768 de
+   *  ancho y ahí vería 768 x 1418 de mundo, con los Pokémon diminutos. El lado largo ve como mucho esos 768 (criterio de
+   *  la investigación de plegables), sólo en ese caso: en apaisado, la regla de upstream. Pura. */
+  function escalaVertical(s0, w, h, dividida) {
+    return dividida && h > w ? Math.max(s0, h / VISTA()[0]) : s0;
+  }
+  /** camera.js resize(): la escala (s0 = la de upstream; dpr = la resolución interna), con la franja alta de la pantalla
+   *  dividida y el píxel nítido. */
   function escala(s0, w, h, dpr) {
-    if (!actual.nitido) return s0;
+    const s1 = escalaVertical(s0, w, h, !!(G.Dividida && G.Dividida.activa && G.Dividida.activa()));
+    if (!actual.nitido) return s1;
     const k = actual.real / dpr;
-    if (!(dpr > 0) || Math.abs(k - Math.round(k)) > 1e-6) return s0;   // no es la resolución de resolucion(): como upstream
-    return escalaNitida(s0, dpr, PX(), tope());
+    if (!(dpr > 0) || Math.abs(k - Math.round(k)) > 1e-6) return s1;   // no es la resolución de resolucion()
+    return escalaNitida(s1, dpr, PX(), tope());
   }
 
   // ===================================================================
@@ -145,6 +154,6 @@ G.Encuadre = (() => {
     };
   }
 
-  return { nitido, dprInterno, escalaNitida, calcular, resolucion, escala, objetivo, desplazamiento, ajustes, TEXTO,
+  return { nitido, dprInterno, escalaNitida, escalaVertical, calcular, resolucion, escala, objetivo, desplazamiento, ajustes, TEXTO,
     get estado() { return Object.assign({}, actual); } };
 })();

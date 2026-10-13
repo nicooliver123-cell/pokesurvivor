@@ -227,6 +227,16 @@ G.MODS = {
   golpeFinalMs: 140,
   golpeFinalSacudida: true,
 
+  /* ---- Pantalla dividida estilo Nintendo DS (lote 5, petición de Nico; js/ui/pantalla-dividida.js) ----
+   * Ajustes > Controles > «Pantalla dividida»: el mundo y el HUD en una mitad y, en la otra, un panel de mandos
+   * (joystick grande, los 4 ataques, objeto, pausa, PS y nivel). Siempre opcional. Local de cada jugador.
+   *   divididaPorDefecto: 'no' (desactivada) | 'abajo' (juego arriba, mandos abajo) | 'lado' (a un lado) |
+   *     'auto' (sólo plegado a medias en modo mesa, si el navegador informa de la postura). Lo elegido gana.
+   *   divididaMargenBisagra: px que quedan libres a cada lado de la línea que parte la pantalla (la bisagra o,
+   *     sin saberla, la mitad exacta): ni un botón ni un texto encima. */
+  divididaPorDefecto: 'no',
+  divididaMargenBisagra: 16,
+
   /** game.js, checkOrientation(): ¿pide girar una pantalla de w×h px CSS (táctil)? */
   pedirGiro(w, h) {
     if (!(w > 0) || !(h > 0) || !(h > w)) return false;

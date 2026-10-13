@@ -665,6 +665,7 @@ G.Game = (() => {
       ctx.restore();
     }
     if (G.Transicion) G.Transicion.dibujar(ctx, w, h, pl);   // MOD nico: iris de las transiciones, encima de todo (js/ui/transicion.js)
+    if (G.Dividida) G.Dividida.pintar(pl, st);   // MOD nico: la mitad de los mandos de la pantalla dividida (js/ui/pantalla-dividida.js)
   }
 
   // ---------------- fondo de los menús ----------------

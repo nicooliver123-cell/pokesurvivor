@@ -369,7 +369,13 @@ const HOOKS = [
   ['js/game.js', /function update\(dt\) \{\r?\n    if \(G\.GolpeFinal && G\.GolpeFinal\.congelar\(\)\) return;\s*\/\/ MOD nico/, 'golpe final: primera línea de update() (el juego, quieto)'],
   ['js/entities/enemy.js', /\r?\n        return;\r?\n      \}\r?\n      if \(G\.GolpeFinal\) G\.GolpeFinal\.derrotado\(this\);\s*\/\/ MOD nico[^\n]*\r?\n      if \(this\.boss\) \{/, 'golpe final: die(), tras descartar las copias de la red'],
   ['js/game.js', /ctx\.fillRect\(0, 0, w, h\);\r?\n      ctx\.restore\(\);\r?\n    \}\r?\n    if \(G\.Transicion\) G\.Transicion\.dibujar\(ctx, w, h, pl\);\s*\/\/ MOD nico/, 'iris: después del fogonazo, encima de todo (render)'],
-  ['js/ui/settings-ui.js', /if \(G\.Encuadre\) G\.Encuadre\.ajustes\(box, tab\);\s*\/\/ MOD nico/, 'píxel nítido: la fila de Ajustes > Gráficos > Pantalla']
+  ['js/ui/settings-ui.js', /if \(G\.Encuadre\) G\.Encuadre\.ajustes\(box, tab\);\s*\/\/ MOD nico/, 'píxel nítido: la fila de Ajustes > Gráficos > Pantalla'],
+  // Lote 5: pantalla dividida estilo Nintendo DS (js/ui/pantalla-dividida.js)
+  ['dev.html', /src="js\/ui\/golpe-final\.js"><\/script>[^\n]*\r?\n<script defer src="js\/ui\/pantalla-dividida\.js"><\/script><!-- MOD nico/, 'pantalla dividida: pantalla-dividida.js tras golpe-final.js'],
+  ['js/game.js', /if \(G\.Transicion\) G\.Transicion\.dibujar\(ctx, w, h, pl\);\s*\/\/ MOD nico[^\n]*\r?\n    if \(G\.Dividida\) G\.Dividida\.pintar\(pl, st\);\s*\/\/ MOD nico/, 'pantalla dividida: el panel, en la última línea de render()'],
+  ['js/core/touch.js', /function vector\(\) \{\r?\n    const dv = G\.Dividida && G\.Dividida\.vector\(\); if \(dv\) return dv;\s*\/\/ MOD nico/, 'pantalla dividida: el joystick del panel manda en G.Touch.vector() (touch.js)'],
+  ['js/ui/settings-ui.js', /if \(G\.Dividida\) G\.Dividida\.ajustes\(box, tab\);\s*\/\/ MOD nico/, 'pantalla dividida: la sección de Ajustes > Controles'],
+  ['js/ui/estilo.js', /const hudDex = \(\) => actual === 'dex' \|\| !!\(G\.Dividida && G\.Dividida\.activa && G\.Dividida\.activa\(\)\);\r?\n  function hud\(ctx, w, h, pl, st\) \{\r?\n    if \(!hudDex\(\) \|\| !G\.HudDex \|\| !pl\) return false;/, 'pantalla dividida: el HUD Dex también con Clásico mientras va (estilo.js)']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -3902,6 +3908,208 @@ function juegoChecks() {
   for (const [name, , detail] of failed) bad(`ajustes de juego: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 17. pantalla dividida estilo Nintendo DS (lote 5) ----------------
+function divididaChecks() {
+  console.log('17. Pantalla dividida estilo Nintendo DS (js/ui/pantalla-dividida.js): reparto, postura, panel, HUD y toques');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const solapan = (a, b) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
+  /** pantalla-dividida.js con settings.js, mods.js, marca.js, estilo.js, touch.js y camera.js reales; un documento de mentira
+   *  que guarda los manejadores del lienzo del panel (para tocarlo) y su contexto (un LienzoFalso). */
+  const nuevo = ({ ajustes = {}, w = 784, h = 724, dpr = 3, estilo = 'clasico', tactil = true } = {}) => {
+    const almacen = { 'ps.settings': JSON.stringify(Object.assign({ estilo }, ajustes)) };
+    const lienzos = [];
+    const elemento = () => ({ style: {}, classList: { toggle() {}, contains: () => false }, setAttribute() {}, insertAdjacentElement() {}, appendChild() {},
+      _m: {}, addEventListener(tipo, fn) { this._m[tipo] = fn; }, getContext() { return this._ctx || (this._ctx = new LienzoFalso()); }, setPointerCapture() {} });
+    const c = {
+      console, innerWidth: w, innerHeight: h, devicePixelRatio: dpr, performance: { now: () => 1000 }, matchMedia: () => ({ matches: false }), navigator: {},
+      localStorage: { getItem: k => (k in almacen ? almacen[k] : null), setItem: (k, v) => { almacen[k] = String(v); } }, location: { protocol: 'file:' },
+      __eventos: [], dispatchEvent(e) { c.__eventos.push(e.type); }, Event: function (tipo) { this.type = tipo; }
+    };
+    c.document = { documentElement: { classList: { toggle() {}, contains: () => false }, style: { setProperty() {} } }, body: null,
+      getElementById: id => (id === 'game' ? (c.__juego = c.__juego || elemento()) : null), querySelector: () => null,
+      createElement: () => { const e = elemento(); lienzos.push(e); return e; }, addEventListener() {}, fonts: null };
+    c.window = c; c.G = {}; c.__lienzos = lienzos;
+    vm.createContext(c);
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js', 'js/core/settings.js', 'js/ui/estilo.js', 'js/core/camera.js']) vm.runInContext(rd(f), c, { filename: f });
+    vm.runInContext(rd('js/core/touch.js'), c, { filename: 'js/core/touch.js' });
+    vm.runInContext(rd('js/ui/pantalla-dividida.js'), c, { filename: 'js/ui/pantalla-dividida.js' });
+    const G = c.G;
+    G.Estilo.zonasSeguras = () => ({ sup: 0, der: 0, inf: 0, izq: 0 });
+    Object.defineProperty(G.Touch, 'active', { get: () => tactil, configurable: true });
+    const mov = id => [{ id, type: 'fire', name: id, lvl: 1, t: 0, cd: 1, kind: 'shot', def: { maxLvl: 5 } }];
+    const pl = { x: 0, y: 0, slots: [mov('a'), mov('b'), mov('c'), mov('d')], active: 0, setActive(i) { this.active = i; }, level: 7, hp: 50, maxHp: 80, xp: 3, xpNext: 10, mon: { name: 'Pikachu' }, bonds: 1, item: null, dead: false };
+    G.Game = { state: 'playing', player: pl, pausas: 0, togglePause() { this.pausas++; } };
+    G.Icons = { draw() {} };
+    return { c, G, pl, panel: () => lienzos.find(e => e._m.pointerdown) };
+  };
+
+  // ---- A. El reparto (puro): modos, bisagra (Viewport Segments), máscara, mitad exacta y postura ----
+  try {
+    const { G } = nuevo(), D = G.Dividida;
+    const seg = (x, y, w, h) => ({ x, y, w, h });
+    const mesa = [seg(0, 0, 784, 362), seg(0, 362, 784, 362)], mascara = [seg(0, 0, 784, 352), seg(0, 372, 784, 352)], libro = [seg(0, 0, 362, 784), seg(362, 0, 362, 784)];
+    const c = {
+      no: D.reparto(784, 724, 'no', 'derecha', {}),
+      abajo: D.reparto(784, 724, 'abajo', 'derecha', {}),
+      abajoMesa: D.reparto(784, 724, 'abajo', 'derecha', { postura: 'folded', segmentos: mesa }),
+      abajoMascara: D.reparto(784, 724, 'abajo', 'derecha', { postura: 'folded', segmentos: mascara }),
+      abajoLibro: D.reparto(724, 784, 'abajo', 'derecha', { postura: 'folded', segmentos: libro }),
+      abajoSupuesto: D.reparto(724, 784, 'abajo', 'derecha', { pliegue: { eje: 'x', pos: 362, ancho: 24 } }),
+      ladoDer: D.reparto(1440, 900, 'lado', 'derecha', {}), ladoIzq: D.reparto(1440, 900, 'lado', 'izquierda', {}),
+      ladoLibro: D.reparto(724, 784, 'lado', 'izquierda', { postura: 'folded', segmentos: libro }),
+      ladoMesa: D.reparto(784, 724, 'lado', 'derecha', { postura: 'folded', segmentos: mesa }),
+      autoPlano: D.reparto(784, 724, 'auto', 'derecha', { postura: 'continuous', segmentos: [seg(0, 0, 784, 724)] }),
+      autoSinApi: D.reparto(784, 724, 'auto', 'derecha', { postura: null, segmentos: null }),
+      autoMesa: D.reparto(784, 724, 'auto', 'derecha', { postura: 'folded', segmentos: mesa }),
+      autoLibro: D.reparto(724, 784, 'auto', 'derecha', { postura: 'folded', segmentos: libro }),
+      d2625: D.reparto(723, 701, 'abajo', 'derecha', { dpr: 2.625 })
+    };
+    const R = (o, x, y, w, h) => o && o.x === x && o.y === y && o.w === w && o.h === h;
+    t('reparto: desactivada, nada; «abajo» a 784x724, juego 784x362 arriba y mandos abajo (la mitad exacta); con la bisagra de Viewport Segments, justo en ella (y con una máscara de 20 px, fuera de las dos mitades); «a un lado», mitad y mitad (mandos a la derecha o a la izquierda); con la bisagra vertical (libro), en ella; una bisagra que cruza las dos mitades se pasa al panel para que la esquive (también la supuesta sin postura); la automática, sólo plegado en modo mesa (ni plano, ni sin la API, ni en libro); con dpr 2,625, la división en px físicos enteros',
+      c.no === null && R(c.abajo.juego, 0, 0, 784, 362) && R(c.abajo.controles, 0, 362, 784, 362) && c.abajo.costura === 'sup' && c.abajo.fuente === 'mitad' &&
+      R(c.abajoMesa.juego, 0, 0, 784, 362) && R(c.abajoMesa.controles, 0, 362, 784, 362) && c.abajoMesa.fuente === 'bisagra' && c.abajoMesa.bisagra === null &&
+      R(c.abajoMascara.juego, 0, 0, 784, 352) && R(c.abajoMascara.controles, 0, 372, 784, 352) && R(c.abajoMascara.bisagra, 0, 352, 784, 20) &&
+      R(c.abajoLibro.juego, 0, 0, 724, 392) && c.abajoLibro.pliegue && c.abajoLibro.pliegue.eje === 'x' && c.abajoLibro.pliegue.pos === 362 &&
+      c.abajoSupuesto.pliegue && c.abajoSupuesto.pliegue.pos === 362 &&
+      R(c.ladoDer.juego, 0, 0, 720, 900) && R(c.ladoDer.controles, 720, 0, 720, 900) && c.ladoDer.costura === 'izq' && R(c.ladoIzq.juego, 720, 0, 720, 900) && R(c.ladoIzq.controles, 0, 0, 720, 900) && c.ladoIzq.costura === 'der' &&
+      R(c.ladoLibro.juego, 362, 0, 362, 784) && R(c.ladoLibro.controles, 0, 0, 362, 784) && c.ladoLibro.fuente === 'bisagra' &&
+      c.ladoMesa.pliegue && c.ladoMesa.pliegue.eje === 'y' && c.ladoMesa.pliegue.pos === 362 &&
+      c.autoPlano === null && c.autoSinApi === null && R(c.autoMesa.juego, 0, 0, 784, 362) && c.autoMesa.fuente === 'bisagra' && c.autoLibro === null &&
+      Number.isInteger(c.d2625.juego.h * 2.625) && Math.abs(c.d2625.juego.h - 350.5) <= 4, c);
+  } catch (e) { t('reparto', false, String(e && e.stack || e)); }
+
+  // ---- B. El panel: todo dentro, sin solapes, ≥ 44 px de toque y nada junto a la división ni sobre el pliegue ----
+  try {
+    const { G } = nuevo(), D = G.Dividida, mg = G.MODS.divididaMargenBisagra;
+    const casos = [
+      { n: 'mesa 784x362', w: 784, h: 362, op: { costura: 'sup' } },
+      { n: 'vertical 724x392 con el pliegue en 362', w: 724, h: 392, op: { costura: 'sup', pliegue: { eje: 'x', pos: 362, ancho: 24 } } },
+      { n: 'a la derecha 392x724 con el pliegue en 362', w: 392, h: 724, op: { costura: 'izq', pliegue: { eje: 'y', pos: 362, ancho: 0 } } },
+      { n: 'libro 362x784', w: 362, h: 784, op: { costura: 'der' } },
+      { n: 'escritorio 1440x450', w: 1440, h: 450, op: { costura: 'sup' } },
+      { n: 'escritorio 720x900', w: 720, h: 900, op: { costura: 'izq' } },
+      { n: 'móvil 844x195 con muesca', w: 844, h: 195, op: { costura: 'sup', seguras: { izq: 47, der: 47, inf: 21 } } },
+      { n: 'exterior 807x180', w: 807, h: 180, op: { costura: 'sup' } }
+    ];
+    const mal = [];
+    for (const k of casos) {
+      const L = D.maquetarPanel(k.w, k.h, Object.assign({ n: 4 }, k.op)), S = L.stick;
+      const base = { x: S.cx - S.r, y: S.cy - S.r, w: 2 * S.r, h: 2 * S.r };
+      const piezas = [['info', L.info], ['objeto', L.objeto], ['pausa', L.pausa], ...L.ranuras.map((x, i) => ['ataque' + (i + 1), x]), ['joystick', base]];
+      const sg = Object.assign({ sup: 0, der: 0, inf: 0, izq: 0 }, k.op.seguras || {});
+      const lim = { x0: Math.max(sg.izq, k.op.costura === 'izq' ? mg : 0), y0: Math.max(sg.sup, k.op.costura === 'sup' ? mg : 0),
+        x1: k.w - Math.max(sg.der, k.op.costura === 'der' ? mg : 0), y1: k.h - sg.inf };
+      for (const [n, p] of piezas) {
+        if (p.x < lim.x0 - 0.5 || p.y < lim.y0 - 0.5 || p.x + p.w > lim.x1 + 0.5 || p.y + p.h > lim.y1 + 0.5) mal.push(`${k.n}: ${n} fuera (${JSON.stringify(p)})`);
+        const pg = k.op.pliegue;
+        if (pg) { const a = pg.pos - pg.ancho / 2 - mg + 0.5, b = pg.pos + pg.ancho / 2 + mg - 0.5; if (pg.eje === 'x' ? p.x < b && p.x + p.w > a : p.y < b && p.y + p.h > a) mal.push(`${k.n}: ${n} sobre el pliegue`); }
+      }
+      for (let i = 0; i < piezas.length; i++) for (let j = i + 1; j < piezas.length; j++) if (solapan(piezas[i][1], piezas[j][1])) mal.push(`${k.n}: ${piezas[i][0]} y ${piezas[j][0]} se pisan`);
+      if (L.lado < 44 || L.pausa.w < 44 || S.r < 44) mal.push(`${k.n}: toque pequeño (ataques ${L.lado}, pausa ${L.pausa.w}, joystick ${S.r})`);
+    }
+    t(`panel de mandos en ${casos.length} tamaños (el Magic V6 en mesa, en vertical con el pliegue cruzando, a un lado, en libro; escritorio; móvil con muesca; la exterior): todo dentro, sin solapes, ataques, pausa y joystick de 44 px o más, nada a menos de ${mg} px de la división y nada sobre el pliegue que lo cruza`,
+      !mal.length, mal.slice(0, 8));
+  } catch (e) { t('panel', false, String(e && e.stack || e)); }
+
+  // ---- C. En partida: el lienzo del juego en su rectángulo, el HUD Dex (también con Clásico), los toques y el teclado ----
+  try {
+    const { c, G, pl, panel } = nuevo({ ajustes: { dividida: 'abajo' }, w: 784, h: 724 });
+    const D = G.Dividida;
+    const antes = { hudDex: G.Estilo.hudDex(), rect: D.rectJuego() };
+    D.recolocar();
+    const activo = D.activa(), hudDexDentro = G.Estilo.hudDex(), juegoCv = c.__juego && Object.assign({}, c.__juego.style);
+    const P = panel(), K = activo && activo.controles;
+    const ev = (x, y, id = 1) => ({ clientX: x, clientY: y, pointerId: id, preventDefault() {} });
+    const B = D.botonesPantalla(), b2 = B.find(b => b.que === 'ataque2'), bp = B.find(b => b.que === 'pausa');
+    P._m.pointerdown(ev(b2.x + b2.w / 2, b2.y + b2.h / 2, 2));
+    P._m.pointerdown(ev(bp.x + 5, bp.y + 5, 3));
+    // El joystick: en su círculo (fijo) y arrastrando a la derecha.
+    const S = D.panel.stick, cx = S.cx + K.x, cy = S.cy + K.y;
+    const sinDedo = G.Touch.vector();
+    P._m.pointerdown(ev(cx, cy, 4)); P._m.pointermove(ev(cx + S.r, cy, 4));
+    const v = G.Touch.vector();
+    P._m.pointerup(ev(cx + S.r, cy, 4));
+    const suelto = G.Touch.vector();
+    // Donde tocas (fuera del círculo, dentro de su zona): aparece ahí.
+    const Z = S.zona, zx = K.x + Z.x + 4, zy = K.y + Z.y + Z.h - 4;   // una esquina de su zona, lejos del círculo
+    P._m.pointerdown(ev(zx, zy, 5)); const libre = D.stick; P._m.pointerup(ev(zx, zy, 5));
+    const cambiado = {};
+    // En plena partida: a un lado (derecha), sin reiniciar; fuera de partida, la pantalla entera.
+    G.Settings.set('dividida', 'lado'); D.recolocar(); cambiado.lado = D.rectJuego();
+    G.Game.state = 'ui'; D.recolocar(); cambiado.menu = D.rectJuego(); cambiado.hudDex = G.Estilo.hudDex();
+    t('en partida: con «abajo», el lienzo del juego mide 784x362 (G.Encuadre.resolucion lo coloca), el HUD es el Dex también con Clásico, tocar el ataque 2 lo elige, la pausa pausa, el joystick del panel manda en G.Touch.vector() (a la derecha, a toda velocidad; suelto, nada) y aparece donde tocas dentro de su zona; cambiarlo en plena partida recoloca sin reiniciar; en el menú, la pantalla entera y el HUD de su estilo',
+      antes.rect === null && !antes.hudDex && activo && activo.juego.w === 784 && activo.juego.h === 362 && hudDexDentro && juegoCv.pointerEvents === 'none' &&
+      pl.active === 1 && G.Game.pausas === 1 && sinDedo === null && v && v[0] > 0.99 && Math.abs(v[1]) < 0.01 && suelto === null && libre && !libre.fijo &&
+      cambiado.lado && cambiado.lado.w === 392 && cambiado.lado.h === 724 && cambiado.menu === null && cambiado.hudDex === false && c.__eventos.includes('resize'),
+      { antes, activo, hudDexDentro, juegoCv, activa: pl.active, pausas: G.Game.pausas, sinDedo, v, suelto, libre, cambiado, eventos: c.__eventos.length });
+  } catch (e) { t('en partida', false, String(e && e.stack || e)); }
+
+  // ---- D. El HUD Dex en el rectángulo de juego: sin ranuras, objeto, pausa ni ficha (van en el panel) y lejos de la división ----
+  try {
+    const res = [];
+    for (const [w, h, inf] of [[784, 362, 16], [724, 392, 16], [392, 724, 0]]) {
+      const H = cargarHud({ w, h, tactil: true });
+      escenaCompleta(H);
+      const seguras = { sup: 0, izq: 0, der: inf ? 0 : 16, inf };
+      H.G.HudDex.ponerMarco((ww, hh) => ({ juego: { x: 0, y: 0, w: ww, h: hh }, controles: { x: 0, y: hh + 8, w: 8, h: 8, lado: 'abajo', aparte: true }, seguras }));
+      H.pintar(); const ctx = H.pintar();
+      const B = H.G.HudDex.bandas(), P = B.piezas;
+      const fuera = Object.entries(P).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x, i) => [k + i, x]) : [[k, v]])).filter(([, v]) => v && v.w && v.h)
+        .filter(([, v]) => v.y + v.h > h - inf + 0.5 || v.x + v.w > w - seguras.der + 0.5).map(([k]) => k);
+      const pintado = ctx.ops.filter(o => o.op !== 'texto' || true).filter(o => o.y2 > h - inf + 0.5 && o.alfa > 0).length;
+      res.push({ vp: `${w}x${h}`, ficha: !!P.ficha, ranuras: P.ranuras.length, objeto: !!P.objeto, pausa: !!P.pausa, botones: H.botones.length, fuera, pintado, variante: B.variante });
+    }
+    t('HUD Dex con el panel aparte (ponerMarco con controles.aparte): en el rectángulo de juego no van la ficha, las ranuras, el objeto ni la pausa (ningún toque registrado: van en el panel) y nada se pinta a menos de 16 px de la división (784x362 y 724x392 con el panel debajo, 392x724 con el panel a la derecha)',
+      res.every(x => !x.ficha && !x.ranuras && !x.objeto && !x.pausa && !x.botones && !x.fuera.length && !x.pintado), res);
+  } catch (e) { t('HUD Dex con el panel aparte', false, String(e && e.stack || e)); }
+
+  // ---- E. Local de cada jugador, el ajuste y el manifiesto ----
+  try {
+    const src = rd('js/ui/pantalla-dividida.js');
+    const red = /G\.(Net|Coop)\.|broadcast|\bsend\(/.test(src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''));
+    const { G } = nuevo();
+    const porDefecto = G.Dividida.modo();
+    const man = JSON.parse(rd('manifest.webmanifest'));
+    const M = G.MODS;
+    t('local: pantalla-dividida.js no habla con la red (ni G.Net ni G.Coop); por defecto desactivada (divididaPorDefecto = \'no\'); el manifiesto ya no fija la horizontal ("orientation": "any", la pantalla interior del plegable en vertical para «abajo») y «Gira el móvil» sigue sólo en una pantalla estrecha en vertical (390x844, 360x807 y la mitad de 362x784 sí; el Magic V6 abierto, 724x784 y 784x724, no)',
+      !red && porDefecto === 'no' && man.orientation === 'any' && M.pedirGiro(390, 844) && M.pedirGiro(360, 807) && !M.pedirGiro(724, 784) && !M.pedirGiro(784, 724) && M.pedirGiro(362, 784),
+      { red, porDefecto, orientacion: man.orientation });
+  } catch (e) { t('local y manifiesto', false, String(e && e.stack || e)); }
+
+  // ---- E2. La cámara en una franja alta (juego a un lado): el lado largo ve 768 de mundo ----
+  try {
+    const { c } = nuevo();
+    vm.runInContext(rd('js/ui/encuadre.js'), c, { filename: 'js/ui/encuadre.js' });
+    const E = c.G.Encuadre, s0 = (w, h) => Math.min(w / 768, h / 420);
+    const alta = E.escalaVertical(s0(392, 724), 392, 724, true), sinDividir = E.escalaVertical(s0(724, 784), 724, 784, false), mesa = E.escalaVertical(s0(784, 362), 784, 362, true);
+    const k = E.calcular(392, 724, 3);   // sin la regla: 1176 x 2172 de mundo con el píxel nítido
+    t('cámara de la pantalla dividida: con el juego en una franja alta (392x724, a un lado) el lado largo ve 768 de mundo (sin la regla, 768 de ANCHO: 768x1418, y con el píxel nítido 1176x2172); en apaisado (784x362) y sin dividir (724x784), la regla de upstream',
+      Math.abs(724 / alta - 768) < 1e-6 && sinDividir === s0(724, 784) && mesa === s0(784, 362) && Math.round(392 / k.escala) === 1176, { alta, sinDividir, mesa, sinRegla: 392 / k.escala });
+  } catch (e) { t('cámara de la franja alta', false, String(e && e.stack || e)); }
+
+  // ---- F. Inglés de lo nuevo de los lotes 4 y 5 (i18n.js real) ----
+  try {
+    const c = { console, navigator: { language: 'en-US', languages: ['en-US'] }, location: { pathname: '/' },
+      localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} }, confirm: () => true, alert() {} };
+    c.CanvasRenderingContext2D = function () {};
+    c.CanvasRenderingContext2D.prototype = { fillText() {}, strokeText() {}, measureText() {} };
+    c.window = c; c.G = {};
+    vm.createContext(c);
+    for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
+    const EN = c.G.I18n.t, { G } = nuevo(), D = G.Dividida;
+    const textos = ['Píxel nítido', vm.runInContext('G.Encuadre.TEXTO', (() => { const k = nuevo().c; vm.runInContext(rd('js/ui/encuadre.js'), k); return k; })()),
+      'Grieta de tipo Fuego', 'Pantalla dividida', D.TEXTO, ...D.OPCIONES.map(o => o[1]), ...D.OPCIONES_LADO.map(o => o[1]), 'Lado de los mandos'];
+    for (const md of ['abajo', 'auto']) { G.Settings.set('dividida', md); textos.push(D.nota()); }
+    const sin = textos.filter(s => EN(s) === s);
+    t('inglés (i18n.js real) de lo nuevo: «Píxel nítido» y su explicación, «Grieta de tipo Fuego» y la sección «Pantalla dividida» (explicación, opciones, lado y notas)', !sin.length, sin);
+  } catch (e) { t('inglés', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`pantalla dividida: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`pantalla dividida: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -3911,6 +4119,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { identidadChecks(); } catch (e) { bad('no se pudo probar la identidad visual: ' + (e && e.stack || e)); }
   try { hudDexChecks(); } catch (e) { bad('no se pudo probar el HUD Dex: ' + (e && e.stack || e)); }
   try { juegoChecks(); } catch (e) { bad('no se pudo probar los ajustes de juego: ' + (e && e.stack || e)); }
+  try { divididaChecks(); } catch (e) { bad('no se pudo probar la pantalla dividida: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

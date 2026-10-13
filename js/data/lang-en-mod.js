@@ -131,5 +131,24 @@ G.I18n.add({
   // Versiones cortas de la pista de controles (si la larga no cabe).
   'WASD moverse · 1-4, Q, E o clic: cambiar ataque · Esc pausa': 'WASD move · 1-4, Q, E or click: switch move · Esc pause',
   'WASD · 1-4 / Q / E · Esc pausa': 'WASD · 1-4 / Q / E · Esc pause',
-  'Arrastra para moverte · toca un ataque para cambiarlo': 'Drag to move · tap a move to switch', 'Arrastra · toca un ataque': 'Drag · tap a move'
+  'Arrastra para moverte · toca un ataque para cambiarlo': 'Drag to move · tap a move to switch', 'Arrastra · toca un ataque': 'Drag · tap a move',
+  // Lote 4: píxel nítido (js/ui/encuadre.js) y el rótulo de una arena (js/ui/hud-dex.js).
+  'Píxel nítido': 'Crisp pixels',
+  'Cada píxel del dibujo ocupa un número exacto de píxeles de tu pantalla, sin columnas más anchas que otras. El mundo se ve un poco más cerca o más lejos.':
+    'Each pixel of the art takes an exact number of pixels on your screen, with no columns wider than others. The world looks slightly closer or farther away.',
+  'Grieta de tipo {x}': '{x}-type rift',
+  // Lote 5: pantalla dividida estilo Nintendo DS (js/ui/pantalla-dividida.js), Ajustes > Controles.
+  'Pantalla dividida': 'Split screen',
+  'El juego en una mitad de la pantalla y los mandos en la otra, como en una consola de dos pantallas: joystick grande, los cuatro ataques, el objeto, la pausa, tus PS y tu nivel. Se puede cambiar en plena partida desde la pausa.':
+    'The game on one half of the screen and the controls on the other, like a dual-screen console: a big joystick, your four moves, your item, pause, your HP and your level. You can change it mid-run from the pause menu.',
+  'Desactivada': 'Off', 'Juego arriba, mandos abajo': 'Game on top, controls below', 'Juego a un lado': 'Game on one side', 'Automática al plegar': 'Automatic when folded',
+  'Mandos a la derecha': 'Controls on the right', 'Mandos a la izquierda': 'Controls on the left', 'Lado de los mandos': 'Controls side',
+  'Este navegador no informa de cómo está plegado el móvil, así que la automática no se activará: elige «Juego arriba, mandos abajo».':
+    'This browser doesn\'t report how the phone is folded, so automatic won\'t kick in: choose «Game on top, controls below».',
+  'Se divide al plegar el móvil a medias con la bisagra en horizontal, como un portátil (juego arriba, mandos abajo); abierto del todo, pantalla entera. Ahora: plegado.':
+    'It splits when you half-fold the phone with the hinge horizontal, like a laptop (game on top, controls below); fully open, full screen. Now: folded.',
+  'Se divide al plegar el móvil a medias con la bisagra en horizontal, como un portátil (juego arriba, mandos abajo); abierto del todo, pantalla entera. Ahora: abierto.':
+    'It splits when you half-fold the phone with the hinge horizontal, like a laptop (game on top, controls below); fully open, full screen. Now: open.',
+  'En un plegable, la división cae en la bisagra si el navegador la conoce; si no, en la mitad exacta.':
+    'On a foldable, the split falls on the hinge if the browser knows where it is; otherwise, exactly in the middle.'
 });

@@ -57,6 +57,7 @@ G.Touch = (() => {
 
   /** Dirección del joystick (con fuerza 0..1), o null si no se usa. */
   function vector() {
+    const dv = G.Dividida && G.Dividida.vector(); if (dv) return dv;   // MOD nico: el joystick del panel de la pantalla dividida (js/ui/pantalla-dividida.js)
     if (!stick) return null;
     const dx = stick.x - stick.ox, dy = stick.y - stick.oy, d = Math.hypot(dx, dy);
     if (d < 7) return [0, 0];

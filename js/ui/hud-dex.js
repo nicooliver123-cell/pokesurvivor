@@ -199,7 +199,7 @@ G.HudDex = (() => {
     if (marcoFn) { try { m = marcoFn(w, h); } catch (e) { m = null; } }
     const ok = r => r && [r.x, r.y, r.w, r.h].every(v => typeof v === 'number' && isFinite(v)) && r.w > 0 && r.h > 0;
     if (!m || !ok(m.juego)) return { juego: { x: 0, y: 0, w, h }, controles: null };
-    return { juego: m.juego, controles: ok(m.controles) ? m.controles : null };
+    return { juego: m.juego, controles: ok(m.controles) ? m.controles : null, seguras: m.seguras || null };
   }
   function ponerMarco(fn) { marcoFn = typeof fn === 'function' ? fn : null; ultimo = null; }
 
@@ -214,12 +214,12 @@ G.HudDex = (() => {
    */
   function maquetar(w, h, c, op = {}) {
     const mc = op.marco || marco(w, h);
-    const seguras = op.seguras || (G.Estilo.zonasSeguras ? G.Estilo.zonasSeguras() : undefined);
+    const seguras = op.seguras || mc.seguras || (G.Estilo.zonasSeguras ? G.Estilo.zonasSeguras() : undefined);
     const pantalla = op.pantalla !== undefined ? op.pantalla : G.Estilo.pantalla ? G.Estilo.pantalla(w, h) : null;
     const d = G.Estilo.disposicion(w, h, { seguras, juego: mc.juego, controles: mc.controles, tactil: !!c.tactil, pantalla });
     const medir = op.medir || ((t, peso, px) => String(t).length * px * (peso >= 650 ? 0.62 : 0.56));
     const L = d.variante === 'compacto' ? compacto(d, c, medir) : escritorio(d, c, medir);
-    if (d.controles) controles(d, c, L);
+    if (d.controles) (d.controles.aparte ? sinMandos : controles)(d, c, L);
     const J = d.juego, P = L.piezas;
     // Bandas: lo reservado arriba (filas o pila central, con jefe y aviso), abajo (la fila de ranuras con su
     // píldora) y a los lados (columnas), dentro del rectángulo de juego.
@@ -475,6 +475,18 @@ G.HudDex = (() => {
     // Banda izquierda: la columna de la ficha sólo cuenta si baja más que la pila central.
     const izq = y - J.y > d.bandas.sup + u(4) ? L0 - J.x + fw + u(E.separacion) : 0;
     return { piezas: P, izq, der: 0, m: { L0, R0, T0, B0, g: u(E.separacion) } };
+  }
+
+  /** Pantalla dividida con el panel de mandos en su propio lienzo (js/ui/pantalla-dividida.js, `controles.aparte`): en el
+   *  rectángulo de juego no van las ranuras, el objeto, el vínculo, la pausa ni la ficha (sus PS y su nivel van en el
+   *  panel, sin repetirlos). En escritorio, los chips y los compañeros suben al sitio de la ficha. */
+  function sinMandos(d, c, L) {
+    const P = L.piezas;
+    if (P.ficha && d.variante === 'escritorio') {
+      const dy = P.ficha.h + Math.round(MA().hud.escritorio.chips.separacion * d.escala);
+      for (const r of [...P.chips, ...P.companeros, P.grupo]) if (r) r.y -= dy;
+    }
+    P.ficha = null; P.ranuras = []; P.objeto = null; P.vinculo = null; P.pausa = null; P.lado = 0;
   }
 
   /** Pantalla dividida: ranuras en fila y pausa dentro del rectángulo de controles. */
@@ -1439,7 +1451,7 @@ G.HudDex = (() => {
       ultimo.flechas = fl.lista.filter(f => f.ex !== undefined).map(f => ({ tipo: f.tipo, x: f.ex, y: f.ey, cajas: f.cajas }));
       ultimo.pildora = pil ? { x: pil.x, y: pil.y, w: pil.w, h: pil.h } : null;
       dibujarFlechas(ctx, L, fl, dt, t);
-      ficha(ctx, P.ficha, pl, L, dt, t);
+      if (P.ficha) ficha(ctx, P.ficha, pl, L, dt, t);
       P.chips.forEach((Rc, i) => chip(ctx, Rc, c.chips[i], L));
       if (c.mates.length) companeros(ctx, L, c.mates, t);
       contador(ctx, P.contador, pl, st, L);
