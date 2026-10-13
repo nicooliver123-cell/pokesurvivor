@@ -86,6 +86,13 @@
  *      grieta, otro mundo o el estilo descartan lo precalentado, el fondo de los menús, y sin ganchos igual que upstream);
  *      tabla de Calidad (farol, halos y motas; ningún halo de disparos enemigos por defecto; halos sin bordes duros);
  *      viñeta cálida con el centro intacto y clima de dos tonos (con Clásico, los de upstream).
+ *  17. Ajustes de juego (lote 4): píxel nítido, encuadre, iris, rótulo de zona y golpe final.
+ *  18. Pantalla dividida estilo Nintendo DS (lote 5).
+ *  19. Sin el test de personalidad (G.MODS.sinTest): afterLogin() de js/game.js tal cual abre «Elige a tu compañero»
+ *      (js/ui/elegir-companero.js) y no el test, y con sinTest = false o sin el fichero, el test de siempre; test.js y
+ *      starters.js de upstream intactos (huella); disposicion() con las medidas de Chromium en 12 pantallas y los dos
+ *      estilos (los 29 sin desplazar, píxel de arte entero, nombres y tipos dentro); confirmar() guarda como el test
+ *      (personalidad null, el logro «Primer compañero» con achievements.js real); inglés, estilos y paquete.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -418,6 +425,10 @@ const HOOKS = [
   ['js/game.js', /if \(G\.Transicion\) G\.Transicion\.dibujar\(ctx, w, h, pl\);\s*\/\/ MOD nico[^\n]*\r?\n    if \(G\.Dividida\) G\.Dividida\.pintar\(pl, st\);\s*\/\/ MOD nico/, 'pantalla dividida: el panel, en la última línea de render()'],
   ['js/core/touch.js', /function vector\(\) \{\r?\n    const dv = G\.Dividida && G\.Dividida\.vector\(\); if \(dv\) return dv;\s*\/\/ MOD nico/, 'pantalla dividida: el joystick del panel manda en G.Touch.vector() (touch.js)'],
   ['js/ui/settings-ui.js', /if \(G\.Dividida\) G\.Dividida\.ajustes\(box, tab\);\s*\/\/ MOD nico/, 'pantalla dividida: la sección de Ajustes > Controles'],
+  // Sin el test de personalidad (js/ui/elegir-companero.js)
+  ['dev.html', /src="js\/ui\/test\.js"><\/script>\r?\n<script defer src="js\/ui\/elegir-companero\.js"><\/script><!-- MOD nico/, 'sin test: elegir-companero.js justo después de test.js'],
+  ['js/game.js', /afterLogin\(\) \{\r?\n    G\.Audio\.music\('village'\);\r?\n    if \(!G\.DB\.save\.partner && G\.ElegirCompanero && G\.ElegirCompanero\.activo\(\)\) return G\.ElegirCompanero\.abrir\(\);\s*\/\/ MOD nico[^\n]*\r?\n    if \(!G\.DB\.save\.partner\) G\.TestUI\.start\(\);\r?\n    else this\.goMenu\(\);/,
+    'sin test: afterLogin() abre «Elige a tu compañero» antes de la línea de upstream que abre el test (intacta)'],
   ['js/ui/estilo.js', /const hudDex = \(\) => actual === 'dex' \|\| !!\(G\.Dividida && G\.Dividida\.activa && G\.Dividida\.activa\(\)\);\r?\n  function hud\(ctx, w, h, pl, st\) \{\r?\n    if \(!hudDex\(\) \|\| !G\.HudDex \|\| !pl\) return false;/, 'pantalla dividida: el HUD Dex también con Clásico mientras va (estilo.js)']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
@@ -4697,6 +4708,183 @@ function divididaChecks() {
   for (const [name, , detail] of failed) bad(`pantalla dividida: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 19. sin el test de personalidad: «Elige a tu compañero» ----------------
+// Huellas de test.js y starters.js de upstream (sha1 sin CR): la pantalla nueva reutiliza #scr-starters y los datos de
+// G.STARTERS. Si upstream los cambia, FALLO: mirar el cambio (git diff ORIG_HEAD..HEAD -- js/ui/test.js js/data/starters.js),
+// adaptar js/ui/elegir-companero.js si hace falta y poner aquí la huella nueva.
+const HUELLA_TEST = '344ea44331bde1b47e0b443cb819bff70b91ae9a';
+const HUELLA_INICIALES = '2051878c97c65f420adf2970c59b8c9babfe0478';
+/** Medidas de Chromium (13-10-2026, index.html, G.ElegirCompanero.medidas) en cada pantalla y estilo:
+ *  [ancho, alto, dpr, hueco, nombre, tipo1, tipo2, emblemas, relleno, rellenoH, lineaNombre, lineaTipo, lineaTipo2]. */
+const MEDIDAS_COMPANERO = {
+  '1440x900 clasico': [980, 694, 1, 5, 83, 55, 103, 30, 12, 8, 16, 15, 31], '1440x900 dex': [1000, 733, 1, 5, 81, 57, 102, 30, 10, 6, 16, 15, 31],
+  '1920x1080 clasico': [980, 874, 1, 5, 83, 55, 103, 30, 12, 8, 16, 15, 31], '1920x1080 dex': [1000, 913, 1, 5, 81, 57, 102, 30, 10, 6, 16, 15, 31],
+  '1024x768 clasico': [940, 562, 1, 5, 83, 55, 103, 30, 12, 8, 16, 15, 31], '1024x768 dex': [960, 601, 1, 5, 81, 57, 102, 30, 10, 6, 16, 15, 31],
+  '844x390 clasico': [784, 295, 3, 3, 64, 49, 92, 30, 8, 2, 14, 14, 29], '844x390 dex': [792, 303, 3, 3, 68, 51, 90, 30, 8, 2, 14, 14, 29],
+  '780x360 clasico': [720, 265, 3, 3, 64, 49, 92, 30, 8, 2, 14, 14, 29], '780x360 dex': [728, 273, 3, 3, 68, 51, 90, 30, 8, 2, 14, 14, 29],
+  '807x360 clasico': [747, 265, 3, 3, 64, 49, 92, 30, 8, 2, 14, 14, 29], '807x360 dex': [755, 273, 3, 3, 68, 51, 90, 30, 8, 2, 14, 14, 29],
+  '784x362 clasico': [724, 267, 3, 3, 64, 49, 92, 30, 8, 2, 14, 14, 29], '784x362 dex': [732, 275, 3, 3, 68, 51, 90, 30, 8, 2, 14, 14, 29],
+  '784x724 clasico': [700, 518, 3, 5, 83, 55, 103, 30, 12, 8, 16, 15, 31], '784x724 dex': [720, 551, 3, 5, 81, 57, 102, 30, 10, 6, 16, 15, 31],
+  '724x784 clasico': [640, 578, 3, 5, 83, 55, 103, 30, 12, 8, 16, 15, 31], '724x784 dex': [660, 611, 3, 5, 81, 57, 102, 30, 10, 6, 16, 15, 31],
+  '1000x900 clasico': [916, 694, 2.5, 5, 83, 55, 103, 30, 12, 8, 16, 15, 31], '1000x900 dex': [936, 727, 2.5, 5, 81, 57, 102, 30, 10, 6, 16, 15, 31],
+  '900x1000 clasico': [816, 794, 2.5, 5, 83, 55, 103, 30, 12, 8, 16, 15, 31], '900x1000 dex': [836, 827, 2.5, 5, 81, 57, 102, 30, 10, 6, 16, 15, 31]
+};
+const medidaCompanero = v => ({ ancho: v[0], alto: v[1], n: 29, dpr: v[2], hueco: v[3], nombre: v[4], tipo1: v[5], tipo2: v[6], emblemas: v[7],
+  relleno: v[8], rellenoH: v[9], lineaNombre: v[10], lineaTipo: v[11], lineaTipo2: v[12] });
+function companeroChecks() {
+  console.log('19. Sin el test de personalidad (js/ui/elegir-companero.js): flujo, rejilla, guardado e inglés');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  /** util.js, mods.js, la Pokédex (con sprites-meta.js), moves.js, starters.js, achievements.js y elegir-companero.js reales en node:vm (sin documento). */
+  const nuevo = (mods = {}) => {
+    const c = { console };
+    c.window = c; c.G = {};
+    vm.createContext(c);
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/moves.js', 'js/data/starters.js', 'js/data/achievements.js', 'js/ui/elegir-companero.js'])
+      vm.runInContext(rd(f), c, { filename: f });
+    Object.assign(c.G.MODS, mods);
+    return c;
+  };
+  // ---- A. upstream intacto y datos ----
+  try {
+    const sinCR = f => rd(f).replace(/\r/g, '');
+    t('js/ui/test.js y js/data/starters.js, los de upstream sin tocar (huella; ninguna línea MOD nico)',
+      sha1(sinCR('js/ui/test.js')) === HUELLA_TEST && sha1(sinCR('js/data/starters.js')) === HUELLA_INICIALES && !/MOD nico/.test(rd('js/ui/test.js') + rd('js/data/starters.js')),
+      { test: sha1(sinCR('js/ui/test.js')), iniciales: sha1(sinCR('js/data/starters.js')) });
+    const c = nuevo(), G = c.G;
+    const ini = G.STARTERS.map(s => ({ dex: s.dex, mon: G.DEX_BY[s.dex], mov: G.Moves.BY_ID[s.start] }));
+    t('los 29 iniciales de G.STARTERS están en la Pokédex con nombre y tipos y su movimiento existe, sin repetir (lo que pinta cada celda y la fila de abajo)',
+      ini.length === 29 && new Set(ini.map(x => x.dex)).size === 29 && ini.every(x => x.mon && x.mon.name && x.mov && x.mon.types.length >= 1 &&
+        x.mon.types.every(ty => G.U.TYPE_NAME[ty] && G.U.TYPE_COLOR[ty])), ini.filter(x => !x.mon || !x.mov).map(x => x.dex));
+    t('G.MODS.sinTest es true por defecto y G.ElegirCompanero.activo() lo sigue', G.MODS.sinTest === true && G.ElegirCompanero.activo() && !nuevo({ sinTest: false }).G.ElegirCompanero.activo());
+  } catch (e) { t('upstream intacto', false, String(e && e.stack || e)); }
+
+  // ---- B. afterLogin() de game.js, tal cual ----
+  try {
+    const m = rd('js/game.js').match(/  afterLogin\(\) \{[\s\S]*?\r?\n  \},\r?\n/);
+    if (!m) throw new Error('no encuentro afterLogin() en js/game.js');
+    const caso = ({ partner = null, mods = {}, sinFichero = false } = {}) => {
+      const c = { console }, llamadas = [];
+      c.window = c; c.G = {};
+      vm.createContext(c);
+      for (const f of ['js/core/util.js', 'js/core/mods.js']) vm.runInContext(rd(f), c, { filename: f });
+      Object.assign(c.G.MODS, mods);
+      Object.assign(c.G, { Audio: { music: x => llamadas.push('música ' + x) }, DB: { save: { partner } }, TestUI: { start: () => llamadas.push('test') } });
+      if (!sinFichero) c.G.ElegirCompanero = { activo: () => !!(c.G.MODS && c.G.MODS.sinTest), abrir: () => llamadas.push('elegir') };
+      vm.runInContext('var Flujo = {\n' + m[0] + '  goMenu() { G.__menu = true; }\n};\nFlujo.afterLogin();', c, { filename: 'js/game.js (afterLogin)' });
+      if (c.G.__menu) llamadas.push('menú');
+      return llamadas.join(', ');
+    };
+    const casos = { nueva: caso(), conTest: caso({ mods: { sinTest: false } }), conCompanero: caso({ partner: 4 }), sinFichero: caso({ sinFichero: true }), sinAjuste: caso({ mods: { sinTest: undefined } }) };
+    t('afterLogin() real: sin compañero, «Elige a tu compañero» (nunca el test); con sinTest = false, el test; con compañero, el menú; si falta elegir-companero.js tras un merge, o el ajuste, el test de upstream',
+      casos.nueva === 'música village, elegir' && casos.conTest === 'música village, test' && casos.conCompanero === 'música village, menú' &&
+      casos.sinFichero === 'música village, test' && casos.sinAjuste === 'música village, test', casos);
+  } catch (e) { t('afterLogin', false, String(e && e.stack || e)); }
+
+  // ---- C. disposicion(): la rejilla con las medidas de verdad ----
+  try {
+    const E = nuevo().G.ElegirCompanero, D = E.disposicion;
+    const mal = [], filas = {};
+    for (const [k, v] of Object.entries(MEDIDAS_COMPANERO)) {
+      const m = medidaCompanero(v), d = D(m);
+      const tipoW = d.modo === 'texto' ? m.tipo2 : d.modo === 'texto2' ? m.tipo1 : m.emblemas;
+      const lineaT = d.modo === 'texto2' ? m.lineaTipo2 : m.lineaTipo;
+      const bien = d.cabe && Number.isInteger(d.k) && d.k >= 1 && Math.abs(d.a - d.k / m.dpr) < 1e-9 && d.a <= E.A_MAX + 1e-9 && d.a >= E.A_MIN - 1e-9 &&
+        d.cols * d.filas >= 29 && d.cols * (d.filas - 1) < 29 && d.altoRejilla <= m.alto + 1e-6 &&
+        d.celdaW - m.rellenoH >= Math.max(m.nombre, tipoW) && d.celdaW - m.rellenoH >= 34 * d.a &&
+        Math.abs(d.celdaH - (m.relleno + m.lineaNombre + lineaT + E.ALTO_ARTE * d.a)) < 1e-6 && d.cols * d.celdaW + (d.cols - 1) * m.hueco <= m.ancho + 1e-6;
+      filas[k] = `${d.cols}x${d.filas} k${d.k} ${d.modo}`;
+      if (!bien) mal.push([k, d]);
+    }
+    t('disposicion() con las medidas de Chromium en 12 pantallas y los dos estilos: los 29 caben sin desplazar, el píxel de arte en px físicos enteros (≤ 2,5 px CSS), nombre, tipos y sprite (34 px de arte) dentro de cada celda',
+      !mal.length, mal.length ? mal.slice(0, 3) : filas);
+    const movil = ['844x390', '780x360', '807x360', '784x362'].flatMap(p => ['clasico', 'dex'].map(e => D(medidaCompanero(MEDIDAS_COMPANERO[p + ' ' + e]))));
+    t('en un móvil en horizontal y en el exterior del Magic V6 (y la mitad de la pantalla dividida, 784x362): 10 columnas y 3 filas, el Pokémon a 4 o 5 px físicos por píxel de arte',
+      movil.every(d => d.cols === 10 && d.filas === 3 && d.k >= 4), movil.map(d => `${d.cols}x${d.filas} k${d.k}`));
+    const pc = D(medidaCompanero(MEDIDAS_COMPANERO['1440x900 dex']));
+    t('en escritorio (1440x900): los tipos con su nombre en una línea y el píxel de arte a 2 px', pc.modo === 'texto' && pc.k === 2, pc);
+    // Más sitio nunca da una rejilla peor (barrido de alto a partir del móvil): la nota (el tamaño del Pokémon por el peso de
+    // cómo van los tipos) no baja; con el mismo modo, el Pokémon tampoco. Al pasar de emblemas a nombres puede encoger un poco.
+    const base = medidaCompanero(MEDIDAS_COMPANERO['844x390 dex']);
+    let previo = 0, porModo = {}, baja = null;
+    for (let alto = 200; alto <= 900; alto += 7) {
+      const d = D(Object.assign({}, base, { alto })), nota = d.cabe ? d.nota : 0;
+      if (nota + 1e-9 < previo || (d.cabe && d.a + 1e-9 < (porModo[d.modo] || 0))) baja = { alto, d, previo, porModo };
+      previo = Math.max(previo, nota);
+      if (d.cabe) porModo[d.modo] = Math.max(porModo[d.modo] || 0, d.a);
+    }
+    t('más alto disponible nunca da una rejilla peor (barrido de 200 a 900 px): la nota no baja y, con la misma forma de los tipos, el Pokémon no encoge', !baja, baja);
+    const holgado = D(Object.assign({}, base, { ancho: 1000, alto: 600, dpr: 1 }));
+    t('con sitio para los nombres de los tipos y el mismo tamaño de Pokémon, gana el nombre del tipo (no el emblema)', holgado.modo === 'texto', holgado);
+    // Una pantalla en la que no cabe (568x320): se desplaza la rejilla, con emblemas y el píxel de arte a A_MIN.
+    const chica = D(Object.assign({}, base, { ancho: 516, alto: 233, dpr: 2 }));
+    t('si no cabe (568x320): cabe = false (la rejilla se desplaza en vertical), con emblemas, el píxel de arte a 1 px CSS en px físicos enteros y columnas en las que caben los nombres',
+      !chica.cabe && chica.modo === 'emblema' && chica.k === 2 && chica.celdaW - base.rellenoH >= base.nombre && chica.cols * chica.filas >= 29, chica);
+  } catch (e) { t('disposicion', false, String(e && e.stack || e)); }
+
+  // ---- D. confirmar(): lo que guardaba el test, con la personalidad en null ----
+  try {
+    const c = nuevo(), G = c.G, hechos = [];
+    const save = { coins: 0, owned: {}, shiny: {}, starter: null, partner: null, partnerShiny: false, personality: { trait: 'viejo' }, ach: {}, stats: {} };
+    Object.assign(G, {
+      DB: { save, grant(d, from) { if (!save.owned[d]) save.owned[d] = { at: 1, from }; }, commit() { hechos.push('guardar'); } },
+      UI: { toast: m => hechos.push('aviso ' + m) }, Flow: { goMenu: () => hechos.push('menú') }
+    });
+    const no = G.ElegirCompanero.confirmar(25);   // Pikachu: no es inicial
+    const sinElegir = G.ElegirCompanero.confirmar();
+    const intacta = save.personality && save.personality.trait === 'viejo' && save.partner === null && !Object.keys(save.owned).length && !hechos.length;
+    const si = G.ElegirCompanero.confirmar(4);
+    const own1 = G.AchDefs.LIST.find(a => a.id === 'own1');
+    t('confirmar(): inicial y compañero = el elegido, personalidad null, en la colección como inicial, guardado, «¡Charmander se une a ti!» y al menú; sin elegir o con uno que no es inicial, nada',
+      !no && !sinElegir && intacta && si && save.starter === 4 && save.partner === 4 && save.personality === null && save.owned[4] && save.owned[4].from === 'starter' &&
+      hechos.join(' | ') === 'guardar | aviso ¡Charmander se une a ti! | menú', { save, hechos });
+    t('el logro «Primer compañero» (achievements.js real) se cumple con el inicial elegido', own1 && own1.value(save) >= own1.goal, own1 && { valor: own1.value(save), meta: own1.goal });
+    // Sin la pantalla (si upstream la quita), abrir() cae en el test de siempre.
+    const c2 = nuevo(), llamadas = [];
+    c2.document = { getElementById: () => null };
+    c2.G.TestUI = { start: () => llamadas.push('test') };
+    c2.G.ElegirCompanero.abrir();
+    t('sin #scr-starters en la página (si upstream la quita), abrir() abre el test de siempre', llamadas.join() === 'test', llamadas);
+  } catch (e) { t('confirmar', false, String(e && e.stack || e)); }
+
+  // ---- E. inglés, estilos, paquete y finales de línea ----
+  try {
+    const c = { console, navigator: { language: 'en-US', languages: ['en-US'] }, location: { pathname: '/' },
+      localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} }, confirm: () => true, alert() {} };
+    c.CanvasRenderingContext2D = function () {};
+    c.CanvasRenderingContext2D.prototype = { fillText() {}, strokeText() {}, measureText() {} };
+    c.window = c; c.G = {};
+    vm.createContext(c);
+    for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
+    const EN = c.G.I18n.t;
+    const casos = { 'Elige a tu compañero': 'Choose your partner', 'Al azar': 'Random', 'Elegir': 'Choose', 'Elegir a Charmander': 'Choose Charmander',
+      'Elige uno o déjalo al azar.': 'Pick one or leave it to chance.', 'Iniciales': 'Starters', '¡Charmander se une a ti!': 'Charmander joins you!',
+      'Tu apodo, tus misiones de hoy y tu inicial no cambian.': "Your nickname, today's missions and your starter don't change." };
+    const mal = Object.entries(casos).filter(([es, en]) => EN(es) !== en).map(([es]) => [es, EN(es)]);
+    const etiqueta = EN('Bulbasaur (Planta, Veneno)'), titulo = EN('Bulbasaur · Planta / Veneno');
+    t('inglés (i18n.js real): el título, «Al azar», «Elegir a X», la pista, la etiqueta de la rejilla, el aviso, la nota de Ajustes > Cuenta sin la personalidad y los tipos de la etiqueta accesible',
+      !mal.length && /Grass/.test(etiqueta) && /Poison/.test(etiqueta) && /Grass/.test(titulo), { mal, etiqueta, titulo });
+  } catch (e) { t('inglés', false, String(e && e.stack || e)); }
+  try {
+    const css = rd('css/nico.css'), js = rd('js/ui/elegir-companero.js');
+    const usadas = ['--ec-cols', '--ec-nombre', '--ec-tipo', '--ec-tipo2', 'ec-texto', 'ec-texto2', 'ec-emblema', 'ec-midiendo', 'ec-desplaza', 'ec-celda', 'ec-tipos', 'ec-txt', 'ec-emb', 'ec-pie', 'sin-test'];
+    const faltan = usadas.filter(k => !css.includes(k) || !js.includes(k));
+    const sinComentarios = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    t('css/nico.css tiene las variables y clases que usa elegir-companero.js (columnas, altos de línea, modos de los tipos), también en pantallas bajas',
+      !faltan.length && /@media \(max-height: 519\.98px\) \{[^@]*#scr-starters\.sin-test #starter-grid \{ --ec-nombre: 14px/.test(sinComentarios), faltan);
+    const nota = rd('js/ui/importar-ui.js');
+    t('Ajustes > Cuenta: con sinTest, la nota de traer partida no nombra la personalidad (sin él, la de antes)',
+      nota.includes("G.MODS && G.MODS.sinTest ? 'Tu apodo, tus misiones de hoy y tu inicial no cambian.' : 'Tu apodo, tus misiones de hoy, tu personalidad y tu inicial no cambian.'"));
+    const min = rd('js/app.min.js');
+    t('el paquete js/app.min.js lleva G.ElegirCompanero y el ajuste sinTest', /ElegirCompanero/.test(min) && /sinTest/.test(min));
+    t('finales de línea: elegir-companero.js, nuevo, en LF', !/\r/.test(js));
+  } catch (e) { t('estilos y paquete', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`sin test: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`sin test: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -4708,6 +4896,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { entornoChecks(); } catch (e) { bad('no se pudo probar los entornos del Gremio: ' + (e && e.stack || e)); }
   try { juegoChecks(); } catch (e) { bad('no se pudo probar los ajustes de juego: ' + (e && e.stack || e)); }
   try { divididaChecks(); } catch (e) { bad('no se pudo probar la pantalla dividida: ' + (e && e.stack || e)); }
+  try { companeroChecks(); } catch (e) { bad('no se pudo probar «Elige a tu compañero»: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });
