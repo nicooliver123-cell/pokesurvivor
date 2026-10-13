@@ -132,6 +132,9 @@ G.I18n.add({
   'WASD moverse · 1-4, Q, E o clic: cambiar ataque · Esc pausa': 'WASD move · 1-4, Q, E or click: switch move · Esc pause',
   'WASD · 1-4 / Q / E · Esc pausa': 'WASD · 1-4 / Q / E · Esc pause',
   'Arrastra para moverte · toca un ataque para cambiarlo': 'Drag to move · tap a move to switch', 'Arrastra · toca un ataque': 'Drag · tap a move',
+  // La pista con la pantalla dividida (el joystick del panel).
+  'Mueve con el joystick · toca un ataque para cambiarlo': 'Move with the joystick · tap a move to switch',
+  'Joystick para moverte · toca un ataque': 'Joystick to move · tap a move', 'Joystick · toca un ataque': 'Joystick · tap a move',
   // Lote 4: píxel nítido (js/ui/encuadre.js) y el rótulo de una arena (js/ui/hud-dex.js).
   'Píxel nítido': 'Crisp pixels',
   'Cada píxel del dibujo ocupa un número exacto de píxeles de tu pantalla, sin columnas más anchas que otras. El mundo se ve un poco más cerca o más lejos.':
@@ -149,6 +152,10 @@ G.I18n.add({
     'It splits when you half-fold the phone with the hinge horizontal, like a laptop (game on top, controls below); fully open, full screen. Now: folded.',
   'Se divide al plegar el móvil a medias con la bisagra en horizontal, como un portátil (juego arriba, mandos abajo); abierto del todo, pantalla entera. Ahora: abierto.':
     'It splits when you half-fold the phone with the hinge horizontal, like a laptop (game on top, controls below); fully open, full screen. Now: open.',
+  'Se divide al plegar el móvil a medias con la bisagra en horizontal, como un portátil (juego arriba, mandos abajo); abierto del todo, pantalla entera. Ahora: plegado en libro, con la bisagra en vertical: así no se divide (para jugar así, elige «Juego a un lado»).':
+    'It splits when you half-fold the phone with the hinge horizontal, like a laptop (game on top, controls below); fully open, full screen. Now: folded like a book, with the hinge vertical: it doesn\'t split like this (to play this way, choose «Game on one side»).',
+  'Se divide al plegar el móvil a medias con la bisagra en horizontal, como un portátil (juego arriba, mandos abajo); abierto del todo, pantalla entera. Ahora: plegado, pero el navegador no dice dónde está la bisagra: no se divide.':
+    'It splits when you half-fold the phone with the hinge horizontal, like a laptop (game on top, controls below); fully open, full screen. Now: folded, but the browser doesn\'t say where the hinge is: it doesn\'t split.',
   'En un plegable, la división cae en la bisagra si el navegador la conoce; si no, en la mitad exacta.':
     'On a foldable, the split falls on the hinge if the browser knows where it is; otherwise, exactly in the middle.'
 });

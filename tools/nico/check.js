@@ -3519,9 +3519,18 @@ function hudDexChecks() {
     H.pintar();
     const clases = new Set(), props = {};
     H.c.document.documentElement = { classList: { toggle(c, v) { if (v) clases.add(c); else clases.delete(c); }, contains: c => clases.has(c) }, style: { setProperty(k, v) { props[k] = v; } } };
-    const sup = H.G.HudDex.bandas().sup;
+    // Lo reservado arriba más lo que pasa de su hueco un aviso de dos líneas (la grieta abierta o el rótulo de una arena):
+    // con el aviso de logro 8 px por debajo de la banda reservada, un logro tapaba «Grieta de tipo Fuego» al entrar en la arena.
+    const A2 = H.G.MARCA.hud.escritorio.aviso, k2 = H.G.HudDex.bandas().escala;
+    const sup = H.G.HudDex.bandas().sup + Math.round(A2.grieta.h * k2) - Math.round(A2.h * k2);
+    H.juego.jefes = [jefeFalso(1100, 200)]; H.juego.bioma = 'Grieta · Volcán Ígneo';
+    H.G.Rift = { get rift() { return null; }, get inArena() { return true; }, get timeLeft() { return 40; }, arena: { type: 'fire', t: 0 } };
+    for (let i = 0; i < 3; i++) H.pintar();
+    const dos = H.G.HudDex.bandas().piezas.aviso, vis2 = H.G.HudDex.Avisos.visible;
+    const debajo = !!(dos && vis2 && vis2.sub && dos.y + dos.h <= sup && H.G.HudDex.bandaSup() === sup);
+    H.juego.jefes = []; H.G.Rift = { get rift() { return null; }, get inArena() { return false; }, get timeLeft() { return 0; } };
     H.G.Game.state = 'playing'; H.G.MODS.avisoEnEspera(() => {});
-    const jugando = clases.has('hud-dex-logro') && props['--hud-dex-sup'] === sup + 'px';
+    const jugando = clases.has('hud-dex-logro') && props['--hud-dex-sup'] === sup + 'px' && debajo;
     H.G.Game.state = 'ui'; H.G.MODS.avisoEnEspera(() => {});
     const menu = !clases.has('hud-dex-logro');
     // Un aviso que salió en el menú (sin la clase) baja al empezar la partida: lo mira el HUD Dex al pintarse.
@@ -3533,8 +3542,8 @@ function hudDexChecks() {
     const clasico = !clases.has('hud-dex-logro');
     const css = rd('css/nico.css');
     const regla = /@media \(min-height: 521px\) \{\s*html\.estilo-dex\.hud-dex-logro \.ach-pop \{ top: calc\(var\(--hud-dex-sup, 56px\) \+ 8px\); \}\s*\}/.test(css);
-    t(`avisos de logro en partida con el HUD Dex: la clase hud-dex-logro y --hud-dex-sup (${sup} px a 1440x900) al salir cada aviso y al pintarse el HUD (un aviso del menú baja al empezar la partida), y css/nico.css lo pone 8 px por debajo (en pantallas de 521 px de alto o más); en el menú, con las cartas de nivel o con Clásico, donde siempre`,
-      jugando && menu && alEmpezar && cartas && clasico && regla, { jugando, menu, alEmpezar, cartas, clasico, regla, props });
+    t(`avisos de logro en partida con el HUD Dex: la clase hud-dex-logro y --hud-dex-sup (${sup} px a 1440x900: la banda de arriba y lo que pasa de ella un aviso de dos líneas, que así queda encima del logro con la entrada del jefe y el rótulo de una arena) al salir cada aviso y al pintarse el HUD (un aviso del menú baja al empezar la partida), y css/nico.css lo pone 8 px por debajo (en pantallas de 521 px de alto o más); en el menú, con las cartas de nivel o con Clásico, donde siempre`,
+      jugando && menu && alEmpezar && cartas && clasico && regla, { jugando, debajo, dos, sup, menu, alEmpezar, cartas, clasico, regla, props });
   } catch (e) { t('avisos de logro bajo el HUD Dex', false, String(e && e.stack || e)); }
 
   // ---- N. Arreglos de la verificación de los lotes 1 y 2 ----
@@ -4130,6 +4139,13 @@ function entornoChecks() {
     const est = l1.ctx.estilos;
     t(`lluvia de dos tonos (#1d4a78 debajo y #e6f2ff encima, en píxeles enteros) y tinte con tope (${est[0]}: 0,09 × 1,6, como mucho 0,16)`,
       est[0] === 'rgba(50,90,170,0.144)' && est.indexOf('#1d4a78') > 0 && est.indexOf('#e6f2ff') > est.indexOf('#1d4a78') && enteros, { tinte: est[0], enteros });
+    // La nieve: cada copo mide como poco un píxel de arte (verificación del 13-10-2026: a 1440x900 eran 2 px con el píxel
+    // de arte de 4 y apenas se veía); en el móvil, como la guía (2 px).
+    const copo = escala => { const antes = G.Camera; G.Camera = { scale: escala }; const n = clima(3, 2, 'snow'); G.Camera = antes;
+      return [...new Set(n.ctx.ops.filter(o => o[0] === 'fillRect').slice(1).map(o => o[3] + 'x' + o[4]))]; };
+    const escritorio = copo(2), movil = copo(2 / 3), sinCamara = copo(0);
+    t(`nieve Dex: el copo mide un píxel de arte si es mayor que el de la guía (con la cámara de 1440x900, ×2: ${escritorio}; de un móvil, ×0,667: ${movil}; sin cámara: ${sinCamara})`,
+      JSON.stringify(escritorio) === '["4x4"]' && JSON.stringify(movil) === '["2x2"]' && JSON.stringify(sinCamara) === '["2x2"]', { escritorio, movil, sinCamara });
     G.Estilo.set('clasico');
     const cu = clima(3);
     t(`con Clásico, el clima de upstream (70 gotas de 4 trazos y su tinte: ${cu.rects} rectángulos)`, cu.rects === 1 + 70 * 4, cu.rects);
@@ -4330,6 +4346,48 @@ function juegoChecks() {
       inicio && pista && v && v.tipo === 'zona' && v.titulo === 'Volcán Ígneo' && v.sub === 'Grieta de tipo Fuego' && P && P.h === Math.round(E.grieta.h * B.escala) &&
       textos.includes('Volcán Ígneo') && textos.includes('Grieta de tipo Fuego'), { inicio, pista, v, P, textos: textos.slice(0, 12) });
   } catch (e) { t('rótulo de zona', false, String(e && e.stack || e)); }
+  // E2. Con rift.js, weather.js y say()/banner() de spawner.js de verdad (verificación del 13-10-2026: en solitario,
+  // start() dice «Has entrado en la grieta…» y, en la misma llamada, «¡X te esperaba en la grieta!», y el rótulo no salía).
+  try {
+    const arenaReal = ({ invitado = false } = {}) => {
+      const H = cargarHud({ w: 1440, h: 900 }), { G, juego, c } = H, A = G.HudDex.Avisos;
+      const sp = rd('js/systems/spawner.js');
+      const trozo = re => { const m = sp.match(re); if (!m) throw new Error('no encuentro ' + re + ' en js/systems/spawner.js'); return m[0]; };
+      const fSay = trozo(/  function say\(text, secs = 2\.6, local = false\) \{[\s\S]*?\r?\n  \}\r?\n/), fBan = trozo(/  function banner\(\) \{[^\n]*\r?\n/),
+        fTick = trozo(/  function tickBanner\(dt\) \{[^\n]*\r?\n/);
+      vm.runInContext(`G.Spawner = (() => { let announce = '', announceT = 0;\n${fSay}${fBan}${fTick} return { say, banner, tickBanner }; })();`, c, { filename: 'js/systems/spawner.js (say y banner)' });
+      const nop = () => {};
+      if (invitado) juego.mates = [mateFalso('Ana', '#7fd3ff', 40, 0)];
+      Object.assign(G, {
+        Tiles: { T: 16, arenaBiome: () => 4, ARENA_THEMES: { fire: { weather: 'sun' } } },
+        Projectiles: { clear: nop }, Combat: { clearFields: nop }, Hazards: { clear: nop }, Guard: { flag: nop }, FX: { ring: nop, dmgText: nop, px: nop },
+        DEX: [{ dex: 643, name: 'Reshiram', leg: true, types: ['dragon', 'fire'], spd: 90 }], SPRITE_META: { 643: {} },
+        Enemy: class { constructor(def, x, y, sc, boss) { Object.assign(this, { id: 77, name: def.name, dex: def.dex, types: ['dragon', 'fire'], x, y, boss, dead: false, bodyH: 60, shiny: false, maxHp: def.hp, hp: def.hp }); } makeShiny() {} }
+      });
+      G.DEX_BY[643] = G.DEX[0];
+      Object.assign(G.Sprites, { hasShiny: () => false });
+      Object.assign(G.World, { isFree: () => true, setArena: nop, setBiome: () => { juego.bioma = 'Grieta · Volcán Ígneo'; }, biome: 0 });
+      Object.assign(G.EnemyMgr, { stash: nop, restore: nop, clearRemote: nop, add: e => juego.jefes.push(e), get: id => juego.jefes.find(e => e.id === id) });
+      Object.assign(G.Camera, { kick: nop });
+      Object.assign(G.Game, { player: H.pl, everyone: () => [H.pl], flash: nop });
+      Object.assign(G.Coop, { scaleHp: () => 1, broadcast: nop, say: nop, toHost: nop });
+      vm.runInContext(rd('js/systems/weather.js'), c, { filename: 'js/systems/weather.js' });
+      vm.runInContext(rd('js/systems/rift.js'), c, { filename: 'js/systems/rift.js' });
+      const vistos = [], paso = () => { G.Spawner.tickBanner(0.016); H.pintar(); const v = A.visible; if (v && !v.saliendo && (!vistos.length || vistos[vistos.length - 1].texto !== v.texto)) vistos.push({ tipo: v.tipo, texto: v.texto, titulo: v.titulo, sub: v.sub }); };
+      G.Spawner.say('— Bosque Umbrío —', 3);   // un aviso del mapa a la vista al entrar: se corta
+      for (let i = 0; i < 20; i++) paso();
+      if (invitado) G.Rift.onEvent(['arena', { tx: 5000, ty: 5000, r: 11, dex: 643, shiny: false, type: 'fire' }]);
+      else G.Rift.debugArena('fire');
+      for (let i = 0; i < 600; i++) paso();
+      return { vistos };
+    };
+    const solo = arenaReal(), inv = arenaReal({ invitado: true });
+    const i0 = solo.vistos.findIndex(v => v.texto === 'Grieta · Volcán Ígneo'), tras = solo.vistos.slice(i0);
+    const zonas = x => x.vistos.filter(v => v.tipo === 'zona' && v.texto === 'Grieta · Volcán Ígneo').length;
+    t('rótulo de zona con rift.js real: en solitario (start() dice «Has entrado en la grieta…» y «¡Reshiram te esperaba en la grieta!» en la misma llamada) sale el de la arena, «Volcán Ígneo» y «Grieta de tipo Fuego», justo al entrar (corta el aviso del mapa) y después el del legendario; de invitado (sólo begin()), una vez',
+      i0 === 1 && tras.length >= 2 && tras[0].titulo === 'Volcán Ígneo' && tras[0].sub === 'Grieta de tipo Fuego' && tras[1].texto === '¡Reshiram te esperaba en la grieta!' &&
+      zonas(solo) === 1 && zonas(inv) === 1, { solo: solo.vistos, invitado: inv.vistos });
+  } catch (e) { t('rótulo de zona con rift.js real', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`ajustes de juego: ${r.length} casos bien`);
@@ -4516,6 +4574,98 @@ function divididaChecks() {
       Math.abs(724 / alta - 768) < 1e-6 && sinDividir === s0(724, 784) && mesa === s0(784, 362) && Math.round(392 / k.escala) === 1176, { alta, sinDividir, mesa, sinRegla: 392 / k.escala });
   } catch (e) { t('cámara de la franja alta', false, String(e && e.stack || e)); }
 
+  // ---- E3. El tamaño del mundo en la mitad de juego (verificación del 13-10-2026: Pokémon de 16 px CSS en un móvil) ----
+  // Con resize() de game.js, camera.js, encuadre.js y pantalla-dividida.js reales: el reparto aplicado, el lienzo y la escala.
+  try {
+    const rz = rd('js/game.js').match(/  function resize\(\) \{[\s\S]*?\r?\n  \}\r?\n/);
+    if (!rz) throw new Error('no encuentro resize() en js/game.js');
+    const medir = (w, h, dpr, md, ajustes = {}) => {
+      const { c, G } = nuevo({ w, h, dpr, ajustes: Object.assign({ dividida: md, divididaLado: 'derecha' }, ajustes) });
+      vm.runInContext(rd('js/ui/encuadre.js'), c, { filename: 'js/ui/encuadre.js' });
+      G.Dividida.recolocar();
+      const cv = { style: {}, get clientWidth() { return this.style.width ? Math.round(parseFloat(this.style.width)) : w; }, get clientHeight() { return this.style.height ? Math.round(parseFloat(this.style.height)) : h; } };
+      c.__cv = cv;
+      vm.runInContext('var cv = __cv, dpr = 1, w = 0, h = 0; function checkOrientation() {}\n' + rz[0] + 'resize();', c, { filename: 'js/game.js (resize)' });
+      const s = G.Camera.scale, R = G.Dividida.activa();
+      return { vp: `${w}x${h}@${dpr} ${md}`, rect: R ? `${R.juego.w}x${R.juego.h}` : 'entera', escala: +s.toFixed(4), css: 2 * s, fisicos: 2 * s * dpr,
+        mundo: `${Math.round(cv.clientWidth / s)}x${Math.round(cv.clientHeight / s)}` };
+    };
+    const ent = x => Math.abs(x.fisicos - Math.round(x.fisicos)) < 1e-6;
+    const movil = [[844, 390, 3, 'abajo'], [844, 390, 3, 'lado'], [780, 360, 3, 'abajo'], [780, 360, 3, 'lado'], [844, 390, 2.625, 'abajo'], [844, 390, 2.625, 'lado'], [1024, 768, 1, 'abajo']].map(v => medir(...v));
+    const v6 = { mesa: medir(784, 724, 3, 'abajo'), vertical: medir(724, 784, 3, 'abajo'), lado: medir(784, 724, 3, 'lado'), barra: medir(724, 700, 3, 'abajo') };
+    const entera = { m844: medir(844, 390, 3, 'no'), m1024: medir(1024, 768, 1, 'no') };
+    const sinNitido = medir(844, 390, 3, 'abajo', { pixelNitido: false });
+    t(`pantalla dividida: en un móvil y a 1024x768 los Pokémon no se quedan en puntos: un píxel de arte mide como poco 1,2 px CSS (divididaEscalaMin 0,6) y un número entero de píxeles físicos (${movil.map(x => `${x.vp}: ${x.rect}, ×${x.escala}, ${+x.fisicos.toFixed(2)} px, ${x.mundo}`).join('; ')}; antes, 0,333 en el móvil y 0,5 a 1024x768); el Magic V6 igual (mesa 0,667, en vertical y a un lado 1, con la barra 0,667) y a pantalla entera nada cambia; sin el píxel nítido, el mínimo (0,6)`,
+      movil.every(x => x.css >= 1.2 - 1e-9 && ent(x)) && movil.slice(0, 4).every(x => Math.abs(x.escala - 0.6667) < 1e-3) && Math.abs(movil[6].escala - 1) < 1e-9 &&
+      Math.abs(v6.mesa.escala - 0.6667) < 1e-3 && v6.vertical.escala === 1 && v6.lado.escala === 1 && Math.abs(v6.barra.escala - 0.6667) < 1e-3 &&
+      Math.abs(entera.m844.escala - 0.6667) < 1e-3 && entera.m1024.escala === 1 && Math.abs(sinNitido.escala - 0.6) < 1e-9, { movil, v6, entera, sinNitido });
+    const c = nuevo().c;
+    vm.runInContext(rd('js/ui/encuadre.js'), c, { filename: 'js/ui/encuadre.js' });
+    const E = c.G.Encuadre;
+    const tabla = [[844, 195, 3], [422, 390, 3], [780, 180, 3], [390, 360, 3], [1024, 384, 1], [784, 362, 3], [724, 392, 3], [392, 724, 3], [1440, 450, 1], [720, 900, 1], [640, 180, 2], [1280, 400, 2]]
+      .map(([w, h, d]) => Object.assign({ vp: `${w}x${h}@${d}` }, E.calcular(w, h, d, { dividida: true })));
+    const base = (w, h) => Math.max(E.escalaVertical(Math.min(w / 768, h / 420), w, h, true), 0.6);
+    const mal = tabla.filter(x => { const [w, h] = x.vp.split('@')[0].split('x').map(Number); return !(Math.abs(x.fisicos - Math.round(x.fisicos)) < 1e-6) || x.escala < base(w, h) * 0.75 - 1e-9; });
+    t('pantalla dividida (calcular con dividida): en 12 mitades de juego, el píxel de arte en px físicos enteros y la escala nunca por debajo del 75 % de la de partida (la regla de upstream, la franja alta y el mínimo de 0,6): divididaEncogeMax',
+      !mal.length, mal.length ? mal : tabla.map(x => `${x.vp}: ×${+x.escala.toFixed(3)}`));
+  } catch (e) { t('tamaño del mundo en la pantalla dividida', false, String(e && e.stack || e)); }
+
+  // ---- E4. Tu Pokémon, fuera del pliegue que cruza la mitad de juego ----
+  try {
+    const casos = [];
+    for (const [w, h, md, segs, eje] of [[724, 784, 'abajo', [[0, 0, 362, 784], [362, 0, 362, 784]], 'x'], [784, 724, 'lado', [[0, 0, 784, 362], [0, 362, 784, 362]], 'y'], [724, 784, 'abajo', null, 'x']]) {
+      const { c, G } = nuevo({ w, h, dpr: 3, ajustes: { dividida: md, divididaLado: 'derecha' } });
+      if (segs) { c.navigator.devicePosture = { type: 'folded' }; c.viewport = { segments: segs.map(([x, y, sw, sh]) => ({ x, y, width: sw, height: sh })) }; }
+      vm.runInContext(rd('js/ui/encuadre.js'), c, { filename: 'js/ui/encuadre.js' });
+      G.Dividida.recolocar();
+      const R = G.Dividida.activa(), pg = R && R.pliegue;
+      Object.assign(G.Game.player, { r: 14, bodyH: 40 });
+      const s = 1, X = R.juego.w / 2, Y = R.juego.h / 2, d = G.Encuadre.apartarDelPliegue(X, Y, s, { x: 0, y: 0, w: R.juego.w, h: R.juego.h });
+      const pos = pg ? (pg.eje === 'x' ? pg.pos - R.juego.x : pg.pos - R.juego.y) : null, banda = pg ? (pg.ancho || 0) / 2 + 16 : 0;
+      const caja = pg && pg.eje === 'x' ? [X + d[0] - 20, X + d[0] + 20] : [Y + d[1] - 40, Y + d[1] + 6];
+      const fuera = pg && (caja[1] <= pos - banda + 1e-6 || caja[0] >= pos + banda - 1e-6);
+      c.navigator.devicePosture = { type: 'continuous' };
+      const plano = G.Encuadre.apartarDelPliegue(X, Y, s, null);
+      casos.push({ vp: `${w}x${h} ${md}${segs ? ' (segmentos)' : ' (supuesto)'}`, eje: pg && pg.eje, esperado: eje, d, fuera, plano, desplaza: Math.hypot(d[0], d[1]) });
+    }
+    t('pantalla dividida con un pliegue que cruza la mitad de juego (724x784 «abajo» en libro o con el supuesto, 784x724 «a un lado» en mesa): tu Pokémon, con su sprite fuera de la franja de la bisagra y su margen de 16 px, lo justo (≤ 60 px); con el móvil plano, en su sitio',
+      casos.every(x => x.eje === x.esperado && x.fuera && x.desplaza <= 60 && x.plano[0] === 0 && x.plano[1] === 0), casos);
+    // Por objetivo() del encuadre, con el HUD Dex de verdad: lo que pide la zona libre más lo del pliegue.
+    const H = cargarHud({ w: 724, h: 392, tactil: true });
+    escenaCompleta(H);
+    H.G.HudDex.ponerMarco((ww, hh) => ({ juego: { x: 0, y: 0, w: ww, h: hh }, controles: { x: 0, y: hh + 8, w: 8, h: 8, lado: 'abajo', aparte: true }, seguras: { sup: 0, izq: 0, der: 0, inf: 16 } }));
+    H.G.Dividida = { activa: () => ({ juego: { x: 0, y: 0, w: 724, h: 392 }, pliegue: { eje: 'x', pos: 362, ancho: 24 } }), postura: () => null };
+    vm.runInContext(rd('js/ui/encuadre.js'), H.c, { filename: 'js/ui/encuadre.js' });
+    H.G.Game.player = H.pl; H.pl.r = 14;
+    H.pintar(); H.pintar();
+    const B = H.G.HudDex.bandas(), o = H.G.Encuadre.objetivo(), x = 362 - o[0] * H.G.Camera.scale;
+    t('encuadre con el pliegue (objetivo() con el HUD Dex real, 724x392 con el pliegue en 362): tu Pokémon queda fuera de la franja de 12 + 16 px a cada lado',
+      B.variante === 'compacto' && (x + 15 <= 362 - 28 + 1e-6 || x - 15 >= 362 + 28 - 1e-6), { x, objetivo: o, zona: B.zona });
+  } catch (e) { t('tu Pokémon fuera del pliegue', false, String(e && e.stack || e)); }
+
+  // ---- E5. La pista de controles y la nota de Ajustes con la pantalla dividida ----
+  try {
+    const H = cargarHud({ w: 784, h: 362, tactil: true }), A = H.G.HudDex.Avisos;
+    H.G.Dividida = { activa: () => ({ juego: { x: 0, y: 0, w: 784, h: 362 } }) };
+    A.actualizar(50, { time: 3 }, true);
+    const conPanel = A.visible && A.visible.texto;
+    H.G.Dividida = { activa: () => null }; A.reiniciar();
+    A.actualizar(51, { time: 3 }, true);
+    const sinPanel = A.visible && A.visible.texto;
+    const notas = {};
+    const seg = (x, y, w, h) => ({ x, y, width: w, height: h });
+    for (const [k, postura, segs] of [['mesa', 'folded', [seg(0, 0, 784, 362), seg(0, 362, 784, 362)]], ['libro', 'folded', [seg(0, 0, 362, 784), seg(362, 0, 362, 784)]],
+      ['plegadoSinBisagra', 'folded', null], ['plano', 'continuous', [seg(0, 0, 784, 724)]]]) {
+      const { c, G } = nuevo({ ajustes: { dividida: 'auto' } });
+      c.navigator.devicePosture = { type: postura };
+      if (segs) c.viewport = { segments: segs };
+      notas[k] = G.Dividida.nota();
+    }
+    t('pantalla dividida: la pista de controles habla del joystick del panel («Mueve con el joystick · …»; sin dividir, «Arrastra el dedo…»); y con la automática, la nota dice cómo está el móvil: plegado en mesa (se divide), en libro (no se divide: «Juego a un lado») o plegado sin saber la bisagra, y abierto sólo si lo está (antes, en libro decía «abierto»)',
+      /^Mueve con el joystick/.test(conPanel) && /^Arrastra el dedo/.test(sinPanel) && /Ahora: plegado\.$/.test(notas.mesa) && /Ahora: plegado en libro/.test(notas.libro) && /Juego a un lado/.test(notas.libro) &&
+      /Ahora: plegado, pero el navegador no dice/.test(notas.plegadoSinBisagra) && /Ahora: abierto\.$/.test(notas.plano), { conPanel, sinPanel, notas });
+  } catch (e) { t('pista y nota de la pantalla dividida', false, String(e && e.stack || e)); }
+
   // ---- F. Inglés de lo nuevo de los lotes 4 y 5 (i18n.js real) ----
   try {
     const c = { console, navigator: { language: 'en-US', languages: ['en-US'] }, location: { pathname: '/' },
@@ -4529,8 +4679,17 @@ function divididaChecks() {
     const textos = ['Píxel nítido', vm.runInContext('G.Encuadre.TEXTO', (() => { const k = nuevo().c; vm.runInContext(rd('js/ui/encuadre.js'), k); return k; })()),
       'Grieta de tipo Fuego', 'Pantalla dividida', D.TEXTO, ...D.OPCIONES.map(o => o[1]), ...D.OPCIONES_LADO.map(o => o[1]), 'Lado de los mandos'];
     for (const md of ['abajo', 'auto']) { G.Settings.set('dividida', md); textos.push(D.nota()); }
-    const sin = textos.filter(s => EN(s) === s);
-    t('inglés (i18n.js real) de lo nuevo: «Píxel nítido» y su explicación, «Grieta de tipo Fuego» y la sección «Pantalla dividida» (explicación, opciones, lado y notas)', !sin.length, sin);
+    // Las notas de la automática según la postura (mesa, libro, plegado sin bisagra y plano) y la pista con el panel.
+    const seg = (x, y, w, h) => ({ x, y, width: w, height: h });
+    for (const [postura, segs] of [['folded', [seg(0, 0, 784, 362), seg(0, 362, 784, 362)]], ['folded', [seg(0, 0, 362, 784), seg(362, 0, 362, 784)]], ['folded', null], ['continuous', null]]) {
+      const k = nuevo({ ajustes: { dividida: 'auto' } });
+      k.c.navigator.devicePosture = { type: postura };
+      if (segs) k.c.viewport = { segments: segs };
+      textos.push(k.G.Dividida.nota());
+    }
+    textos.push('Mueve con el joystick  ·  toca un ataque para cambiarlo', 'Joystick para moverte  ·  toca un ataque', 'Joystick  ·  toca un ataque');
+    const sin = textos.filter(s => EN(s) === s || /Ahora|plegado|Mueve|toca/.test(EN(s)));
+    t('inglés (i18n.js real) de lo nuevo: «Píxel nítido» y su explicación, «Grieta de tipo Fuego» y la sección «Pantalla dividida» (explicación, opciones, lado y las notas de la automática en mesa, en libro, plegado sin bisagra y plano), y la pista del joystick del panel', !sin.length, sin);
   } catch (e) { t('inglés', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);

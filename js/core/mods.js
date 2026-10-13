@@ -263,9 +263,18 @@ G.MODS = {
    *   divididaPorDefecto: 'no' (desactivada) | 'abajo' (juego arriba, mandos abajo) | 'lado' (a un lado) |
    *     'auto' (sólo plegado a medias en modo mesa, si el navegador informa de la postura). Lo elegido gana.
    *   divididaMargenBisagra: px que quedan libres a cada lado de la línea que parte la pantalla (la bisagra o,
-   *     sin saberla, la mitad exacta): ni un botón ni un texto encima. */
+   *     sin saberla, la mitad exacta): ni un botón ni un texto encima.
+   *   divididaEscalaMin / divididaEncogeMax: el tamaño del mundo en la mitad de juego. La regla de upstream (ver
+   *     como poco 420 de mundo de alto) deja los Pokémon diminutos en una franja baja (844x195 en un móvil: 0,46) y
+   *     el píxel nítido, que redondea hacia abajo para no perder más de un 7 % de mundo, los encogía a la mitad
+   *     (0,33 en el móvil y 0,5 a 1024x768). Ahora la escala parte de como poco divididaEscalaMin px CSS por px de
+   *     mundo (0,6: un píxel de arte de 1,2 px CSS; a pantalla entera en un móvil, 1,33) y el redondeo hacia abajo
+   *     no encoge más de divididaEncogeMax (25 %): si encogería más, hacia arriba. El Magic V6 no cambia (mesa,
+   *     0,667; abierto en vertical, 1). Sólo con la pantalla dividida. 0 / 1 = como antes. */
   divididaPorDefecto: 'no',
   divididaMargenBisagra: 16,
+  divididaEscalaMin: 0.6,
+  divididaEncogeMax: 0.25,
 
   /** game.js, checkOrientation(): ¿pide girar una pantalla de w×h px CSS (táctil)? */
   pedirGiro(w, h) {

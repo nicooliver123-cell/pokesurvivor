@@ -518,6 +518,11 @@ G.HudDex = (() => {
    *   - Cada uno dura lo que dice su origen, con un mínimo de 1,6 s; uno de más prioridad lo releva pasado ese
    *     mínimo. Los persistentes (más de 30 s: la pausa por fusión) siguen mientras el origen los mantenga.
    *   - «— Bosque Umbrío —» y «Has entrado en la grieta…» se convierten en el rótulo de zona (una vez).
+   *   - El de la arena sale al ver una arena nueva en G.Rift.arena, no por el texto: en solitario (y de anfitrión),
+   *     start() de rift.js dice «Has entrado en la grieta…» y, en la misma llamada, «¡X te esperaba en la grieta!», así
+   *     que el banner nunca enseña el primero (verificación del 13-10-2026). Al entrar se cortan los avisos del mapa
+   *     (el visible y la cola, menos los persistentes): la arena es otra escena.
+   *   - Con la pantalla dividida y táctil, la pista habla del joystick del panel.
    */
   const Avisos = (() => {
     const PRIO = { grieta: 5, jefe: 4, zona: 3, clima: 2, resto: 1, pista: 0 };
@@ -528,17 +533,21 @@ G.HudDex = (() => {
       'WASD moverse  ·  1-4, Q, E o clic: cambiar ataque  ·  Esc pausa', 'WASD  ·  1-4 / Q / E  ·  Esc pausa'];
     const PISTA_TACTIL = ['Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo',
       'Arrastra para moverte  ·  toca un ataque para cambiarlo', 'Arrastra  ·  toca un ataque'];
-    let vis = null, cola = [], visto = null, grietaVista = null, tPrevio = -1, zonaInicial = false;
+    const PISTA_DIVIDIDA = ['Mueve con el joystick  ·  toca un ataque para cambiarlo',
+      'Joystick para moverte  ·  toca un ataque', 'Joystick  ·  toca un ataque'];
+    let vis = null, cola = [], visto = null, grietaVista = null, arenaVista = null, tPrevio = -1, zonaInicial = false;
+    /** El rótulo de zona de la arena en curso: su nombre y, en escritorio, «Grieta de tipo Fuego» (lote 4). */
+    function rotuloArena(dur) {
+      const a = { tipo: 'zona', texto: String(G.World.biomeName()), origen: 'Has entrado en la grieta…', dur, persistente: false, icono: 'lente' };
+      const tp = G.Rift && G.Rift.arena && G.Rift.arena.type;
+      if (tp && G.U.TYPE_NAME && G.U.TYPE_NAME[tp]) { a.titulo = a.texto.replace(/^Grieta · /, ''); a.sub = 'Grieta de tipo ' + G.U.TYPE_NAME[tp]; }
+      return a;
+    }
     function clasificar(texto, secs) {
       const a = { tipo: 'resto', texto, origen: texto, dur: secs, persistente: secs >= 30, icono: 'rayo' };
       let m;
       if ((m = /^— (.+) —$/.exec(texto))) { a.tipo = 'zona'; a.texto = m[1]; a.icono = 'lente'; }
-      else if (texto === 'Has entrado en la grieta…') {
-        a.tipo = 'zona'; a.texto = G.World.biomeName(); a.icono = 'lente';
-        // En escritorio, en dos líneas: el nombre de la arena y «Grieta de tipo Fuego» (lote 4); en compacto, una.
-        const tp = G.Rift && G.Rift.arena && G.Rift.arena.type;
-        if (tp && G.U.TYPE_NAME && G.U.TYPE_NAME[tp]) { a.titulo = String(a.texto).replace(/^Grieta · /, ''); a.sub = 'Grieta de tipo ' + G.U.TYPE_NAME[tp]; }
-      }
+      else if (texto === 'Has entrado en la grieta…') return rotuloArena(secs);
       else if (/salvaje apareció!$/.test(texto)) a.tipo = 'jefe';
       else {
         const K = (G.Weather && G.Weather.KINDS) || {};
@@ -554,7 +563,7 @@ G.HudDex = (() => {
       cola.splice(i, 0, a);
       if (cola.length > ESPERA) cola.length = ESPERA;
     }
-    function reiniciar() { vis = null; cola = []; visto = null; grietaVista = null; zonaInicial = false; }
+    function reiniciar() { vis = null; cola = []; visto = null; grietaVista = null; arenaVista = null; zonaInicial = false; }
     /** Una vez por fotograma. t en segundos (performance.now). */
     function actualizar(t, st, tactil) {
       if (st.time < tPrevio - 1) reiniciar();                 // partida nueva
@@ -564,6 +573,18 @@ G.HudDex = (() => {
         zonaInicial = true;
         meter({ tipo: 'zona', texto: String(G.World.biomeName()), origen: '', dur: 2.4, persistente: false, icono: 'lente' }, t);
       }
+      // Rótulo de la arena: al ver una arena nueva (antes que el banner del mismo fotograma, que en solitario ya dice
+      // «¡X te esperaba en la grieta!»). Los avisos del mapa se cortan.
+      const ar = G.Rift && G.Rift.arena;
+      if (ar && ar !== arenaVista) {
+        arenaVista = ar;
+        if (!(ar.t > 3) && G.World && G.World.biomeName) {
+          if (vis && !vis.persistente) vis = null;
+          cola = cola.filter(x => x.persistente);
+          meter(rotuloArena(2.4), t);
+        }
+      }
+      if (!ar) arenaVista = null;
       const ban = G.Spawner.banner();
       if (ban && ban.text && (!visto || ban.text !== visto.text || ban.t > visto.t + 0.05)) meter(clasificar(ban.text, ban.t), t);
       visto = ban ? { text: ban.text, t: ban.t } : null;
@@ -586,7 +607,8 @@ G.HudDex = (() => {
       if (vis && vis.saliendo && t - vis.ts >= (reducido() ? 0.15 : SALIDA)) vis = null;
       if (!vis && cola.length) { vis = cola.shift(); vis.t0 = t; vis.fin = t + Math.max(vis.dur, MIN); vis.saliendo = false; }
       if (!vis && st.time < 14) {
-        const vs = tactil ? PISTA_TACTIL : PISTA_TECLADO;
+        const div = tactil && G.Dividida && G.Dividida.activa && G.Dividida.activa();
+        const vs = div ? PISTA_DIVIDIDA : tactil ? PISTA_TACTIL : PISTA_TECLADO;
         vis = { tipo: 'pista', t0: t, fin: Infinity, dur: Infinity, icono: null, texto: vs[0], variantes: vs };
       }
       return vis;
@@ -1483,7 +1505,14 @@ G.HudDex = (() => {
   }
   /** Hasta dónde llega por arriba el HUD (px desde el borde de la pantalla) en el último fotograma; sin pintar aún, el
    *  de esta pantalla. Sin crear objetos: se mira en cada fotograma (G.Estilo.colocarLogro). */
-  function bandaSup() { return ultimo ? ultimo.juego.y + ultimo.bandas.sup : bandas().sup; }
+  function bandaSup() {
+    if (!ultimo) return bandas().sup;
+    let y = ultimo.juego.y + ultimo.bandas.sup;
+    // En escritorio, un aviso de dos líneas (la grieta abierta o el rótulo de una arena) pasa de su hueco: el de logro va
+    // debajo de donde llegaría, siempre (sin saltos). Al entrar en la arena, un logro tapaba «Grieta de tipo Fuego».
+    if (ultimo.variante === 'escritorio') { const A = MA().hud.escritorio.aviso, s = ultimo.escala; y += Math.round(A.grieta.h * s) - Math.round(A.h * s); }
+    return y;
+  }
   /** Lo que ocupa por abajo el HUD (px desde el borde de abajo de la pantalla) en el último fotograma: la fila de ranuras
    *  de escritorio con su píldora; en compacto (ranuras en columna), lo de las zonas seguras. 0 sin pintar aún. */
   function bandaInf() {

@@ -498,12 +498,17 @@ G.Dividida = (() => {
   const TEXTO = 'El juego en una mitad de la pantalla y los mandos en la otra, como en una consola de dos pantallas: joystick grande, los cuatro ataques, el objeto, la pausa, tus PS y tu nivel. Se puede cambiar en plena partida desde la pausa.';
   const OPCIONES = [['no', 'Desactivada'], ['abajo', 'Juego arriba, mandos abajo'], ['lado', 'Juego a un lado'], ['auto', 'Automática al plegar']];
   const OPCIONES_LADO = [['derecha', 'Mandos a la derecha'], ['izquierda', 'Mandos a la izquierda']];
+  /** La nota de debajo. Con la automática, cómo está ahora el móvil: plegado en modo mesa (se divide), plegado en libro o
+   *  sin saber dónde está la bisagra (no se divide, y lo dice: antes ponía «abierto»), o abierto. */
   function nota() {
     const md = modo();
     if (md === 'auto') {
       if (!hayPostura()) return 'Este navegador no informa de cómo está plegado el móvil, así que la automática no se activará: elige «Juego arriba, mandos abajo».';
-      return 'Se divide al plegar el móvil a medias con la bisagra en horizontal, como un portátil (juego arriba, mandos abajo); abierto del todo, pantalla entera. Ahora: ' +
-        (quiere() ? 'plegado.' : 'abierto.');
+      const base = 'Se divide al plegar el móvil a medias con la bisagra en horizontal, como un portátil (juego arriba, mandos abajo); abierto del todo, pantalla entera. Ahora: ';
+      if (quiere()) return base + 'plegado.';
+      if (postura() !== 'folded') return base + 'abierto.';
+      return base + (disposicionSegs(segmentos()) === 'lado-a-lado' ? 'plegado en libro, con la bisagra en vertical: así no se divide (para jugar así, elige «Juego a un lado»).'
+        : 'plegado, pero el navegador no dice dónde está la bisagra: no se divide.');
     }
     if (md === 'abajo' || md === 'lado') return 'En un plegable, la división cae en la bisagra si el navegador la conoce; si no, en la mitad exacta.';
     return '';

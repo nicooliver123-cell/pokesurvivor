@@ -382,6 +382,9 @@ G.Entorno = (() => {
     while (gotas.length < want) gotas.push(nuevaGota(kind, w, h, true));
     if (gotas.length > want + 4) gotas.length = Math.ceil(want);
     const p = CL.pixel(w), m = Math.max(1, Math.round(p / 2));
+    // El copo de nieve mide como poco un píxel de arte (PX px de mundo en la pantalla): con p = 2 px, a 1440x900 (píxel
+    // de arte de 4 px) era medio píxel y apenas se veía (verificación del 13-10-2026); en el móvil no cambia.
+    const pc = Math.max(p, Math.round(((G.Sprites && G.Sprites.PX) || 2) * ((G.Camera && G.Camera.scale) || 0))), mc = Math.max(1, Math.round(pc / 2));
     const dib = (col, al, x, y, ww, hh) => { ctx.globalAlpha = al; ctx.fillStyle = col; ctx.fillRect(x, y, ww, hh); };
     for (let i = gotas.length - 1; i >= 0; i--) {
       const o = gotas[i];
@@ -393,8 +396,8 @@ G.Entorno = (() => {
         for (let j = 0; j < R.segmentos; j++) dib(R.borde[0], R.borde[1] * nivel, x - Math.round(j * inc) + m, y - j * sh, m, sh);
         for (let j = 0; j < R.segmentos; j++) dib(R.nucleo[0], R.nucleo[1] * nivel, x - Math.round(j * inc), y - j * sh, m, sh);
       } else if (kind === 'snow') {
-        dib(CL.snow.borde[0], CL.snow.borde[1] * nivel, x + m, y + m, p, p);
-        dib(CL.snow.nucleo[0], CL.snow.nucleo[1] * nivel, x, y, p, p);
+        dib(CL.snow.borde[0], CL.snow.borde[1] * nivel, x + mc, y + mc, pc, pc);
+        dib(CL.snow.nucleo[0], CL.snow.nucleo[1] * nivel, x, y, pc, pc);
       } else if (kind === 'sand') {
         dib(CL.sand.borde[0], CL.sand.borde[1] * nivel, x, y + m, p * 3, m);
         dib(CL.sand.nucleo[0], CL.sand.nucleo[1] * nivel, x, y, p * 3, m);

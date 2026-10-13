@@ -79,15 +79,16 @@
  *      un sprite: todas sus filas y columnas miden lo mismo en píxeles físicos a 1440x900@1, 844x390@3 y 844x390@2,625; sin
  *      el ajuste, como upstream) y su fila en Ajustes > Gráficos > Pantalla; el encuadre (tu Pokémon en el centro de la
  *      zona libre ±4 px a 844x390; en escritorio, en el centro); el golpe final (140 ± 17 ms quieto con el reloj de la
- *      partida); y el iris (el fotograma del tirón al entrar en la arena, negro; una captura a mitad, con el fogonazo dentro;
- *      y la vuelta, cerrado antes y en negro).
+ *      partida); el iris (el fotograma del tirón al entrar en la arena, negro; una captura a mitad, con el fogonazo dentro;
+ *      y la vuelta, cerrado antes y en negro); y el rótulo de la arena, lo primero que sale al entrar jugando solo.
  *  15. Pantalla dividida estilo Nintendo DS (lote 5): elegida por Ajustes > Controles, en el Magic V6 (724x784, 784x724,
  *      724x700 con la barra del navegador), plegado y emulado con CDP (Emulation.setDeviceMetricsOverride con devicePosture y
  *      displayFeature; capturas con Page.captureScreenshot, porque las de Playwright apagan los segmentos): en modo mesa la
- *      automática, por segmento (784x362 y 784x362), con una máscara de 20 px y en libro «a un lado»; y en escritorio
- *      (1440x900, abajo y a la izquierda en Clásico). El lienzo del juego y el panel donde toca, el HUD Dex sin ficha ni
- *      ranuras y nada junto a la división ni sobre el pliegue, botones de 44 px, el ataque 2 con el dedo o el ratón, el
- *      joystick del panel mueve a tu Pokémon, el teclado sigue, desplegar y replegar en plena partida, cambiar el modo
+ *      automática, por segmento (784x362 y 784x362), con una máscara de 20 px, en libro «a un lado» y en libro «abajo» (tu
+ *      Pokémon, fuera de la bisagra); en escritorio (1440x900, abajo y a la izquierda en Clásico); y en un móvil (844x390,
+ *      abajo y a un lado). El lienzo del juego y el panel donde toca, el HUD Dex sin ficha ni ranuras y nada junto a la
+ *      división ni sobre el pliegue, botones de 44 px, un píxel de arte de 1,2 px CSS o más en px físicos enteros, el
+ *      ataque 2 con el dedo o el ratón, el joystick del panel mueve a tu Pokémon, el teclado sigue, la pista del joystick, desplegar y replegar en plena partida, cambiar el modo
  *      desde la pausa sin reiniciar y, en el menú, la pantalla entera.
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
@@ -1973,12 +1974,19 @@ async function pruebaJuego(browser) {
       await page.evaluate(VIGILAR_TIRON);
       // La apertura, más lenta sólo aquí (1,2 s en vez de 280 ms) para pillarla a medias con el fogonazo (0,9 s) aún encima.
       await page.evaluate(() => { G.Transicion.T.abrir = 1.2; G.Rift.debugArena('fire'); });
+      await page.evaluate(GRABAR_AVISOS);   // después: lo que hubiera en la ranura antes de entrar no cuenta
       await sleep(300);
       const mitad = await page.evaluate(() => ({ fase: G.Transicion.fase, a: G.Transicion.apertura(performance.now() / 1000) }));
       await captura(page, 'iris-mitad-dex-' + nv);
       const px = await page.evaluate(() => { const cv = document.getElementById('game'), c = cv.getContext('2d'); const p = (x, y) => Array.from(c.getImageData(x, y, 1, 1).data.slice(0, 3)); return { esquina: p(2, 2), centro: p(cv.width >> 1, (cv.height >> 1) - 10) }; });
       await page.evaluate(() => { G.Transicion.T.abrir = 0.28; });
       await sleep(600);
+      // El rótulo de la arena (verificación del 13-10-2026: en solitario no salía nunca; rift.js dice dos avisos seguidos).
+      await captura(page, 'rotulo-arena-dex-' + nv);
+      const avisos = await page.evaluate(() => window.__avisos);
+      report.medidas['rotulo-arena-' + nv] = avisos;
+      check(`${nv}: al entrar en la arena jugando solo, el rótulo de zona de la arena por la ranura de avisos (en compacto, una línea: «${avisos[0] && avisos[0].texto}»), lo primero que sale`,
+        avisos.length >= 1 && avisos[0].tipo === 'zona' && /^Grieta · /.test(avisos[0].texto), avisos);
       // Se vence al legendario y la espera de la vuelta se acorta (sólo en la prueba).
       // (Sin su experiencia: las cartas de subir de nivel pararían la vuelta.)
       await page.evaluate(() => { const e = G.EnemyMgr.all().find(x => x.legend && !x.dead); if (e) { e.xp = 0; e.hp = 0; e.die(); } });
@@ -2002,6 +2010,17 @@ async function pruebaJuego(browser) {
       check(`${nv}: iris: el fotograma del tirón al entrar en la arena es negro (${tiron.entrada}); a mitad de la apertura (${mitad.a.toFixed(2)}) negro fuera del círculo y el mundo con el fogonazo dentro; al volver, se cierra antes y el fotograma de la vuelta también es negro (${tiron.vuelta})`,
         negro(tiron.entrada) && mitad.fase === 'abriendo' && mitad.a > 0.2 && mitad.a < 0.8 && negro(px.esquina) && !negro(px.centro) && tiron.fuera && tiron.cerrando && negro(tiron.vuelta), { tiron, mitad, px });
     }
+    if (v === VP.pc) {
+      // El rótulo de la arena en escritorio, en dos líneas: su nombre y «Grieta de tipo Fuego».
+      await page.evaluate(() => G.Rift.debugArena('fire'));
+      await page.evaluate(GRABAR_AVISOS);
+      await sleep(700);
+      await captura(page, 'rotulo-arena-dex-' + nv);
+      const av = await page.evaluate(() => window.__avisos);
+      report.medidas['rotulo-arena-' + nv] = av;
+      check(`${nv}: al entrar en la arena jugando solo, el rótulo de zona en dos líneas («${av[0] && av[0].titulo}» y «${av[0] && av[0].sub}»), lo primero que sale`,
+        av.length >= 1 && av[0].tipo === 'zona' && !!av[0].titulo && av[0].sub === 'Grieta de tipo Fuego', av);
+    }
     check(`${nv}: consola sin errores ni avisos (lote 4)`, !P.consola.length && !P.fuera.length, { consola: P.consola.slice(0, 5), fuera: P.fuera.slice(0, 5) });
     await P.ctx.close();
   }
@@ -2017,7 +2036,21 @@ const MEDIR_DIVIDIDA = () => {
   for (const k of Object.keys(P)) { const v = P[k]; (Array.isArray(v) ? v : [v]).forEach((x, i) => { if (x && x.w && x.h) piezas.push({ n: k + (Array.isArray(v) ? i : ''), x: x.x, y: x.y, w: x.w, h: x.h }); }); }
   const r = o => o && { x: Math.round(o.x), y: Math.round(o.y), w: Math.round(o.width), h: Math.round(o.height) };
   return { R, juego: r(cv), panel: r(pm), piezas, botones: G.Dividida.botonesPantalla(), stick: L && L.stick, horizontal: L && L.horizontal, hudDex: G.Estilo.hudDex(),
-    pagina: document.documentElement.scrollWidth - innerWidth, segs: G.Dividida.segmentos(), postura: G.Dividida.postura(), estado: G.Game.state, t: G.Game.st.time };
+    pagina: document.documentElement.scrollWidth - innerWidth, segs: G.Dividida.segmentos(), postura: G.Dividida.postura(), estado: G.Game.state, t: G.Game.st.time,
+    escala: G.Camera.scale, dpr: devicePixelRatio,
+    // Tu Pokémon en la ventana (px CSS) y la mitad de su sprite (como lo aparta G.Encuadre del pliegue).
+    jugador: (() => { const pl = G.Game.player, cam = G.Camera, J = R ? R.juego : { x: 0, y: 0 }; return pl && { x: J.x + (pl.x - cam.left()) * cam.scale, y: J.y + (pl.y - cam.top()) * cam.scale,
+      medio: Math.max(pl.r || 12, (pl.bodyH || 30) / 2) * cam.scale, alto: (pl.bodyH || 30) * cam.scale }; })() };
+};
+/** Apunta, fotograma a fotograma, cada aviso que se ve en la ranura del HUD Dex (window.__avisos). */
+const GRABAR_AVISOS = () => {
+  window.__avisos = [];
+  const f = () => {
+    const v = G.HudDex && G.HudDex.Avisos.visible, a = window.__avisos;
+    if (v && !v.saliendo && (!a.length || a[a.length - 1].texto !== v.texto)) a.push({ tipo: v.tipo, texto: v.texto, titulo: v.titulo || null, sub: v.sub || null, tactil: !!G.Touch.active });
+    if (a.length < 30) requestAnimationFrame(f);
+  };
+  requestAnimationFrame(f);
 };
 /** ¿Está todo donde debe? Devuelve la lista de problemas. */
 function revisarDividida(m, mg) {
@@ -2078,8 +2111,13 @@ async function pruebaDividida(browser) {
     { n: 'mesa-784x362', v: { w: 784, h: 724, dpr: 3, tactil: true }, modo: 'auto', plegar: { orientation: 'horizontal', offset: 362, maskLength: 0 }, esperado: { juego: [0, 0, 784, 362], controlesY: 362 } },
     { n: 'mesa-mascara', v: { w: 784, h: 724, dpr: 3, tactil: true }, modo: 'abajo', plegar: { orientation: 'horizontal', offset: 352, maskLength: 20 }, esperado: { juego: [0, 0, 784, 352], controlesY: 372 } },
     { n: 'libro-a-un-lado', v: { w: 724, h: 784, dpr: 3, tactil: true }, modo: 'lado', lado: 'derecha', plegar: { orientation: 'vertical', offset: 362, maskLength: 0 }, esperado: { juego: [0, 0, 362, 784] } },
+    // Plegado en libro con «abajo»: la bisagra cruza la mitad de juego y tu Pokémon se aparta de ella (verificación del 13-10-2026).
+    { n: 'libro-abajo', v: { w: 724, h: 784, dpr: 3, tactil: true }, modo: 'abajo', plegar: { orientation: 'vertical', offset: 362, maskLength: 0 }, esperado: { juego: [0, 0, 724, 392], pliegue: 'x' } },
     { n: 'escritorio-abajo', v: VP.pc, modo: 'abajo', esperado: { juego: [0, 0, 1440, 450] }, raton: true },
-    { n: 'escritorio-izquierda', v: VP.pc, modo: 'lado', lado: 'izquierda', estilo: 'clasico', esperado: { juego: [720, 0, 720, 900] }, raton: true }
+    { n: 'escritorio-izquierda', v: VP.pc, modo: 'lado', lado: 'izquierda', estilo: 'clasico', esperado: { juego: [720, 0, 720, 900] }, raton: true },
+    // Un móvil (verificación del 13-10-2026: con el píxel nítido, la mitad de juego se quedaba a 0,333 y los Pokémon en puntos).
+    { n: 'movil-abajo', v: VP.movil, modo: 'abajo', esperado: { juego: [0, 0, 844, 195] } },
+    { n: 'movil-a-un-lado', v: VP.movil, modo: 'lado', lado: 'derecha', esperado: { juego: [0, 0, 422, 390] } }
   ];
   for (const k of casos) {
     const P = await nuevo(browser, k.v), { page } = P, nv = `dividida ${k.n} ${nombreVp(k.v)}`;
@@ -2101,6 +2139,7 @@ async function pruebaDividida(browser) {
       return r;
     }, [k.modo, k.lado, k.estilo]);
     await page.evaluate(() => G.Flow.play());
+    await page.evaluate(GRABAR_AVISOS);
     await sleep(900);
     if (k.plegar) { await metricas('folded', k.plegar); await sleep(300); }   // Playwright puede reaplicar sus métricas
     await preparar(page);
@@ -2112,6 +2151,17 @@ async function pruebaDividida(browser) {
     const juegoOk = J && J.x === e.juego[0] && J.y === e.juego[1] && J.w === e.juego[2] && J.h === e.juego[3] && (!e.controlesY || m.R.controles.y === e.controlesY) && (!e.pliegue || (m.R.pliegue && m.R.pliegue.eje === e.pliegue));
     check(`${nv}: Ajustes > Controles (${ui.chips.join(' · ')}) → «${k.modo}»${k.estilo ? ' en Clásico' : ''}${k.plegar ? `, plegado (${k.plegar.orientation}, máscara ${k.plegar.maskLength})` : ''}: juego ${J ? `${J.w}x${J.h} en ${J.x},${J.y}` : '—'}${m.R && m.R.fuente === 'bisagra' ? ' (en la bisagra)' : ''}, el HUD Dex sin ficha ni ranuras y nada a menos de ${MG} px de la división ni sobre el pliegue; botones del panel de 44 px o más`,
       ui.chips.length === 4 && ui.modo === k.modo && juegoOk && !mal.length, { ui, R: m.R, mal: mal.slice(0, 6), juego: m.juego, panel: m.panel });
+    // Con el móvil plegado y la bisagra cruzando la mitad de juego, tu Pokémon fuera de su franja (y de 16 px más).
+    if (m.R && m.R.pliegue && m.postura === 'folded') {
+      const pg = m.R.pliegue, jx = m.jugador, banda = (pg.ancho || 0) / 2 + MG;
+      const lejos = pg.eje === 'x' ? Math.abs(jx.x - pg.pos) - jx.medio : Math.max(pg.pos - jx.y, jx.y - jx.alto - pg.pos);
+      check(`${nv}: plegado, con la bisagra cruzando la mitad de juego: tu Pokémon, apartado de ella (su sprite a ${lejos.toFixed(1)} px de la línea; la franja más el margen, ${banda} px)`,
+        lejos >= banda - 2, { jugador: jx, pliegue: pg });
+    }
+    // El tamaño del mundo en la mitad de juego: un píxel de arte de 1,2 px CSS o más y un número entero de px físicos.
+    const fis = 2 * m.escala * m.dpr;
+    check(`${nv}: el mundo en la mitad de juego a ×${+m.escala.toFixed(3)}: un píxel de arte mide ${+(2 * m.escala).toFixed(2)} px CSS (≥ 1,2: los Pokémon no se quedan en puntos) y ${+fis.toFixed(3)} px físicos (entero)`,
+      2 * m.escala >= 1.2 - 1e-9 && Math.abs(fis - Math.round(fis)) < 1e-6, { escala: m.escala, dpr: m.dpr });
     // Tocar el ataque 2 (dedo o ratón) y mover el joystick del panel.
     const b2 = m.botones.find(b => b.que === 'ataque2');
     if (k.raton) await page.mouse.click(b2.x + b2.w / 2, b2.y + b2.h / 2); else await page.touchscreen.tap(b2.x + b2.w / 2, b2.y + b2.h / 2);
@@ -2129,6 +2179,11 @@ async function pruebaDividida(browser) {
     }
     check(`${nv}: ${k.raton ? 'con el ratón' : 'con el dedo'}, el ataque 2 del panel se elige y el joystick del panel mueve a tu Pokémon a la derecha (${Math.round(x1 - x0)} px de mundo)${k.raton ? `; el teclado sigue (A: ${Math.round(teclado)})` : ''}`,
       activo === 1 && x1 - x0 > 40 && (!k.raton || teclado < -40), { activo, dx: x1 - x0, teclado });
+    // La pista de controles de la ranura de avisos: con el dedo, la del joystick del panel (no «Arrastra el dedo…»).
+    await page.waitForFunction(() => (window.__avisos || []).some(a => a.tipo === 'pista'), null, { timeout: 6000 }).catch(() => {});
+    const pista = await page.evaluate(() => (window.__avisos || []).find(a => a.tipo === 'pista') || null);
+    check(`${nv}: la pista de controles ${k.raton ? 'con el ratón, la del teclado' : 'con el dedo, la del joystick del panel'} («${pista && pista.texto}»)`,
+      pista && (k.raton ? /^WASD/.test(pista.texto) : pista.tactil && /^Mueve con el joystick/.test(pista.texto)), { pista, avisos: await page.evaluate(() => window.__avisos) });
     if (k.plegar) await capturaCdp(cdp, `dividida-${k.n}-${k.estilo || 'dex'}-${nombreVp(k.v)}`);
     else await captura(page, `dividida-${k.n}-${k.estilo || 'dex'}-${nombreVp(k.v)}`);
     if (k.plegar && k.modo === 'auto') {
