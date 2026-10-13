@@ -1084,7 +1084,13 @@ async function guaranteedRift(A, B) {
     const h1 = await HUD_B();
     check('HUD Dex en el invitado: B (en Dex; A sigue en Clásico) pinta la barra de vida de A en su panel de compañeros, con su nombre',
       estilos.A === 'clasico' && h1.estilo === 'dex' && h1.barra && h1.textos.includes(h1.nombreA), { estilos, variante: h1.variante, barra: h1.barra, nombreA: h1.nombreA, textos: h1.textos.slice(0, 30) });
-    await A.page.evaluate(() => { G.Game.player.x += 1100; });
+    // A se pone a 1.100 px a la derecha de B (de la copia de B que tiene A): si sólo sumara 1.100 a su x, la distancia
+    // dependería de dónde haya quedado B en la partida (con B 200 px a su derecha salían 28 m).
+    const antesFlecha = await A.page.evaluate(() => {
+      const p = G.Game.player, b = G.Coop.puppets()[0], antes = { x: p.x, y: p.y };
+      if (b) { p.x = b.x + 1100; p.y = b.y; } else p.x += 1100;
+      return antes;
+    });
     await sleep(700);
     const h2 = await HUD_B();
     const etiqueta = h2.textos.find(x => x.startsWith(h2.nombreA + ' · ') && / \d+ m$/.test(x));
@@ -1093,7 +1099,7 @@ async function guaranteedRift(A, B) {
     await A.page.evaluate(() => { G.Game.player.dead = true; });
     await sleep(700);
     const h3 = await HUD_B();
-    await A.page.evaluate(() => { const p = G.Game.player; p.dead = false; p.hp = p.maxHp; p.x -= 1100; });
+    await A.page.evaluate(a => { const p = G.Game.player; p.dead = false; p.hp = p.maxHp; p.x = a.x; p.y = a.y; }, antesFlecha);
     check('HUD Dex en el invitado: con A caído, B pinta «Caído» en su panel y la flecha «¡A necesita ayuda! · N m»',
       h3.textos.includes('Caído') && h3.textos.some(x => x.startsWith('¡' + h3.nombreA + ' necesita ayuda! · ')) && h3.flechas.includes('caido'),
       { textos: h3.textos.filter(x => /Caído|ayuda/.test(x)), flechas: h3.flechas });
