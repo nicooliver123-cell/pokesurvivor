@@ -8,7 +8,8 @@
  *      (G.FIREBASE_PROYECTOS en js/core/firebase-config.js), igual que toda URL de
  *      Firebase en la nube que aparezca en lo servido. Y nada de lo publicado (todo el
  *      repositorio salvo LICENSE, que conserva el aviso MIT) nombra el proyecto base: su nombre,
- *      su autor, su dominio, su Firebase, su apiKey ni su correo (en base64 en tools/nico/base.js).
+ *      su autor, su dominio, su Firebase, su apiKey ni su correo (sus huellas, en tools/nico/base.js).
+ *      Y lo que publica Pages (tools/nico/sitio.js): sólo el juego, con todo lo que el juego carga.
  *   2. index.html y dev.html (también se publica): noindex, sin SEO del proyecto base, sin
  *      enlaces a páginas borradas, y que el ?v= de index.html coincide con js/app.min.js.
  *      Y que el paquete js/app.min.js está al día con las fuentes (lo reconstruye en una
@@ -119,12 +120,46 @@ function walk(dir, out = []) {
 console.log('1. Higiene de fork');
 const SERVED = ['index.html', 'dev.html', '404.html', 'sw.js', 'manifest.webmanifest', 'contacto/index.html',
   ...walk('js').filter(f => f.endsWith('.js')), ...walk('css')].filter(ex);
-// Las señas del proyecto base (dominio, proyecto Firebase, apiKey, autor, su correo y el nombre del juego), codificadas
-// en tools/nico/base.js para que no salgan en claro en lo que se publica.
+// Las señas del proyecto base (dominio, proyecto Firebase, apiKey, autor, su correo y el nombre del juego): en
+// tools/nico/base.js sólo están sus huellas, para que no salgan en lo que se publica. nombra() las busca.
 const BASE = require('./base.js');
-const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const RE_DOMINIO = new RegExp(reEsc(BASE.DOMINIO), 'i'), RE_AUTOR = new RegExp(reEsc(BASE.AUTOR), 'i');
-const FORBIDDEN = BASE.VIGILADO;
+const nombraDominio = s => BASE.nombra(s, ['dominio']).length > 0, nombraAutor = s => BASE.nombra(s, ['autor']).length > 0;
+// La búsqueda por huellas sabe encontrar: señas inventadas con las reglas de cada una, en las formas en que salían.
+{
+  const P = { dominio: BASE.crear('dominio', 'juego-ajeno.example'), firebase: BASE.crear('firebase', 'proyecto-ajeno-123'),
+    apikey: BASE.crear('apikey', 'AIzaSyQwErTy'), autor: BASE.crear('autor', 'zorro'), correo: BASE.crear('correo', 'ana.perez.lopez'),
+    nombre: BASE.crear('nombre', 'JuegoAjéno') };
+  const casos = [
+    ['dominio', 'ver https://turn.JUEGO-AJENO.example/x', true], ['dominio', 'juego-ajeno.examples', true], ['dominio', 'juego_ajeno.example', false],
+    ['firebase', '"proyecto-ajeno-123-default-rtdb.firebaseio.com"', true], ['firebase', 'proyecto-ajeno-12', false],
+    ['apikey', 'apiKey: "AIzaSyQwErTyUiOp"', true], ['apikey', 'apiKey: "AIzaSyqwertyUiOp"', false],
+    ['autor', 'Copyright ZORRO78 y ko-fi.com/zorro', true], ['autor', 'zorr o', false],
+    ['correo', 'mailto:Ana.Perez.Lopez@gmail.com', true], ['correo', 'ana-perez-lopez', false],
+    ['nombre', 'JuegoAjéno', true], ['nombre', 'el JuegoAjeno', true], ['nombre', 'Juego Ajéno y más', true], ['nombre', 'juegoajeno-partida', false]];
+  const malos = casos.filter(([id, txt, sale]) => (BASE.nombra(txt, [P[id]]).length > 0) !== sale);
+  // Y la línea: la aparición de la línea 3 se da en su sitio.
+  const enLinea = BASE.nombra('a\nb\nx Juego Ajeno', [P.nombre]), lineaOk = enLinea.length === 1 && 'a\nb\nx Juego Ajeno'.slice(0, enLinea[0].i).split('\n').length === 3;
+  const huellasOk = BASE.SENAS.length === 6 && BASE.SENAS.every(s => /^[0-9a-f]{64}$/.test(s.h) && s.n > 0);
+  if (!malos.length && lineaOk && huellasOk) ok(`base.js: la búsqueda por huellas encuentra las señas (${casos.length} casos inventados, con mayúsculas, tilde, espacio, subdominio y dentro de una URL) y no da falsos positivos`);
+  else bad(`base.js: la búsqueda por huellas falla: ${JSON.stringify(malos)}${lineaOk ? '' : ' (línea mal)'}${huellasOk ? '' : ' (huellas mal formadas)'}`);
+}
+// Los mensajes de commit también se ven en GitHub: el hook tools/nico/hooks/commit-msg los mira con base.js. Existe, es
+// ejecutable en git, deja pasar un mensaje limpio y, en este clon (no en el de GitHub Actions), está activo.
+{
+  const sh = 'tools/nico/hooks/commit-msg', js = 'tools/nico/hooks/commit-msg.js';
+  let modo = '', activo = '', limpio = false;
+  try { modo = execFileSync('git', ['ls-files', '-s', sh], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split(' ')[0]; } catch (e) { /* sin git */ }
+  try { activo = execFileSync('git', ['config', '--get', 'core.hooksPath'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch (e) { /* sin configurar */ }
+  if (ex(js)) {
+    const tmp = path.join(os.tmpdir(), `ps-msg-${process.pid}.txt`);
+    fs.writeFileSync(tmp, 'Arreglo del gacha\n\nSin nombres de nadie\n# comentario de git\n');
+    try { execFileSync(process.execPath, [path.join(ROOT, js), tmp], { stdio: 'ignore' }); limpio = true; } catch (e) { limpio = false; }
+    fs.rmSync(tmp, { force: true });
+  }
+  if (modo !== '100755' || !ex(js) || !limpio || !/BASE\.nombra\(msg\)/.test(rd(js))) bad(`hook de los mensajes de commit: ${sh} (ejecutable en git: ${modo || 'no está'}) o ${js} no funciona`);
+  else ok('hook de los mensajes de commit: ejecutable, busca las señas de base.js y deja pasar un mensaje limpio');
+  if (!process.env.CI && activo !== 'tools/nico/hooks') warn('el hook de los mensajes de commit no está activo en este clon: git config core.hooksPath tools/nico/hooks');
+}
 // Firebase: lista blanca y config, con el código real de js/core/firebase-config.js.
 function loadFirebaseConfig(host, search) {
   const ctx = { URL, URLSearchParams, location: { hostname: host, search } };
@@ -141,16 +176,16 @@ const FB_HOST = /(?<![\w<>.-])([a-z0-9][a-z0-9-]*)((?:\.[a-z0-9-]+)*)\.(firebase
 let hits = 0;
 for (const f of SERVED) {
   const s = rd(f);
-  for (const [re, what] of FORBIDDEN) if (re.test(s)) { hits++; bad(`${f}: ${what} (${re})`); }
+  for (const what of new Set(BASE.nombra(s).map(o => o.que))) { hits++; bad(`${f}: ${what}`); }
   for (const m of s.matchAll(FB_HOST)) {
     const id = m[1].replace(/-default-rtdb$/, '');
     if (!ALLOWED.includes(id)) { hits++; bad(`${f}: URL de Firebase de un proyecto fuera de la lista blanca: ${m[0]}`); }
   }
 }
 if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestructura ni al correo del proyecto base`);
-// Y en TODO lo publicado (GitHub Pages sirve el repositorio entero: también README, CREDITS, CLAUDE.md, PLAN.md y
-// tools/), ni el nombre del proyecto base, ni su dominio, su Firebase, su apiKey, su autor (ni su repositorio) ni su
-// correo. Sólo LICENSE conserva el aviso MIT, que es obligatorio. Los binarios (imágenes, fuentes, sonido) no se miran.
+// Y en TODO lo publicado (el repositorio es público: también README, CREDITS, CLAUDE.md, PLAN.md y tools/), ni el
+// nombre del proyecto base, ni su dominio, su Firebase, su apiKey, su autor (ni su repositorio) ni su correo. Sólo
+// LICENSE conserva el aviso MIT, que es obligatorio. Los binarios (imágenes, fuentes, sonido) no se miran.
 {
   let pub = null;
   // El índice y también los ficheros nuevos sin añadir (no ignorados): uno creado a mano no se escapa hasta el commit.
@@ -159,8 +194,11 @@ if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestr
   const BIN = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf|mp3|ogg|wav|zip|gz)$/i;
   const malos = [];
   for (const f of pub.filter(f => f !== 'LICENSE' && !BIN.test(f) && ex(f))) {
-    const lineas = rd(f).split('\n');
-    lineas.forEach((l, i) => { for (const [re, what] of BASE.VIGILADO) if (re.test(l)) malos.push(`${f}:${i + 1} (${what})`); });
+    const txt = rd(f), vistos = new Set();
+    for (const o of BASE.nombra(txt)) {
+      const m = `${f}:${txt.slice(0, o.i).split('\n').length} (${o.que})`;
+      if (!vistos.has(m)) { vistos.add(m); malos.push(m); }
+    }
   }
   if (malos.length) bad(`lo publicado nombra el proyecto base (${malos.length}): ${malos.slice(0, 12).join('; ')}${malos.length > 12 ? '…' : ''}`);
   else ok(`${pub.length} ficheros publicados sin el nombre, el dominio, el Firebase, la apiKey, el autor ni el correo del proyecto base (salvo el aviso MIT de LICENSE)`);
@@ -171,7 +209,7 @@ if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestr
   const lic = rd('LICENSE').replace(/\r/g, ''), iMit = lic.indexOf('MIT License\n'), fMit = lic.indexOf(FIN_MIT);
   const bloqueMit = iMit >= 0 && fMit > iMit ? lic.slice(iMit, fMit + FIN_MIT.length) : '';
   const HUELLA_MIT = 'a61999a8cb8613b5c638c292d7cad1ea23c815b4';
-  if (bloqueMit && RE_AUTOR.test(bloqueMit) && crypto.createHash('sha1').update(bloqueMit).digest('hex') === HUELLA_MIT)
+  if (bloqueMit && nombraAutor(bloqueMit) && crypto.createHash('sha1').update(bloqueMit).digest('hex') === HUELLA_MIT)
     ok('LICENSE conserva el aviso MIT del proyecto base entero y literal (copyright, permiso, condición y exención de garantía)');
   else bad('LICENSE: el aviso MIT no está entero y literal (de «MIT License» a «SOFTWARE.»: es obligatorio conservarlo tal cual)');
   // «Mundo Misterioso» (el subtítulo del proyecto base) no vuelve a la interfaz: ni en las páginas, ni en el manifiesto,
@@ -184,6 +222,41 @@ if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestr
   }
   if (mm.length) bad(`«Mundo Misterioso» vuelve a la interfaz (el subtítulo o una clave del proyecto base): ${mm.slice(0, 8).join(', ')}`);
   else ok('«Mundo Misterioso» fuera de la interfaz (páginas, manifiesto, estilos y paquete; queda sólo donde describe los sprites)');
+}
+// Lo que publica Pages (tools/nico/sitio.js, desde el workflow .github/workflows/publicar.yml): sólo el juego, sin las
+// notas de trabajo ni las herramientas, y con todo lo que el juego carga. Una página, un estilo o un script que cite
+// un fichero del repositorio que no está en el sitio funcionaría en local y daría 404 en la web publicada.
+{
+  let enSitio = null;
+  try { enSitio = new Set(require('./sitio.js').ficheros(ROOT)); } catch (e) { bad('tools/nico/sitio.js: no se pudo listar el sitio: ' + e.message); }
+  if (enSitio) {
+    const privados = ['CLAUDE.md', 'PLAN.md', 'README.md', 'tools/nico/check.js', 'tools/nico/base.js', 'tools/nico/sitio.js',
+      'firestore.rules', 'database.rules.json', '.firebaserc', '.github/workflows/publicar.yml'].filter(f => enSitio.has(f));
+    const faltanBase = ['index.html', 'dev.html', '404.html', 'sw.js', 'manifest.webmanifest', 'favicon.ico', 'js/app.min.js',
+      'LICENSE', 'CREDITS.md', 'contacto/index.html', 'tools/nico/exportar-oficial.js'].filter(f => !enSitio.has(f));
+    // Atributos href/src, url() de los estilos y cadenas del código que son la ruta de un fichero.
+    const RE_REF = /(?:\b(?:href|src)\s*=\s*\\?["']|url\(\s*["']?|["'`])((?:\.\.?\/)?(?:[\w@%+-][\w.@%+-]*\/)*[\w@%+-][\w.@%+-]*\.(?:html|js|css|png|webp|jpe?g|gif|ico|svg|json|webmanifest|woff2?|ttf|otf|md|txt|mp3|ogg|wav))(?=[?#"'`)\s\\])/g;
+    const fuera = new Set();
+    let refs = 0;
+    for (const f of [...enSitio].filter(f => /\.(html|css|js|webmanifest)$/.test(f))) {
+      const base = /\.(html|css)$/.test(f) ? path.posix.dirname(f) : '.';   // el código se carga desde la página (la raíz)
+      for (const m of rd(f).matchAll(RE_REF)) {
+        const destino = path.posix.normalize(path.posix.join(base, m[1]));
+        if (!ex(destino)) continue;   // una cadena que no es un fichero (o uno que se arma con variables)
+        refs++;
+        if (!enSitio.has(destino)) fuera.add(`${destino} (en ${f})`);
+      }
+    }
+    if (privados.length || faltanBase.length || fuera.size)
+      bad(`sitio publicado (tools/nico/sitio.js): ${privados.length ? 'publica ' + privados.join(', ') + '; ' : ''}${faltanBase.length ? 'falta ' + faltanBase.join(', ') + '; ' : ''}${fuera.size ? 'el juego cita ficheros que no se publican: ' + [...fuera].slice(0, 10).join(', ') : ''}`);
+    else ok(`sitio publicado: ${enSitio.size} ficheros del juego, sin notas de trabajo ni herramientas, y las ${refs} referencias a ficheros de las páginas, estilos y código están dentro`);
+    const wf = ex('.github/workflows/publicar.yml') ? rd('.github/workflows/publicar.yml') : '';
+    const pasos = ['node tools/nico/check.js', 'needs: comprobar', 'node tools/nico/sitio.js _site', 'path: _site', 'actions/deploy-pages'];
+    const faltanPasos = pasos.filter(p => !wf.includes(p));
+    if (!wf || faltanPasos.length || wf.indexOf('node tools/nico/check.js') > wf.indexOf('actions/deploy-pages'))
+      bad(`.github/workflows/publicar.yml: falta o no comprueba antes de publicar el sitio (${faltanPasos.join(', ') || 'orden'})`);
+    else ok('workflow: check.js en cada push y pull request; en main, y sólo si pasa, publica el sitio de sitio.js');
+  }
 }
 const GONE = ['CNAME', 'robots.txt', 'sitemap.xml', 'en', 'guia', 'pokedex', 'legendarios', 'shinies', 'tipos', 'movimientos',
   'objetos', 'logros', 'novedades', 'apoyar', 'functions', 'tools/activar_dominio.sh', '.github/FUNDING.yml',
@@ -210,22 +283,23 @@ else ok('404.html sin rutas absolutas (vale en subruta)');
 if (/"default"\s*:\s*"demo-ps"/.test(rd('.firebaserc'))) ok('.firebaserc apunta a demo-ps'); else bad('.firebaserc no apunta a demo-ps');
 if (/"functions"/.test(rd('firebase.json'))) bad('firebase.json vuelve a tener el bloque functions'); else ok('firebase.json sin functions');
 if (FB) {
-  const okList = ALLOWED.length && ALLOWED.every(x => typeof x === 'string' && x && !RE_AUTOR.test(x)) && ALLOWED.includes('demo-ps');
-  if (okList) ok(`lista blanca de Firebase: ${ALLOWED.join(', ')}`); else bad(`lista blanca de Firebase incorrecta: ${JSON.stringify(ALLOWED)}`);
+  const okList = ALLOWED.length && ALLOWED.every(x => typeof x === 'string' && x && !BASE.nombra(x, ['autor', 'firebase']).length) && ALLOWED.includes('demo-ps');
+  if (okList) ok(`lista blanca de Firebase: ${ALLOWED.join(', ')} (sin el proyecto del proyecto base)`); else bad(`lista blanca de Firebase incorrecta: ${JSON.stringify(ALLOWED)}`);
   const P = FB.FIREBASE_PERMITIDA, cfg = FB.FIREBASE_CONFIG;
   if (typeof P !== 'function') bad('falta G.FIREBASE_PERMITIDA en firebase-config.js (db.js no conectaría con nada)');
   else {
-    // Controles: lo que debe rechazar.
+    // Controles: lo que debe rechazar. El proyecto del proyecto base no puede estar en la lista blanca (lo mira okList,
+    // por su huella); aquí, uno cualquiera de fuera de la lista y un dominio ajeno.
     const no = [
-      { projectId: BASE.FIREBASE, authDomain: BASE.FIREBASE + '.firebaseapp.com' },
+      { projectId: 'proyecto-ajeno', authDomain: 'proyecto-ajeno.firebaseapp.com' },
       { projectId: 'otro-proyecto' },
       { projectId: 'demo-ps', databaseURL: 'https://otro-default-rtdb.europe-west1.firebasedatabase.app' },
       { projectId: 'demo-ps', authDomain: 'otro.firebaseapp.com' },
-      { projectId: 'demo-ps', authDomain: BASE.DOMINIO, databaseURL: 'https://demo-ps-default-rtdb.europe-west1.firebasedatabase.app' },
+      { projectId: 'demo-ps', authDomain: 'juego-ajeno.example', databaseURL: 'https://demo-ps-default-rtdb.europe-west1.firebasedatabase.app' },
       { projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com' },
       { projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com', databaseURL: 'https://otro.example.com/?ns=demo-ps-default-rtdb' },
       { projectId: 'demo-ps', authDomain: 'demo-ps.firebaseapp.com', databaseURL: 'http://demo-ps-default-rtdb.europe-west1.firebasedatabase.app' }].filter(c => P(c));
-    if (no.length) bad('G.FIREBASE_PERMITIDA acepta configs ajenas: ' + JSON.stringify(no)); else ok('G.FIREBASE_PERMITIDA rechaza el proyecto del proyecto base, proyectos fuera de la lista y URLs de otro proyecto');
+    if (no.length) bad('G.FIREBASE_PERMITIDA acepta configs ajenas: ' + JSON.stringify(no)); else ok('G.FIREBASE_PERMITIDA rechaza proyectos fuera de la lista (el del proyecto base no está en ella) y URLs de otro proyecto');
     if (cfg === null) ok('config publicada en null (modo local) hasta tener el Firebase propio');
     else if (!cfg || !ALLOWED.includes(cfg.projectId) || !P(cfg) || cfg.emulator || /^demo-/.test(cfg.projectId))
       bad(`config publicada NO permitida: proyecto ${cfg && cfg.projectId} (lista blanca: ${ALLOWED.join(', ')}; sin emulator ni demo-)`);
@@ -241,14 +315,14 @@ if (FB) {
 console.log('2. index.html y js/app.min.js');
 const idx = rd('index.html');
 if (/<meta name="robots" content="noindex">/.test(idx)) ok('index.html lleva noindex'); else bad('index.html sin noindex: construir con node tools/build.js --privado');
-if (RE_DOMINIO.test(idx) || /rel="canonical"/.test(idx)) bad('index.html conserva SEO del proyecto base (canonical/og): construir con --privado');
+if (nombraDominio(idx) || /rel="canonical"/.test(idx)) bad('index.html conserva SEO del proyecto base (canonical/og): construir con --privado');
 else ok('index.html sin canonical ni enlaces al dominio del proyecto base');
 // dev.html también se publica (GitHub Pages sirve todo el repo).
 const devH = rd('dev.html');
 const robots = [...devH.matchAll(/<meta name="robots" content="([^"]*)">/g)].map(m => m[1]);
 if (robots.length && robots.every(c => /noindex/.test(c))) ok('dev.html lleva noindex y ningún robots "index"');
 else bad(`dev.html: robots ${JSON.stringify(robots)} (debe haber noindex y ningún "index")`);
-if (RE_DOMINIO.test(devH) || /rel="canonical"/.test(devH)) bad('dev.html conserva el SEO del proyecto base (canonical/og a su dominio)');
+if (nombraDominio(devH) || /rel="canonical"/.test(devH)) bad('dev.html conserva el SEO del proyecto base (canonical/og a su dominio)');
 else ok('dev.html sin canonical ni enlaces al dominio del proyecto base');
 if (/window\.PS_PAGES = false;/.test(devH) && !/PS_PAGES\s*=\s*true/.test(devH)) ok('dev.html: window.PS_PAGES = false (sin botones a guía, Pokédex ni apoyar)');
 else bad('dev.html: falta window.PS_PAGES = false o vuelve a ponerse a true');
@@ -259,7 +333,7 @@ const DEAD = /href="(\.\.\/|\.\/|\/)?(en|guia|pokedex|legendarios|shinies|tipos|
 const deadIn = ['index.html', 'dev.html', '404.html', 'contacto/index.html'].filter(f => DEAD.test(rd(f)));
 if (deadIn.length) bad('enlaces a páginas que el fork borró en: ' + deadIn.join(', '));
 else ok('ninguna página enlaza a las que borró el fork (guia/, pokedex/, en/, apoyar/...)');
-const domIn = ['index.html', 'dev.html', '404.html', 'contacto/index.html'].filter(f => RE_DOMINIO.test(rd(f)));
+const domIn = ['index.html', 'dev.html', '404.html', 'contacto/index.html'].filter(f => nombraDominio(rd(f)));
 if (domIn.length) bad('el dominio del proyecto base aparece en páginas publicadas: ' + domIn.join(', '));
 else ok('ninguna página HTML publicada menciona el dominio del proyecto base');
 const min =fs.readFileSync(path.join(ROOT, 'js/app.min.js'));

@@ -178,8 +178,8 @@ function stopEmulator(child) {
 
 // ---------------- jugadores ----------------
 // Patrones de la infraestructura del proyecto base: ningún cliente debe tocarlos.
-const SENAS = require('./base.js');   // las señas del proyecto base, codificadas
-const PROD = [...SENAS.VIGILADO.slice(0, 2).map(v => v[0]), /firebaseio\.com/i, /firebasedatabase\.app/i,
+const SENAS = require('./base.js');   // las huellas de las señas del proyecto base
+const PROD = [{ test: u => SENAS.nombra(u, ['dominio', 'firebase']).length > 0 }, /firebaseio\.com/i, /firebasedatabase\.app/i,
   /^https?:\/\/(firestore|identitytoolkit|securetoken|firebaseinstallations|firebase)\.googleapis\.com/i];
 // Antes que el juego: guarda las RTCPeerConnection (para leer el par de candidatos elegido) y
 // permite simular latencia en el canal directo (window.__lat ms por sentido, 0 = nada). La
@@ -302,22 +302,25 @@ async function legalNotice(P) {
   await page.click('#scr-login [data-legal]');
   await waitVisible(page, '#scr-legal');
   await sleep(900);   // que termine la transición, para la captura
-  const r = await page.evaluate(([repo, base, nombreBase]) => {
+  const r = await page.evaluate(([repo]) => {
     const m = document.getElementById('legal-mail'), rp = document.getElementById('legal-repo'), box = document.getElementById('scr-legal');
     return { contacto: m.href, textoContacto: m.textContent, abreAparte: m.target === '_blank', repo: rp.href,
       correo: /mailto:|@gmail\.com/i.test(box.innerHTML), donaciones: /donaci[oó]n/i.test(box.textContent),
       // Ningún enlace a otro repositorio que el nuestro (salvo los sprites de SpriteCollab), ni el nombre anterior.
       ajenos: [...box.querySelectorAll('a[href*="github.com/"]')].map(a => a.href).filter(h => !h.startsWith(repo) && !h.startsWith('https://github.com/PMDCollab/')),
-      nombre: /PokéSwarm/.test(box.textContent) && !new RegExp(nombreBase).test(box.textContent),   // el nombre anterior, de tools/nico/base.js
+      texto: box.textContent,   // el nombre anterior se busca fuera, con las huellas de tools/nico/base.js
       licencia: !!box.querySelector('a[href="https://creativecommons.org/licenses/by-nc/4.0/"]'),
-      rechazaOriginal: G.FIREBASE_PERMITIDA({ projectId: base }) === false };
-  }, [FORK_REPO, SENAS.FIREBASE, SENAS.VIGILADO[5][0].source]);
+      listaBlanca: [...(G.FIREBASE_PROYECTOS || [])], rechazaAjeno: G.FIREBASE_PERMITIDA({ projectId: 'proyecto-ajeno' }) === false };
+  }, [FORK_REPO]);
+  r.nombre = /PokéSwarm/.test(r.texto) && !SENAS.nombra(r.texto, ['nombre']).length;
+  r.rechazaOriginal = r.rechazaAjeno && r.listaBlanca.length > 0 && !r.listaBlanca.some(p => SENAS.nombra(String(p), ['firebase']).length);
+  delete r.texto;
   report.capturaAvisoLegal = await shot(page, P.tag + '_aviso_legal');
   await page.click('#legal-close');
   await waitVisible(page, '#scr-login');
   check('Aviso legal: contacto = avisos del repositorio, código = el repositorio, PokéSwarm sin el nombre anterior, ningún enlace a otro repositorio (salvo SpriteCollab), la licencia de los sprites enlazada, sin correo ni donaciones',
     r.contacto === FORK_ISSUES && r.abreAparte && r.repo === FORK_REPO && !r.correo && !r.donaciones && !r.ajenos.length && r.nombre && r.licencia, r);
-  check('En la página, G.FIREBASE_PERMITIDA rechaza el proyecto del proyecto base', r.rechazaOriginal);
+  check('En la página, G.FIREBASE_PERMITIDA rechaza los proyectos fuera de la lista blanca, y el del proyecto base no está en ella', r.rechazaOriginal);
 }
 
 async function register(P, name, pass) {

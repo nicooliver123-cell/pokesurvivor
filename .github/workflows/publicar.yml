@@ -1,0 +1,53 @@
+# Comprueba cada push y cada pull request con tools/nico/check.js y, en main y si pasa, publica en GitHub Pages sólo
+# el juego (tools/nico/sitio.js): ni CLAUDE.md, ni PLAN.md, ni tools/ salen en la web.
+# Para que publique, Settings > Pages > Build and deployment > Source tiene que ser «GitHub Actions».
+name: Comprobar y publicar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: node tools/nico/check.js
+        run: node tools/nico/check.js
+
+  publicar:
+    needs: comprobar
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Montar el sitio (sólo el juego)
+        run: node tools/nico/sitio.js _site
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+      - id: despliegue
+        uses: actions/deploy-pages@v5

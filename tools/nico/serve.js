@@ -3,6 +3,9 @@
  * Sólo escucha en 127.0.0.1. Se usa en lugar de `python -m http.server`, que en
  * Windows rechaza conexiones cuando el navegador pide muchos sprites a la vez.
  * Abrir: http://127.0.0.1:8090/index.html  (o dev.html; con ?emu usa el emulador).
+ * Con la variable PS_SITIO=<carpeta> sirve esa carpeta en lugar de la que le pidan (también en las pruebas E2E): así se
+ * juega contra lo que publica Pages, montado con `node tools/nico/sitio.js <carpeta>`. Con PS_404=<fichero> apunta en
+ * él cada ruta que no encuentra (una por línea).
  */
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path');
@@ -15,7 +18,7 @@ const TYPES = {
 };
 
 function startServer(root, port = 8090) {
-  root = path.resolve(root);
+  root = path.resolve(process.env.PS_SITIO || root);
   const srv = http.createServer((req, res) => {
     let p;
     try { p = decodeURIComponent(new URL(req.url, 'http://x').pathname); } catch (e) { res.writeHead(400); return res.end(); }
@@ -25,6 +28,7 @@ function startServer(root, port = 8090) {
     fs.stat(file, (err, st) => {
       if (err || !st.isFile()) {
         const nf = path.join(root, '404.html');
+        if (process.env.PS_404) try { fs.appendFileSync(process.env.PS_404, p + '\n'); } catch (e) { /* sin registro */ }
         res.writeHead(404, { 'content-type': TYPES['.html'] });
         return fs.existsSync(nf) ? fs.createReadStream(nf).pipe(res) : res.end('404');
       }
