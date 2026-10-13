@@ -6,14 +6,12 @@ Las cuentas de PokéSwarm son nuevas: es otro origen (otra web) y otro backend (
 
 ## Inmediatos (los hace la sesión principal)
 
-1. **Crear el proyecto Firebase propio.** Sin él no hay cuentas en la nube ni cooperativo a distancia: hoy el juego va en modo local y el cooperativo sólo funciona contra el emulador, en un mismo PC.
-   - Plan Spark, gratuito: si se pasa de cuota se corta, no factura. Google Analytics desactivado.
-   - Authentication: correo/contraseña y Google. Dominios autorizados: `nicooliver123-cell.github.io`, y localhost si se quiere probar en local contra el proyecto real.
-   - Firestore en modo nativo, base `(default)`, en Europa. Realtime Database en europe-west1, modo bloqueado.
-   - Registrar una app web, pegar su config en `js/core/firebase-config.js` (sin `measurementId`) y **añadir su projectId a `G.FIREBASE_PROYECTOS`**, la lista blanca del mismo fichero. Sin eso `js/core/db.js` no conecta y `tools/nico/check.js` falla. La `databaseURL` tiene que ser la instancia por defecto (`<id>-default-rtdb`).
-   - Añadir el alias `"prod": "<id>"` en `.firebaserc` (el `default` sigue siendo `demo-ps`) y desplegar reglas e índices: `npx firebase-tools login` (login interactivo de Nico) y después `npx firebase-tools deploy --only firestore,database --project prod`.
-   - Opcional: restringir la API key a `https://nicooliver123-cell.github.io/*` y a `http://localhost:*/*`.
-   - Reconstruir (`node tools/build.js --privado`), pasar `tools/nico` (`npm test`) y probar el cooperativo real con el amigo, él de invitado.
+1. **Probar el cooperativo real entre dos casas** (lo hacen Nico y su amigo). El Firebase propio `pokeswarm-9e39d` quedó listo el 13-10-2026:
+   - Plan Spark, sin Analytics; Firestore `(default)` en eur3 y Realtime Database `pokeswarm-9e39d-default-rtdb` en europe-west1, las dos con las reglas del repo desplegadas (`firebase deploy --only firestore,database --project prod`; alias `prod` en `.firebaserc`, `default` sigue en `demo-ps`).
+   - Authentication con correo/contraseña activado por Nico en la consola (Google, si lo activó). Dominios autorizados comprobados: `localhost`, `pokeswarm-9e39d.firebaseapp.com`, `pokeswarm-9e39d.web.app` y `nicooliver123-cell.github.io`.
+   - La web publicada arranca en modo nube con ese proyecto, sin errores; sin sesión, la RTDB responde 401 y Firestore 403.
+   - Falta, y sólo lo pueden hacer ellos: crear las dos cuentas, añadirse como amigos, invitar y jugar desde dos redes distintas. Si la conexión directa falla (el anfitrión ve «Conectado (por servidor)»), va por el relé de la RTDB y puede ir a tirones: ver el punto 9 (TURN propio).
+   - Opcional: restringir la API key en Google Cloud > Credenciales a `https://nicooliver123-cell.github.io/*` y `http://localhost:*/*`.
 2. **Comprobar la web publicada tras cada push.** GitHub Pages sirve `main` de https://github.com/nicooliver123-cell/pokeswarm (remoto `origin`) en https://nicooliver123-cell.github.io/pokeswarm/ (el 13-10-2026 respondía 200 con noindex, igual que `dev.html`, y 404 en una ruta inexistente).
    - Comprobar: `curl -s <url> | grep -i robots` da noindex, también en `dev.html`; `404.html` funciona en la subruta; y nada de lo que se publica nombra el proyecto base ni apunta a su Firebase, TURN, dominio o correo (es lo que vigila `check.js`: lo publicado es todo el repositorio, salvo el aviso MIT de `LICENSE`).
    - Comprobar que los avisos (issues) del repo están activados: el aviso legal, Ajustes y `contacto/` mandan ahí.
