@@ -33,7 +33,7 @@ Es otra web y otro Firebase, así que las cuentas son nuevas; pero el jugador pu
 
 - Rápido, sin navegador: `node tools/nico/check.js`. Sale con 1 si algo falla.
 - Jugar en local: `node tools/nico/serve.js` y abrir http://127.0.0.1:8090/index.html (modo local, un jugador) o `dev.html`.
-- Todo, cooperativo incluido, contra el emulador de Firebase: `cd tools/nico && npm install && npm test` (check.js, coop-e2e.js y estilo-e2e.js; unos 12-13 min, estimados: con los entornos del lote 3, estilo-e2e.js entero tardó 10 min 28 s el 13-10-2026, check.js unos 14 s y el cooperativo unos 90 s; antes, 9 min 27 s todo; código 0 si pasa). Detalles, opciones y el criterio de la prueba del invitado en [tools/nico/README.md](tools/nico/README.md). El JDK 21 portable está en `~/.cache/temurin-21/`.
+- Todo, cooperativo incluido, contra el emulador de Firebase: `cd tools/nico && npm install && npm test` (check.js, coop-e2e.js y estilo-e2e.js; unos 14-15 min: 14 min 32 s el 13-10-2026 con los lotes 3, 4 y 5 unidos, de ellos check.js 82 s, el cooperativo 89 s y estilo-e2e.js 11 min 41 s; código 0 si pasa). Detalles, opciones y el criterio de la prueba del invitado en [tools/nico/README.md](tools/nico/README.md). El JDK 21 portable está en `~/.cache/temurin-21/`.
 - Emulador a mano: `?emu` en la URL sólo actúa en localhost/127.0.0.1/[::1] y usa el proyecto `demo-ps` con los puertos 9099, 8080 y 9000.
 
 ## Mods
