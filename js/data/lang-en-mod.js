@@ -36,9 +36,9 @@ G.I18n.add({
   'Vuelve aquí, pulsa «Elegir archivo» y elige ese archivo.': 'Come back here, press “Choose file” and pick that file.',
   'Código para la consola de esa web': 'Code for that website\'s console',
   // El código de la sección pegado en la consola de PokéSwarm: su alert() pasa por G.I18n. (En la web del
-  // proyecto base, el propio código elige español o inglés según el idioma del navegador.) El fragmento no cambia.
-  'Esta página es la versión modificada, no el juego oficial. Pega este código en la consola del juego oficial, con tu cuenta iniciada.':
-    'This page is the modified version, not the official game. Paste this code into the console of the official game, signed in to your account.',
+  // proyecto base, el propio código elige español o inglés según el idioma del navegador.)
+  'Este código va en la consola de la web donde tienes tu partida, no aquí. Pégalo allí con tu cuenta iniciada.':
+    'This code goes in the console of the website where your save is, not here. Paste it there, signed in to your account.',
   'Copiar': 'Copy',
   'Copiado': 'Copied',
   'Selecciónalo y cópialo a mano': 'Select it and copy it by hand',

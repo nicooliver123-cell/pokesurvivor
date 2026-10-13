@@ -672,9 +672,9 @@ async function importChecks() {
   const es2 = runExporter(frag, { G: { DB: { guest: true, save: DB.newSave('Invitado') } }, nav: nav('es-MX') });
   const es7 = runExporter(frag, { G: { Importar: { TIPO: 'pokesurvivor-partida' } }, nav: nav('ES') });
   t('exportador: con el navegador en otro idioma, los avisos y el mensaje final salen en inglés; en español (es, es-MX...), en español',
-    /playing as a guest/.test(en2.alerts[0] || '') && /save was not found/.test(en3.alerts[0] || '') && /modified version, not the official game/.test(en7.alerts[0] || '') &&
+    /playing as a guest/.test(en2.alerts[0] || '') && /save was not found/.test(en3.alerts[0] || '') && /website where your save is, not here/.test(en7.alerts[0] || '') &&
     /^Save exported: \d+ Pokémon in /.test(en1.logs[0] || '') && en1.downloads.length === 1 && en1.downloads[0].nombre === d1.nombre &&
-    /jugando como invitado/.test(es2.alerts[0] || '') && /versión modificada, no el juego oficial/.test(es7.alerts[0] || '') &&
+    /jugando como invitado/.test(es2.alerts[0] || '') && /web donde tienes tu partida, no aquí/.test(es7.alerts[0] || '') &&
     [en2, en3, en7, es2, es7].every(x => x.downloads.length === 0 && x.alerts.length === 1),
     { en: [en2.alerts[0], en3.alerts[0], en7.alerts[0], en1.logs[0]], es: [es2.alerts[0], es7.alerts[0]] });
   const viejo = Object.assign(DB.newSave('Viejo'), { updated: 100 }), nuevo = Object.assign(JSON.parse(ofJSON), { updated: 200 });
@@ -689,8 +689,8 @@ async function importChecks() {
   // Pegado en la consola de ESTA versión (con su G real, que tiene G.Importar y una partida abierta): avisa y no descarga.
   const vivoFork = { guest: false }; Object.defineProperty(vivoFork, 'save', { get: () => of, enumerable: true });
   const e7 = runExporter(frag, { G: Object.assign(Object.create(GG), { DB: vivoFork }), storage: { 'ps.save.nicofork': ofJSON } });
-  t('exportador: pegado en la consola de esta versión avisa de que no es el juego oficial y no descarga nada',
-    e7.downloads.length === 0 && e7.alerts.length === 1 && /versión modificada, no el juego oficial/.test(e7.alerts[0]) && e7.escrituras === 0, e7.alerts);
+  t('exportador: pegado en la consola de esta versión avisa de que va en la web donde tienes tu partida y no descarga nada',
+    e7.downloads.length === 0 && e7.alerts.length === 1 && /web donde tienes tu partida, no aquí/.test(e7.alerts[0]) && e7.escrituras === 0, e7.alerts);
 
   // ---- el importador: partida oficial realista contra una cuenta nueva del fork ----
   const texto = d1 ? d1.blob.parts.join('') : J({ tipo: I.TIPO, version: 1, save: of });

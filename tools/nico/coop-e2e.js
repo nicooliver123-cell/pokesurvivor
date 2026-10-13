@@ -432,7 +432,7 @@ async function importOfficial(P) {
   check('Importar otra vez el mismo archivo no ofrece sumar nada (monedas y tickets sin duplicar)', re.desactivado && re.yaTraida && re.coins === r.coins, re);
   await page.click('#imp-cancel');
   // El código de la sección, pegado en la consola de ESTA versión (la pestaña donde se pulsa Copiar):
-  // avisa de que no es el juego oficial y no descarga nada.
+  // avisa de que va en la web donde tienes tu partida y no descarga nada.
   const codigo = await page.inputValue('#imp-code');
   let alerta = null, descargas = 0;
   const onDialog = d => { alerta = d.message(); d.dismiss().catch(() => {}); };
@@ -441,8 +441,8 @@ async function importOfficial(P) {
   await page.evaluate(codigo);
   await sleep(800);
   page.off('dialog', onDialog); page.off('download', onDownload);
-  check('El código para el juego oficial, pegado en la consola de esta versión, avisa y no descarga nada',
-    /versión modificada, no el juego oficial/.test(alerta || '') && descargas === 0, { alerta, descargas });
+  check('El código para la web donde tienes tu partida, pegado en la consola de esta versión, avisa y no descarga nada',
+    /web donde tienes tu partida, no aquí/.test(alerta || '') && descargas === 0, { alerta, descargas });
   // Elegir la partida de la propia cuenta (como si se exportara desde aquí): error, sin vista previa ni sumar nada.
   // Con el registro de lo traído (lo normal) y sin él (se reconoce por su `created`).
   const propias = [];
