@@ -11,7 +11,9 @@
  *   2. Sirve el repo en http://127.0.0.1:8090 y abre index.html?emu (el paquete
  *      js/app.min.js; con --dev, dev.html con los scripts sueltos).
  *   3. Dos jugadores en dos navegadores aislados (Playwright/Chromium): crean cuenta de
- *      prueba, hacen el test, A elige un Pokémon GRANDE (Guzzlord) y B uno normal
+ *      prueba y eligen su inicial en «Elige a tu compañero» (sin el test de personalidad,
+ *      G.MODS.sinTest: el test no sale nunca; inicial, compañero y personalidad null en la
+ *      nube), A elige después un Pokémon GRANDE (Guzzlord) y B uno normal
  *      (Pikachu), se hacen amigos, A invita, B entra y juegan una partida en grupo.
  *      A es el anfitrión; B, el invitado (como jugará el amigo de Nico).
  *   4. Comprueba que cada uno ve al otro moverse, que el grande sale reducido en los dos
@@ -201,6 +203,13 @@ const INIT = `(() => {
     set(fn) { const ch = this; onm.set.call(this, typeof fn === 'function' ? function (ev) { later(ch, '__dueIn', () => fn.call(ch, ev)); } : fn); } });
 })();`;
 
+/** Vigilante del test de personalidad: apunta si #scr-test llega a verse (con sinTest, nunca debe). */
+const VIGIA_TEST = `(() => {
+  window.__testVisto = false;
+  const mirar = () => { const t = document.getElementById('scr-test'); if (t && !t.classList.contains('hidden')) window.__testVisto = true; };
+  document.addEventListener('DOMContentLoaded', () => new MutationObserver(mirar).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] }));
+})();`;
+
 /** Trampa en el setter de la vida de los enemigos (G.Enemy.prototype.hp): ve CADA escritura.
  *  Sólo cuenta enemigos ya registrados (G.EnemyMgr.get(id) === e): lo que pasa al crearlos
  *  (shiny, élite, vida inicial de una copia) no es una subida. Se instala antes de la partida. */
@@ -260,6 +269,7 @@ const TRAP = `(() => {
 async function newPlayer(browser, tag) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block', locale: 'es-ES' });
   await ctx.addInitScript(INIT);
+  await ctx.addInitScript(VIGIA_TEST);
   const page = await ctx.newPage();
   const P = { tag, ctx, page, requests: [], prodHits: [], failed: [], consoleLines: [], pageErrors: [] };
   page.on('request', r => { P.requests.push(r.url()); if (PROD.some(p => p.test(r.url()))) P.prodHits.push(r.url()); });
@@ -318,24 +328,40 @@ async function register(P, name, pass) {
   await page.click('#btn-auth');
   await page.waitForFunction(() => {
     const v = id => { const e = document.getElementById(id); return e && !e.classList.contains('hidden'); };
-    return v('scr-test') || v('scr-menu') || (document.getElementById('login-err').textContent || '').length > 0;
+    return v('scr-starters') || v('scr-test') || v('scr-menu') || (document.getElementById('login-err').textContent || '').length > 0;
   }, null, { timeout: 20000 });
   const err = (await text(page, '#login-err')).trim();
   if (err) throw new Error(tag + ': crear cuenta: ' + err);
   step(`${tag}: cuenta de prueba`, 'creada en el emulador (uid ' + await page.evaluate(() => G.DB.fb && G.DB.fb.uid) + ')');
 }
 
-async function personality(P) {
+/** Cuenta nueva: «Elige a tu compañero» (sin el test de personalidad, G.MODS.sinTest), por la interfaz: la celda `n`
+ *  y «Elegir a X». El test no sale en ningún momento (un vigilante en la página lo apunta desde el arranque); se guarda
+ *  el inicial como compañero, la personalidad en null y el Pokémon en la colección, y llega así a Firestore. */
+async function elegirCompanero(P, n) {
   const { page, tag } = P;
-  let n = 0;
-  while (await visible(page, '#scr-test')) {
-    await page.locator('#test-a .answer').first().click();
-    await sleep(120);
-    if (++n > 40) throw new Error('test infinito');
-  }
-  if (await visible(page, '#scr-result')) await page.click('#res-ok');
+  await waitVisible(page, '#scr-starters');
+  const antes = await page.evaluate(() => ({ clase: document.getElementById('scr-starters').classList.contains('sin-test'),
+    celdas: document.querySelectorAll('#starter-grid .ec-celda').length, desactivado: document.getElementById('ec-ok').disabled }));
+  const celda = page.locator('#starter-grid .ec-celda').nth(n);
+  const dex = +(await celda.getAttribute('data-dex'));
+  await celda.click();
+  const boton = (await text(page, '#ec-ok')).trim();
+  await page.click('#ec-ok');
   await waitVisible(page, '#scr-menu');
-  step(`${tag}: test de personalidad`, `${n} respuestas, menú principal`);
+  // Como el test, guarda con commit() (sube en el siguiente envío o al salir de la página): aquí se fuerza el envío.
+  // (El estado puede seguir en «pendiente»: al abrir el menú se apunta el logro «Primer compañero» y se vuelve a guardar.)
+  await page.evaluate(() => G.DB.flush());
+  const r = await page.evaluate(async () => {
+    const s = G.DB.save, fb = G.DB.fb, snap = await fb.fs.collection('saves').doc(fb.uid).get({ source: 'server' }), nube = snap.data().save;
+    return { starter: s.starter, partner: s.partner, personality: s.personality, origen: s.owned[s.partner] && s.owned[s.partner].from, sync: G.DB.syncState,
+      nube: { starter: nube.starter, partner: nube.partner, personality: nube.personality, owned: !!nube.owned[s.partner] }, test: window.__testVisto === true };
+  });
+  check(`${tag}: cuenta nueva sin el test de personalidad: «Elige a tu compañero» con los 29 iniciales, «Elegir a X» y en la nube el inicial como compañero y la personalidad en null`,
+    antes.clase && antes.celdas === 29 && antes.desactivado && boton === 'Elegir a ' + (await page.evaluate(d => G.DEX_BY[d].name, dex)) && !r.test &&
+    r.starter === dex && r.partner === dex && r.personality === null && r.origen === 'starter' &&
+    r.nube.starter === dex && r.nube.partner === dex && r.nube.personality === null && r.nube.owned, { antes, boton, dex, r });
+  step(`${tag}: elige compañero`, `${boton} (#${dex}), menú principal`);
 }
 
 /** Pone de compañero un Pokémon concreto (como elegirlo en la colección). */
@@ -818,7 +844,7 @@ async function guaranteedRift(A, B) {
     const cred = { A: { nombre: 'e2eA_' + tag, pass: pw() }, B: { nombre: 'e2eB_' + tag, pass: pw() } };  // sólo existen en el emulador
     await register(A, cred.A.nombre, cred.A.pass);
     await register(B, cred.B.nombre, cred.B.pass);
-    await personality(A); await personality(B);
+    await elegirCompanero(A, 1); await elegirCompanero(B, 26);   // Charmander y Quaxly (cualquiera vale: luego se cambian)
     await importOfficial(A);   // Ajustes > Cuenta > traer la partida del juego oficial (sintética), en la nube
     await gachaRepetido(A);    // Gacha: un repetido desbloquea su evolución (y el cartel con 1,5 % de shiny)
     const monA = await setPartner(A, BIG), monB = await setPartner(B, NORMAL);
