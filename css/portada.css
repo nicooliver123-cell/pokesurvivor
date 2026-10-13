@@ -79,7 +79,12 @@ html.estilo-dex :is(.tc-title, #scr-login .logo .t1, #tap-start .boot-in h1, #bo
 html.estilo-dex :is(.tc-title, #scr-login .logo .t1, #tap-start .boot-in h1, #boot .boot-in h1, .about-logo)::before {
   content: ''; flex: none; width: .8em; height: .8em; background: var(--marca-rotom) no-repeat center / contain;
 }
-html.estilo-dex #set-body .about-logo { display: flex; justify-content: center; font-size: var(--fs-5); margin-top: var(--space-1); }   /* #set-body: más que el :is() de arriba, que cuenta como un id */
+/* Ajustes > Acerca de: el título y «Versión» centrados en la caja. Pesa (2,2,1): el :is() de arriba pesa (1,3,1), lo
+   que su argumento más fuerte (#scr-login .logo .t1), así que con un solo id (1,2,1) perdía y el título se quedaba a la
+   izquierda. «Versión» lleva el ancho de lectura de los textos de Ajustes (65ch, en css/nico.css) pegado a la izquierda:
+   centrado dentro de él, quedaba 37 px a la izquierda del centro de la caja. */
+html.estilo-dex #scr-settings #set-body .about-logo { display: flex; justify-content: center; font-size: var(--fs-5); margin-top: var(--space-1); }
+html.estilo-dex #scr-settings #set-body .about-logo + .sub.center { margin-inline: auto; }
 
 /* ---------------- 2. Dorso: pantalla de carga y «Pulsa para empezar» ---------------- */
 html.estilo-dex #boot { background: var(--color-fondo); }

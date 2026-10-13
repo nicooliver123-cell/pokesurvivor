@@ -274,8 +274,25 @@ const PIEL = id => {
 const conPiel = p => /M PLUS Rounded 1c/.test(p.fuenteCaja) && p.bordeCaja === p.bisel && (!p.boton || (/M PLUS Rounded 1c/.test(p.fuenteBoton) && p.fondoBoton === p.cristal2));
 const sinPiel = p => /Pixelify/.test(p.fuenteCaja) && p.bordeCaja !== p.bisel && (!p.boton || !/M PLUS/.test(p.fuenteBoton));
 
+/** Ajustes > Acerca de: el centro del título (el Rotom-Dex de su ::before y el nombre) y el de «Versión 1.0», frente al de
+ *  la caja. En Dex, una regla de css/portada.css que pesaba menos que el :is() del nombre lo dejaba a la izquierda, y
+ *  «Versión», centrado en su ancho de lectura (65ch) pegado a la izquierda, quedaba 37 px a la izquierda del centro. */
+const MEDIR_ACERCA = () => {
+  const lg = document.querySelector('#set-body .about-logo'), ver = lg && lg.nextElementSibling;
+  if (!lg || !ver) return null;
+  const texto = n => { const r = document.createRange(); r.selectNodeContents(n); return r.getBoundingClientRect(); };
+  const t = texto(lg), s = getComputedStyle(lg), b = getComputedStyle(lg, '::before');
+  const icono = b.content && b.content !== 'none' && b.display !== 'none' ? parseFloat(b.width) + (parseFloat(s.columnGap) || 0) : 0;
+  const sb = document.getElementById('set-body'), cs = getComputedStyle(sb), v = texto(ver);
+  const titulo = (t.left - icono + t.right) / 2, version = (v.left + v.right) / 2;
+  // El centro de lo que se ve del cuerpo de Ajustes, sin su barra de desplazamiento ni su relleno.
+  const caja = sb.getBoundingClientRect().left + sb.clientLeft + (parseFloat(cs.paddingLeft) + sb.clientWidth - parseFloat(cs.paddingRight)) / 2;
+  return { titulo: Math.round(titulo), version: Math.round(version), caja: Math.round(caja),
+    dif: Math.round(Math.max(Math.abs(titulo - caja), Math.abs(version - caja)) * 10) / 10 };
+};
+
 async function recorrerPantallas(P) {
-  const { page, v } = P, malas = [], piel = [];
+  const { page, v } = P, malas = [], piel = [], acerca = [];
   for (const e of ESTILOS) {
     await estilo(page, e);
     for (const [id, abrir, cerrar, sub] of PANTALLAS) {
@@ -286,11 +303,12 @@ async function recorrerPantallas(P) {
       if (mal) malas.push({ estilo: e, cual: id + (sub ? '/' + sub : ''), ...m });
       const p = await page.evaluate(PIEL, id);
       if (!(e === 'dex' ? conPiel(p) : sinPiel(p))) piel.push({ estilo: e, cual: id + (sub ? '/' + sub : ''), ...p });
+      if (sub === 'about') { const a = await page.evaluate(MEDIR_ACERCA); if (!a || a.dif > 2) acerca.push({ estilo: e, ...a }); }
       if (cerrar) await page.evaluate(cerrar);
     }
     await page.evaluate(salirDePartida);
   }
-  return { malas, piel };
+  return { malas, piel, acerca };
 }
 
 /** Menú principal: las 8 opciones a la vista sin desplazar nada (ni la pantalla ni una caja), el logotipo libre
@@ -2193,9 +2211,10 @@ function hojaDeContactos() {
       if (!dentro) { await P.ctx.close(); continue; }
 
       // 1. Las 21 pantallas en los dos estilos (y la piel Dex puesta en cada una).
-      const { malas, piel } = await recorrerPantallas(P);
+      const { malas, piel, acerca } = await recorrerPantallas(P);
       check(`${nv}: las 21 pantallas en Dex y Clásico sin desplazamiento horizontal, con la caja dentro, sin el menú detrás y sin la línea de créditos encima de la caja`, !malas.length, malas.slice(0, 6));
       check(`${nv}: la piel Dex está puesta en las 21 pantallas (borde de la caja, letra y fondo de los botones) y en Clásico no`, !piel.length, piel.slice(0, 4));
+      check(`${nv}: Ajustes > Acerca de, el título «PokéSwarm» y «Versión» centrados en la caja (a 2 px o menos) en Dex y en Clásico`, !acerca.length, acerca);
 
       // El menú principal.
       for (const e of ESTILOS) {
