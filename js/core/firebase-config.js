@@ -16,14 +16,22 @@
  *   2. añade su projectId a G.FIREBASE_PROYECTOS (la lista blanca de abajo),
  *   3. reconstruye con `node tools/build.js --privado` y pasa tools/nico.
  */
-G.FIREBASE_CONFIG = null; // MOD nico: aquí irá la config del proyecto Firebase propio
+G.FIREBASE_CONFIG = {   // MOD nico: proyecto Firebase propio de PokéSwarm (creado el 13-10-2026, sin Analytics)
+  apiKey: 'AIzaSyBkm-HyT6VBntQ5IGpLnLmk_2StP9NJbR4',
+  authDomain: 'pokeswarm-9e39d.firebaseapp.com',
+  databaseURL: 'https://pokeswarm-9e39d-default-rtdb.europe-west1.firebasedatabase.app',
+  projectId: 'pokeswarm-9e39d',
+  storageBucket: 'pokeswarm-9e39d.firebasestorage.app',
+  messagingSenderId: '389369669792',
+  appId: '1:389369669792:web:e7e731a278db1113a481c5'
+};
 
 /* MOD nico: lista blanca de proyectos. js/core/db.js sólo se conecta a un proyecto
  * de esta lista y con URLs de ese mismo proyecto (G.FIREBASE_PERMITIDA); con
  * cualquier otro, o si faltara esta lista, el juego va en modo local.
  * 'demo-ps' es el emulador de las pruebas (tools/nico). tools/nico/check.js falla
  * si la config publicada no está en la lista. */
-G.FIREBASE_PROYECTOS = ['demo-ps'];
+G.FIREBASE_PROYECTOS = ['demo-ps', 'pokeswarm-9e39d'];
 
 /** MOD nico: ¿se puede usar esta config? Proyecto de la lista blanca; la Realtime
  *  Database es obligatoria (sin ella no hay cooperativo) y tiene que ser su

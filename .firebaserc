@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-ps"
+    "default": "demo-ps",
+    "prod": "pokeswarm-9e39d"
   }
 }
