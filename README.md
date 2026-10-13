@@ -5,8 +5,15 @@ Pokémon, aguanta oleadas cada vez más grandes, sube de nivel, evoluciona tus
 ataques, entra en las grietas a por legendarios y caza shinies. En el navegador
 y en el móvil, solo o con amigos.
 
+<p align="center"><img src=".github/capturas/partida.webp" width="100%" alt="Una partida a los 4 minutos: tu Pokémon en medio de la horda, con un jefe y disparos enemigos marcados en rojo"></p>
+
 > **Jugar:** https://nicooliver123-cell.github.io/pokeswarm/
 > Fallos, sugerencias y retiradas de contenido: [avisos del repositorio](https://github.com/nicooliver123-cell/pokeswarm/issues).
+
+**Estado (13-10-2026):** se juega entero, solo o en grupo. Las cuentas, los
+amigos, el ranking y el cooperativo acaban de estrenar servidor propio y el
+cooperativo todavía no se ha probado entre dos casas: si algo falla, cuéntalo en
+los avisos.
 
 Es un juego hecho por fans, **gratuito y sin ánimo de lucro**: sin anuncios ni
 compras. Pokémon no es nuestro (ver [Marca](#marca)).
@@ -30,53 +37,54 @@ activo; tú te mueves, esquivas y eliges qué aprender al subir de nivel.
 moverte (el joystick aparece donde tocas), toca un ataque para cambiarlo y el
 botón de arriba a la derecha para pausar. En vertical te pide girar el móvil.
 
-**En un plegable abierto o en una tableta** también se juega en vertical. Con el
-estilo Dex, el HUD se aparta del pliegue de la pantalla para que, a medio
-plegar, ninguna ranura ni el reloj queden encima.
-
-**Pantalla dividida** (opcional, en Ajustes > Controles): el juego en una mitad
-y los mandos en la otra, como en una consola de dos pantallas, con un joystick
-grande, los cuatro ataques, el objeto, la pausa y tus PS. Arriba y abajo, a un
-lado, o sola al plegar el móvil a medias como un portátil (si el navegador lo
-sabe). En un plegable, la división cae en la bisagra.
-
-Se puede **instalar como app** («Añadir a pantalla de inicio» o el botón de
-instalar del navegador). En **Ajustes** están el sonido, los gráficos (con el
-**estilo**: Dex, con menús de Rotom-Dex y letra redondeada, o Clásico, en pixel
-art; y el **píxel nítido**, para que cada píxel del dibujo mida lo mismo en tu
-pantalla), los controles, la cuenta y el aviso legal.
-
 En una partida hay **jefes**, **grietas** con un legendario en una arena aparte
-(siempre se abre una antes de los 2 minutos, con el legendario más débil, para
-que consigas el **vínculo** y fusiones movimientos), **climas** que potencian
-unos tipos y debilitan otros, **altares**, **cofres**, **trampas**, **objetos**,
-y **misiones** y **logros** que dan tickets y monedas. Con los tickets se tira en
-el **gacha**, y un Pokémon repetido desbloquea su siguiente evolución. Los
-tickets que ganas cuentan doble y los shiny salen un 50 % más a menudo. Los
-enemigos no se curan, y los Pokémon más grandes que manejas se encogen para que
-esquivar les cueste lo mismo que a los demás.
+(siempre se abre una antes de los 2 minutos, para que consigas el **vínculo** y
+fusiones movimientos), **climas** que potencian unos tipos y debilitan otros,
+**altares**, **cofres**, **trampas** y **objetos**; fuera de ella, **misiones**
+y **logros** que dan tickets y monedas, y el **gacha**, donde un Pokémon repetido
+desbloquea su siguiente evolución. Los tickets que ganas cuentan doble, los shiny
+salen un 50 % más a menudo, los enemigos no se curan y los Pokémon más grandes que
+manejas se encogen para que esquivar les cueste lo mismo que a los demás.
 
-El guardado vive en tu navegador (como invitado o sin la nube, sólo ahí: si
-borras los datos del sitio, se pierde).
+<p align="center"><img src=".github/capturas/menu.webp" width="70%" alt="El menú principal con el compañero elegido"></p>
+
+### Opciones
+
+- **Instalar como app**: «Añadir a pantalla de inicio» o el botón de instalar
+  del navegador.
+- **Estilo** (Ajustes > Gráficos): Clásico, en pixel art, o Dex, con menús de
+  Rotom-Dex y letra redondeada. Y **píxel nítido**, para que cada píxel del
+  dibujo mida lo mismo en tu pantalla.
+- **Plegables y tabletas**: también se juega en vertical, y el HUD se aparta del
+  pliegue de la pantalla.
+- **Pantalla dividida** (Ajustes > Controles): el juego en una mitad y los mandos
+  en la otra, como en una consola de dos pantallas; en un plegable, la división
+  cae en la bisagra.
 
 ## Cooperativo
 
-Hasta 4 jugadores en la misma partida: añadid vuestros apodos en **Amigos**,
-cread una **sala** e invitad. Los navegadores se conectan directamente entre sí
-(cada uno puede llegar a ver la IP del otro: juega en grupo sólo con gente que
-conozcas).
+Hasta 4 jugadores en la misma partida: cread cada uno una cuenta, añadid vuestros
+apodos en **Amigos**, cread una **sala** e invitad. Los navegadores se conectan
+directamente entre sí (cada uno puede llegar a ver la IP del otro: juega en grupo
+sólo con gente que conozcas); si no pueden, el juego va por su servidor, con algo
+más de retraso.
 
-El cooperativo, las cuentas en la nube, los amigos y el ranking necesitan el
-proyecto de Firebase de PokéSwarm, que **aún no está creado**: hasta entonces el
-juego va en modo local (un jugador, guardado en el navegador). En cuanto esté,
-bastará con crear una cuenta.
+El guardado de un invitado vive sólo en su navegador: si borras los datos del
+sitio, se pierde. Con cuenta, se guarda en la nube.
 
 ## Traer partida guardada
 
 Si tienes una partida en otra web de este juego, puedes sumarla aquí: colección,
 shinies, mejoras, logros, Pokémonedas y tickets. No se borra nada de lo que ya
-tienes y, si la traes otra vez, sólo se suma lo nuevo. PokéSwarm no entra en
-ninguna cuenta ni habla con ningún servidor: la partida la sacas tú.
+tienes y, si la traes otra vez, sólo se suma lo nuevo.
+
+**Antes de empezar:** PokéSwarm no puede entrar en la otra web, así que la
+partida la sacas tú, pegando en la consola de esa web un código de una línea que
+sólo lee la partida que ya tiene tu navegador y la descarga, sin enviar nada a
+ninguna parte. Su versión comentada está en
+[tools/nico/exportar-oficial.js](tools/nico/exportar-oficial.js). Pega sólo ese
+código, copiado tú mismo del juego: nunca pegues en la consola código que te pase
+otra persona.
 
 1. En un **PC**, abre la web donde tienes tu partida, con tu cuenta iniciada.
 2. Pulsa `F12` y ve a la pestaña **Consola**. Si Chrome te pide escribir
@@ -86,12 +94,6 @@ ninguna cuenta ni habla con ningún servidor: la partida la sacas tú.
    archivo `.json` con tu partida.
 4. Vuelve a PokéSwarm, pulsa **Elegir archivo**, elige ese archivo, mira la
    vista previa y pulsa **Confirmar**.
-
-El código sólo lee la partida que ya tiene tu navegador y la descarga: no envía
-nada a ninguna parte. Su versión comentada está en
-[tools/nico/exportar-oficial.js](tools/nico/exportar-oficial.js). Pega sólo ese
-código, copiado del juego: nunca pegues en la consola código que te pase otra
-persona.
 
 ## Créditos
 
@@ -121,7 +123,8 @@ licencias. Todo está en [LICENSE](LICENSE) y [CREDITS.md](CREDITS.md).
 
 HTML y JavaScript sin dependencias, sobre Canvas. Se edita `dev.html` (carga los
 scripts sueltos), y `index.html` y `js/app.min.js` se generan con
-`node tools/build.js --privado`. Las reglas del proyecto están en
-[CLAUDE.md](CLAUDE.md), los pendientes en [PLAN.md](PLAN.md) y las pruebas
-(`npm test`) en [tools/nico/README.md](tools/nico/README.md). Los iconos salen
-de `tools/nico/iconos.py`.
+`node tools/build.js --privado`. Cada push pasa `node tools/nico/check.js` en
+GitHub Actions y, si va bien, publica en GitHub Pages sólo los ficheros del juego
+(`tools/nico/sitio.js`). Las reglas del proyecto están en [CLAUDE.md](CLAUDE.md),
+los pendientes en [PLAN.md](PLAN.md) y las pruebas (`npm test`) en
+[tools/nico/README.md](tools/nico/README.md).
