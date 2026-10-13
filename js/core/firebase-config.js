@@ -1,19 +1,15 @@
-/* ============ firebase-config.js — conexión con tu proyecto de Firebase ============
- * Pega aquí la configuración de tu app web de Firebase (Consola de Firebase >
- * Configuración del proyecto > Tus apps > SDK setup and configuration > Config).
- * Los pasos completos están en docs/FIREBASE.md.
+/* ============ firebase-config.js — conexión con el Firebase de PokéSwarm ============
+ * Configuración de la app web del proyecto Firebase propio (pokeswarm-9e39d,
+ * creado el 13-10-2026, plan Spark y sin Analytics).
  *
  * Estos datos NO son secretos: Firebase los diseña para ir en la web. Lo que
- * protege las partidas son las reglas de Firestore (firestore.rules).
+ * protege las partidas son las reglas (firestore.rules y database.rules.json).
+ * Con G.FIREBASE_CONFIG = null el juego funciona en modo local (sólo en el navegador).
  *
- * Si se pone a null, el juego funciona en modo local (sólo en el navegador).
- *
- * MOD nico: esta versión modificada NUNCA debe apuntar al Firebase del juego
- * original (es su proyecto y su factura). Mientras no exista un proyecto propio
- * se queda en null = modo local: un jugador, sin cuentas en la nube, ranking
- * ni cooperativo. Cuando exista:
- *   1. pega aquí SU config (sin measurementId),
- *   2. añade su projectId a G.FIREBASE_PROYECTOS (la lista blanca de abajo),
+ * MOD nico: sólo se conecta a proyectos de la lista blanca G.FIREBASE_PROYECTOS
+ * (abajo) y con URLs de ese mismo proyecto. Para cambiar de proyecto:
+ *   1. pega aquí su config (sin measurementId),
+ *   2. añade su projectId a G.FIREBASE_PROYECTOS,
  *   3. reconstruye con `node tools/build.js --privado` y pasa tools/nico.
  */
 G.FIREBASE_CONFIG = {   // MOD nico: proyecto Firebase propio de PokéSwarm (creado el 13-10-2026, sin Analytics)
