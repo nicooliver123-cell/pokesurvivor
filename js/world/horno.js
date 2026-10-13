@@ -33,7 +33,7 @@ G.Horno = (() => {
                   maxPorFotograma: 0, msMax: 0, msMedio: 0, ultimoCambio: null };
 
   let pre = null;                      // { bioma, clave, mapa: Map } con el bioma siguiente
-  let viejas = null;                   // imágenes de antes de cambiar de estilo (red de seguridad)
+  let viejas = null, viejasDe = null;  // imágenes de antes de cambiar de estilo (red de seguridad) y su mundo
   const pendientes = new Map();        // chunks aplazados en este fotograma: "cx,cy" -> [cx, cy]
   let propio = false, fallo = false;   // horneando el horno (no se aplaza) / ¿hubo que hornear?
   let forzado = null;                  // inicio de un horneado de drawGround que no se pudo aplazar
@@ -49,7 +49,10 @@ G.Horno = (() => {
   /** La clave de lo que hace válida una imagen: el mundo (semilla), la arena abierta y el estilo. */
   function clave() { return [G.World.semilla, G.World.arena, G.Estilo ? G.Estilo.actual : '']; }
   const misma = (a, b) => a && b && a.length === b.length && a.every((v, i) => v === b[i]);
-  function validar() { if (pre && !misma(pre.clave, clave())) pre = null; }
+  function validar() {
+    if (pre && !misma(pre.clave, clave())) pre = null;
+    if (viejas && (viejasDe[0] !== G.World.semilla || viejasDe[1] !== G.World.arena)) viejas = null;   // otro mundo u otra arena
+  }
 
   /** Chunks de la vista (con `margen` chunks alrededor), del más cercano a (x, y) al más lejano. */
   function chunks(cam, margen, x, y) {
@@ -111,6 +114,7 @@ G.Horno = (() => {
     cerrarForzado();
     conGancho = true;
     if (propio) { fallo = true; return null; }
+    if (viejas) validar();
     // Sin tick() (sin entorno.js) nadie lo hornearía después: no se aplaza nada.
     const viejo = actual && turno > 0 ? (fade && fade.images && fade.images.get(k)) || (viejas && viejas.get(k)) || null : null;
     if (viejo) {
@@ -139,8 +143,10 @@ G.Horno = (() => {
   function rehornear() {
     pre = null;
     if (!G.World.rehornear) return;
+    validar();
     const v = G.World.rehornear(), antes = viejas;
     viejas = v && v.size ? v : null;
+    viejasDe = [G.World.semilla, G.World.arena];
     if (antes) { viejas = viejas || new Map(); for (const [k, img] of antes) if (!viejas.has(k)) viejas.set(k, img); }
   }
 

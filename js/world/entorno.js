@@ -123,23 +123,26 @@ G.Entorno = (() => {
     // Coordenadas de cada columna en la rejilla de tiles (iguales en todas las filas).
     const I0 = new Int32Array(W), FU = new Float32Array(W), TX = new Int32Array(W);
     for (let px = 0; px < W; px++) { const u = (px + 0.5) / T + Mg - 0.5; I0[px] = Math.floor(u); FU[px] = u - I0[px]; TX[px] = Math.floor(px / T); }
+    // Interpolación bilineal en dos pasos: en vertical, una vez por fila y columna de la rejilla; en horizontal, por píxel.
+    const cA = new Float32Array(S), cL = new Float32Array(S), cR = new Float32Array(S);
     for (let py = 0; py < W; py++) {
       const v = (py + 0.5) / T + Mg - 0.5, j0 = Math.floor(v), fv = v - j0, gv = 1 - fv;
-      const fila = (Math.floor(py / T) + Mg) * S + Mg, base = j0 * S;
+      const fila = (Math.floor(py / T) + Mg) * S + Mg;
+      for (let i = 0, o = j0 * S; i < S; i++, o++) {
+        cA[i] = pared[o] * gv + pared[o + S] * fv; cL[i] = liq[o] * gv + liq[o + S] * fv; cR[i] = ruido[o] * gv + ruido[o + S] * fv;
+      }
       for (let px = 0; px < W; px++) {
         if (tipo[fila + TX[px]] !== 0) continue;                       // sólo el suelo
-        const fu = FU[px], o = base + I0[px];
-        const w00 = (1 - fu) * gv, w10 = fu * gv, w01 = (1 - fu) * fv, w11 = fu * fv;
-        const ao = pared[o] * w00 + pared[o + 1] * w10 + pared[o + S] * w01 + pared[o + S + 1] * w11;
-        const lq = liq[o] * w00 + liq[o + 1] * w10 + liq[o + S] * w01 + liq[o + S + 1] * w11;
-        const k = (ruido[o] * w00 + ruido[o + 1] * w10 + ruido[o + S] * w01 + ruido[o + S + 1] * w11 - 0.5) * GAN;
+        const i = I0[px], fu = FU[px];
+        const ao = cA[i] + (cA[i + 1] - cA[i]) * fu, lq = cL[i] + (cL[i + 1] - cL[i]) * fu;
+        const k = (cR[i] + (cR[i + 1] - cR[i]) * fu - 0.5) * GAN;
         const c = P.get(px, py);
         let r = c & 255, gg = (c >>> 8) & 255, b = (c >>> 16) & 255, t;
         if (k > 0) { t = k < 1 ? k * LM : LM; r += (lr - r) * t; gg += (lg - gg) * t; b += (lb - b) * t; }
         else { t = -k < 1 ? -k * SM : SM; r += (sr - r) * t; gg += (sg - gg) * t; b += (sb - b) * t; }
-        if (ao > 0.01) { t = Math.min(OCM, ao * OCK); r += (sr - r) * t; gg += (sg - gg) * t; b += (sb - b) * t; }
-        if (lq > 0.01 && X) { t = Math.min(XKm, lq * XKk); r += (X[0] - r) * t; gg += (X[1] - gg) * t; b += (X[2] - b) * t; }
-        P.set(px, py, ((c & 0xff000000) | (Math.round(b) << 16) | (Math.round(gg) << 8) | Math.round(r)) >>> 0);
+        if (ao > 0.01) { t = ao * OCK < OCM ? ao * OCK : OCM; r += (sr - r) * t; gg += (sg - gg) * t; b += (sb - b) * t; }
+        if (lq > 0.01 && X) { t = lq * XKk < XKm ? lq * XKk : XKm; r += (X[0] - r) * t; gg += (X[1] - gg) * t; b += (X[2] - b) * t; }
+        P.set(px, py, ((c & 0xff000000) | (((b + 0.5) | 0) << 16) | (((gg + 0.5) | 0) << 8) | ((r + 0.5) | 0)) >>> 0);
       }
     }
   }

@@ -3766,7 +3766,7 @@ function entornoChecks() {
     G.Tiles.paintChunk = function (cx, cy, n, at, df, bi) {
       const cv = pinta.apply(this, arguments);
       reloj.t += lento;
-      cv.__bi = bi; cv.__estilo = G.Estilo.actual; cv.__k = cx + ',' + cy;
+      cv.__bi = bi; cv.__estilo = G.Estilo.actual; cv.__k = cx + ',' + cy; cv.__sem = G.World.semilla;
       hornos.push(cv.__k);
       return cv;
     };
@@ -3964,6 +3964,15 @@ function entornoChecks() {
     const finales = vis.map(k => { const [cx, cy] = k.split(',').map(Number); return G.World.chunkImage(cx, cy).__estilo; });
     t(`al cambiar de estilo (en la pausa): ningún horneado de golpe, como mucho 1 por fotograma (${ns.slice(0, vis.length + 1).join(',')}), el de tu Pokémon primero (${hechos[0]}) y, en ${vis.length + 1} fotogramas, todo lo visible en Clásico`,
       Math.max(...ns) <= 1 && hechos[0] === mio && finales.every(e => e === 'clasico') && !G.Horno.conViejas, { ns: ns.slice(0, 12), hechos: hechos.slice(0, 4), finales });
+    // Y si justo después empieza otra partida (otro mundo) o se abre una arena, nada de las imágenes viejas.
+    G.World.reset(SEMILLA); G.World.setBiome(0, true); asentar(M, cam);
+    G.Estilo.set('dex'); G.World.reset(777); G.World.setBiome(1, true);
+    const f = fotograma(M, cam);
+    G.Estilo.set('clasico'); G.World.setArena({ tx: Math.floor(-700 / 32), ty: Math.floor(900 / 32), r: 10, type: 'water' }); G.World.setBiome(G.Tiles.arenaBiome('water'), true);
+    const g = fotograma(M, cam);
+    t('tras cambiar de estilo, si empieza otra partida (otro mundo) o se abre una arena, no se pinta ninguna imagen vieja: se hornea lo de ese mundo, como upstream',
+      f.ctx.imgs.length && f.ctx.imgs.every(im => im[0].__sem === 777 && im[0].__bi === 1) && g.ctx.imgs.length && g.ctx.imgs.every(im => im[0].__sem === 777 && im[0].__bi === G.Tiles.arenaBiome('water')),
+      { f: f.ctx.imgs.map(im => [im[0].__sem, im[0].__bi]), g: g.ctx.imgs.map(im => [im[0].__sem, im[0].__bi]) });
   } catch (e) { t('cambio de estilo', false, String(e && e.stack || e)); }
   try {
     // D5. El fondo de los menús: siempre precalentado el bioma siguiente; el cambio de cada 30 s no hornea nada.
