@@ -1,5 +1,5 @@
 /* ============ tools/nico/estilo-e2e.js — prueba de la identidad visual en el navegador ============
- *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud | --solo-portada | --solo-entornos | --solo-juego]
+ *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud | --solo-portada | --solo-entornos | --solo-juego | --solo-companero]
  *
  * Arnés del estilo «Dex de Expedición» (lote 1: base del estilo y menús). Modo local, un jugador
  * invitado, sin emulador: abre index.html (con --dev, dev.html) en Chromium con Playwright y, en
@@ -90,6 +90,15 @@
  *      división ni sobre el pliegue, botones de 44 px, un píxel de arte de 1,2 px CSS o más en px físicos enteros, el
  *      ataque 2 con el dedo o el ratón, el joystick del panel mueve a tu Pokémon, el teclado sigue, la pista del joystick, desplegar y replegar en plena partida, cambiar el modo
  *      desde la pausa sin reiniciar y, en el menú, la pantalla entera.
+ *  16. «Elige a tu compañero» sin el test de personalidad (--solo-companero; G.MODS.sinTest): un invitado nuevo va directo
+ *      a la pantalla (el test no sale nunca), en Dex y en Clásico, en escritorio, el móvil, el Magic V6 (las dos posturas
+ *      abierto, con la barra del navegador, el exterior y la mitad de arriba en modo mesa) y los otros plegables: los 29
+ *      iniciales a la vista sin desplazar (dentro de la caja y de la ventana), cada uno con su nombre entero, sus tipos
+ *      (con nombre o con emblema, y en la etiqueta accesible) y su sprite a píxeles físicos enteros sin tocar el borde del
+ *      lienzo; los botones de 44 px con Dex en táctil; elegir (con el dedo en táctil), «Al azar» (otro distinto) y
+ *      «Elegir a X» guardan el inicial, el compañero, la personalidad en null y el logro «Primer compañero». Teclado en
+ *      escritorio: un solo Tab para la rejilla, flechas, Inicio, Fin, Espacio, Intro hasta «Elegir a X» y el anillo de
+ *      foco. Al cambiar de tamaño se recoloca; en vertical (360x807) sale «Gira el móvil» y al girar cabe; en inglés.
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
@@ -114,7 +123,8 @@ const SOLO_HUD = process.argv.includes('--solo-hud');   // sólo el HUD Dex en p
 const SOLO_PORTADA = process.argv.includes('--solo-portada');   // sólo la portada «Tarjeta de entrenador» (sección 12)
 const SOLO_ENTORNOS = process.argv.includes('--solo-entornos');   // sólo los entornos del Gremio, el clima y el horneado (sección 13)
 const SOLO_JUEGO = process.argv.includes('--solo-juego');   // sólo los ajustes de juego y la pantalla dividida (secciones 14 y 15)
-const OTRAS = !SOLO_HUD && !SOLO_PORTADA && !SOLO_ENTORNOS && !SOLO_JUEGO;      // todas las secciones
+const SOLO_COMPANERO = process.argv.includes('--solo-companero');   // sólo «Elige a tu compañero» sin el test (sección 16)
+const OTRAS = !SOLO_HUD && !SOLO_PORTADA && !SOLO_ENTORNOS && !SOLO_JUEGO && !SOLO_COMPANERO;      // todas las secciones
 const ESTILOS = ['clasico', 'dex'];
 
 /** Avisos de la consola que son del entorno de la prueba, no del juego. */
@@ -161,10 +171,18 @@ async function captura(page, nombre) {
 }
 
 // ---------------- arranque de un jugador (invitado, modo local) ----------------
+/** Modo local: la prueba es de un jugador invitado sin emulador. Desde el 13-10-2026 lo publicado lleva la config del
+ *  Firebase propio, que cargaría el SDK de gstatic y hablaría con el proyecto de verdad: antes de que lo ponga
+ *  firebase-config.js, G.FIREBASE_CONFIG se queda en null (sólo en la prueba; el juego no cambia). */
+const SIN_NUBE = () => {
+  window.G = window.G || {};
+  Object.defineProperty(window.G, 'FIREBASE_CONFIG', { get: () => null, set() {}, configurable: true, enumerable: true });
+};
 async function nuevo(browser, v, { sw = false, perf = false } = {}) {
   // v.pantalla: [ancho, alto] de la pantalla entera si no es la ventana (el plegable con la barra del navegador).
   const ctx = await browser.newContext({ viewport: { width: v.w, height: v.h }, deviceScaleFactor: v.dpr || 1, hasTouch: !!v.tactil, isMobile: !!v.tactil,
     serviceWorkers: sw ? 'allow' : 'block', locale: 'es-ES', ...(v.pantalla ? { screen: { width: v.pantalla[0], height: v.pantalla[1] } } : {}) });
+  await ctx.addInitScript(SIN_NUBE);
   if (v.seguras) await simularSeguras(ctx, v.seguras);
   if (perf) await ctx.addInitScript(PERF_INIT);
   const page = await ctx.newPage();
@@ -183,6 +201,12 @@ async function entrar(P) {
   if (gira) return false;
   if (await page.locator('#tap-start').isVisible().catch(() => false)) await page.click('#tap-start');
   await page.locator('#btn-guest').click();
+  // Sin el test (G.MODS.sinTest): «Elige a tu compañero», una celda y «Elegir a X». Con sinTest = false, el test.
+  await page.waitForFunction(() => ['scr-starters', 'scr-test', 'scr-menu'].some(id => !document.getElementById(id).classList.contains('hidden')), null, { timeout: 15000 });
+  if (await page.locator('#scr-starters.sin-test').isVisible().catch(() => false)) {
+    await page.locator('#starter-grid .ec-celda').nth(1).click();
+    await page.click('#ec-ok');
+  }
   for (let n = 0; n < 40 && await page.locator('#scr-test').isVisible(); n++) { await page.locator('#test-a .answer').first().click(); await sleep(40); }
   if (await page.locator('#scr-result').isVisible()) await page.click('#res-ok');
   await page.locator('#scr-menu').waitFor({ state: 'visible', timeout: 15000 });
@@ -204,7 +228,8 @@ const PANTALLAS = [
   ['scr-login', 'G.UI.hideAll(); G.LoginUI.open();'],
   ['scr-test', 'G.UI.hideAll(); G.TestUI.start();'],
   ['scr-result', 'G.UI.hideAll(); G.UI.show("scr-result");'],
-  ['scr-starters', 'G.UI.hideAll(); G.UI.show("scr-result"); document.getElementById("res-other").click();'],
+  ['scr-starters', 'G.UI.hideAll(); G.ElegirCompanero.abrir();'],   // «Elige a tu compañero» (sin el test, G.MODS.sinTest)
+  ['scr-starters', 'G.UI.hideAll(); G.UI.show("scr-result"); document.getElementById("res-other").click();', '', 'test'],   // «Elegir otro» del test (sinTest = false)
   ['scr-menu', 'G.MenuUI.open();'],
   ['scr-settings', 'G.MenuUI.open(); G.SettingsUI.open("sound");', 'G.SettingsUI.close();'],
   ['scr-settings', 'G.MenuUI.open(); G.SettingsUI.open("gfx");', 'G.SettingsUI.close();', 'gfx'],
@@ -1299,8 +1324,17 @@ async function pruebaPortada(browser) {
     check(`${nv} Dex: inicio de sesión entero sin desplazar, con el Rotom-Dex delante del nombre y sin lengüeta; las pestañas Entrar y Crear cuenta se alcanzan con Tab, Intro elige y las flechas cambian${movil ? ` (${pLogin} % opaco)` : ''}`,
       lg.dentro && lg.desplaza <= 1 && lg.rotom && !lg.lengueta && lg.pagina <= 0 && tabs.length === 2 && tabs.every(t => t.rol === 'tab' && t.tab === 0) &&
       segunda === 'register' && registro && vuelta, { lg, tabs, segunda, registro, vuelta, pLogin });
-    // Test y resultado: la misma tarjeta, sin oscurecido (retoque d).
+    // Sin el test (G.MODS.sinTest): «Elige a tu compañero», entera y sin desplazar.
     await page.click('#btn-guest');
+    await page.locator('#scr-starters.sin-test').waitFor({ state: 'visible' });
+    await sleep(500);
+    const ec = await page.evaluate(CARA, ['#scr-starters .box', '#nada']);
+    const ecTest = await page.evaluate(() => !document.getElementById('scr-test').classList.contains('hidden'));
+    await captura(page, `portada-companero-dex-${nv}`);
+    check(`${nv} Dex: tras «Jugar como invitado», «Elige a tu compañero» (no el test), entera dentro de la ventana y sin desplazar`,
+      !ecTest && ec.dentro && ec.desplaza <= 1 && ec.pagina <= 0, { ec, ecTest });
+    // Test y resultado (con sinTest = false): la misma tarjeta, sin oscurecido (retoque d).
+    await page.evaluate(() => { G.UI.hideAll(); G.TestUI.start(); });
     await page.locator('#scr-test').waitFor({ state: 'visible' });
     await sleep(300);
     const te = await page.evaluate(CARA, ['#scr-test .test-box', '#nada']);
@@ -2221,6 +2255,237 @@ async function pruebaDividida(browser) {
   }
 }
 
+// ---------------- 16. «Elige a tu compañero» sin el test de personalidad (G.MODS.sinTest) ----------------
+// Los tamaños que pidió Nico (escritorio, el móvil y el Magic V6: abierto en las dos posturas y con la barra del navegador,
+// el exterior y la mitad de arriba en modo mesa) y los otros plegables.
+const COMPANERO_VP = [VP.pc, VP.fhd, VP.tab, VP.movil, VP.movilBajo, VP.exterior, { w: 784, h: 362, dpr: 3, tactil: true, pantalla: [784, 724] },
+  VP.pleg1, VP.pleg2, { w: 724, h: 700, dpr: 3, tactil: true, pantalla: [724, 784] }, { w: 784, h: 640, dpr: 3, tactil: true, pantalla: [784, 724] }, VP.pleg3, VP.pleg4];
+
+/** Vigilante del test de personalidad desde el arranque: apunta si #scr-test llega a verse (con sinTest, nunca). */
+const VIGIA_TEST = () => {
+  window.__testVisto = false;
+  const mirar = () => { const t = document.getElementById('scr-test'); if (t && !t.classList.contains('hidden')) window.__testVisto = true; };
+  document.addEventListener('DOMContentLoaded', () => new MutationObserver(mirar).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] }));
+};
+
+/** «Elige a tu compañero» abierta: la caja, la rejilla y cada celda (nombre, tipos, lienzo) y los botones. */
+const MEDIR_COMPANERO = () => {
+  const W = innerWidth, H = innerHeight, rr = el => el.getBoundingClientRect(), de = document.documentElement;
+  const scr = document.getElementById('scr-starters'), box = scr.querySelector('.box'), grid = document.getElementById('starter-grid');
+  const B = rr(box), d = G.ElegirCompanero.disp, dpr = devicePixelRatio || 1;
+  const vis = el => !!el && getComputedStyle(el).display !== 'none' && rr(el).width > 0;
+  const dentroDe = (q, r) => q.left >= r.left - 0.5 && q.right <= r.right + 0.5 && q.top >= r.top - 0.5 && q.bottom <= r.bottom + 0.5;
+  const celdas = [...grid.querySelectorAll('.ec-celda')], fuera = [], cortados = [], tipos = [], lienzos = [];
+  for (const c of celdas) {
+    const r = rr(c), dex = +c.dataset.dex, mon = G.DEX_BY[dex];
+    if (!dentroDe(r, B) || !dentroDe(r, { left: 0, top: 0, right: W, bottom: H }) || r.height < 44 || r.width < 44) fuera.push(dex);
+    for (const x of c.querySelectorAll('canvas, b, .ec-tipos')) if (vis(x) && !dentroDe(rr(x), r)) fuera.push(dex + ':' + x.className + x.tagName);
+    const b = c.querySelector('b');
+    if (b.scrollWidth > b.clientWidth || b.textContent !== mon.name) cortados.push(dex);
+    // Tipos: con su nombre (las píldoras de G.UI.typeChips) o con su emblema (uno por tipo); siempre en la etiqueta accesible.
+    const nombres = mon.types.map(t => G.T(G.U.TYPE_NAME[t])), txt = c.querySelector('.ec-txt'), emb = c.querySelector('.ec-emb');
+    const conTexto = vis(txt) && [...txt.children].map(x => x.textContent.trim()).join('|') === nombres.join('|') && [...txt.children].every(x => dentroDe(rr(x), r));
+    const conEmblema = vis(emb) && emb.querySelectorAll('img').length === mon.types.length && dentroDe(rr(emb), r);
+    const etiqueta = c.getAttribute('aria-label') || '';
+    if (!(conTexto || conEmblema) || !etiqueta.includes(mon.name) || !nombres.every(n => etiqueta.includes(n))) tipos.push({ dex, conTexto, conEmblema, etiqueta });
+    // El lienzo mide lo que se ve en píxeles físicos enteros y el sprite va a k píxeles físicos por píxel de arte.
+    const cv = c.querySelector('canvas'), q = cv && rr(cv);
+    if (!cv || Math.abs(cv.width - q.width * dpr) > 0.6 || cv.height !== G.ElegirCompanero.ALTO_ARTE * d.k || Math.abs(cv.height - q.height * dpr) > 0.6) lienzos.push(dex);
+  }
+  const botones = [...document.querySelectorAll('.ec-pie .btn')].map(b => ({ id: b.id, alto: Math.round(rr(b).height), dentro: dentroDe(rr(b), B) && dentroDe(rr(b), { left: 0, top: 0, right: W, bottom: H }) }));
+  return {
+    celdas: celdas.length, cols: d.cols, filas: d.filas, k: d.k, modo: d.modo, cabe: d.cabe,
+    caja: dentroDe(B, { left: 0, top: 0, right: W, bottom: H }), desplazaCaja: Math.max(0, box.scrollHeight - box.clientHeight),
+    desplazaRejilla: Math.max(0, grid.scrollHeight - grid.clientHeight), pagina: de.scrollWidth - de.clientWidth, paginaAlto: de.scrollHeight - de.clientHeight,
+    pantalla: scr.scrollWidth - scr.clientWidth, fuera, cortados, tipos, lienzos, botones,
+    clase: scr.classList.contains('sin-test'), visible: !scr.classList.contains('hidden'), test: window.__testVisto === true,
+    volver: vis(document.getElementById('starter-back')), menuDetras: getComputedStyle(document.getElementById('scr-menu')).visibility !== 'hidden' && !document.getElementById('scr-menu').classList.contains('hidden')
+  };
+};
+const bienCompanero = (m, tactilDex) => m.visible && m.clase && !m.test && m.celdas === 29 && m.cabe && m.caja && m.desplazaCaja <= 1 && m.desplazaRejilla <= 1 &&
+  m.pagina <= 0 && m.paginaAlto <= 0 && m.pantalla <= 1 && !m.fuera.length && !m.cortados.length && !m.tipos.length && !m.lienzos.length && !m.volver && !m.menuDetras &&
+  m.botones.length === 2 && m.botones.every(b => b.dentro && (!tactilDex || b.alto >= 44));
+
+/** Que no se corte ningún sprite: en 45 fotogramas de verdad (su animación Idle), el borde de cada lienzo transparente
+ *  (y algo pintado dentro). */
+const BORDES_COMPANERO = async () => {
+  const cvs = [...document.querySelectorAll('#starter-grid .ec-celda canvas')];
+  const res = cvs.map(cv => ({ dex: +cv.closest('.ec-celda').dataset.dex, toca: false, opacos: 0 }));
+  for (let f = 0; f < 45; f++) {
+    await new Promise(r => requestAnimationFrame(r));
+    cvs.forEach((cv, i) => {
+      const w = cv.width, h = cv.height, px = cv.getContext('2d').getImageData(0, 0, w, h).data, a = (x, y) => px[(y * w + x) * 4 + 3];
+      let toca = false, opacos = 0;
+      for (let x = 0; x < w && !toca; x++) if (a(x, 0) > 8 || a(x, h - 1) > 8) toca = true;
+      for (let y = 0; y < h && !toca; y++) if (a(0, y) > 8 || a(w - 1, y) > 8) toca = true;
+      for (let j = 3; j < px.length; j += 4) if (px[j] > 8) opacos++;
+      res[i].toca = res[i].toca || toca; res[i].opacos = Math.max(res[i].opacos, opacos);
+    });
+  }
+  return res.map(x => ({ dex: x.dex, toca: x.toca, vacio: x.opacos < 40 }));
+};
+
+/** Un invitado nuevo en `estilo` (lo guardado antes de cargar) hasta «Elige a tu compañero». */
+async function nuevoCompanero(browser, v, e) {
+  const P = await nuevo(browser, v);
+  await P.ctx.addInitScript(x => { try { localStorage.setItem('ps.settings', JSON.stringify({ estilo: x })); } catch (err) { /* nada */ } }, e);
+  await P.ctx.addInitScript(VIGIA_TEST);
+  const { page } = P;
+  await page.goto(BASE, { waitUntil: 'load' });
+  await page.waitForFunction(() => document.getElementById('boot') && document.getElementById('boot').classList.contains('hidden'), null, { timeout: 30000 });
+  await sleep(200);
+  P.gira = await page.evaluate(() => !document.getElementById('rotate').classList.contains('hidden'));
+  if (P.gira) {   // en vertical, «Gira el móvil» tapa los botones: se entra por código, como si se hubiera tocado
+    await page.evaluate(() => { document.getElementById('tap-start').click(); G.DB.playAsGuest(); G.Flow.afterLogin(); });
+  } else {
+    if (await page.locator('#tap-start').isVisible().catch(() => false)) await page.click('#tap-start');
+    await page.locator('#btn-guest').click();
+  }
+  await page.locator('#scr-starters.sin-test').waitFor({ state: P.gira ? 'attached' : 'visible', timeout: 15000 });
+  await sleep(700);   // la animación de entrada de la caja y los sprites
+  return P;
+}
+
+async function pruebaCompanero(browser) {
+  const resumen = {};
+  for (const v of COMPANERO_VP) for (const e of ESTILOS) {
+    const P = await nuevoCompanero(browser, v, e), { page } = P, nv = nombreVp(v), tactilDex = !!v.tactil && e === 'dex';
+    const m = await page.evaluate(MEDIR_COMPANERO);
+    resumen[`${nv} ${e}`] = `${m.cols}x${m.filas} k${m.k} ${m.modo}`;
+    await captura(page, `companero-${e}-${nv}`);
+    check(`${nv} ${e}: un invitado nuevo va directo a «Elige a tu compañero» (el test no sale): los 29 a la vista sin desplazar (${m.cols}x${m.filas}, ${m.k} px físicos por píxel de arte, tipos ${m.modo === 'emblema' ? 'con emblema' : 'con nombre'}), cada uno con su nombre entero, sus tipos y su sprite dentro de la celda, sin «Volver»${tactilDex ? ', botones de 44 px' : ''}`,
+      bienCompanero(m, tactilDex), m);
+    const bordes = await page.evaluate(BORDES_COMPANERO);
+    check(`${nv} ${e}: ningún sprite de los 29 toca el borde de su lienzo en 45 fotogramas de su animación (y todos se han pintado)`, bordes.length === 29 && bordes.every(b => !b.toca && !b.vacio), bordes.filter(b => b.toca || b.vacio));
+    // Elegir (con el dedo en táctil), «Al azar» (otro distinto) y confirmar.
+    const celda = page.locator('#starter-grid .ec-celda').nth(7);   // Torchic
+    if (v.tactil) await celda.tap(); else await celda.click();
+    await sleep(120);
+    const elegido = await page.evaluate(() => ({ sel: G.ElegirCompanero.elegido, boton: document.getElementById('ec-ok').textContent, activo: !document.getElementById('ec-ok').disabled,
+      marcadas: [...document.querySelectorAll('#starter-grid .ec-celda[aria-checked="true"].on')].map(c => +c.dataset.dex),
+      info: document.getElementById('ec-info').textContent.replace(/\s+/g, ' ').trim() }));
+    if (['pc', 'movil', 'pleg2'].some(k => VP[k] === v)) await captura(page, `companero-elegido-${e}-${nv}`);
+    await page.click('#ec-azar');
+    await sleep(80);
+    const azar = await page.evaluate(() => G.ElegirCompanero.elegido);
+    const nombreAzar = await page.evaluate(d => G.DEX_BY[d].name, azar);
+    const botonAzar = await page.evaluate(() => document.getElementById('ec-ok').textContent);
+    const m2 = await page.evaluate(MEDIR_COMPANERO);   // con la elegida (borde de oro) y el texto de abajo, todo sigue igual
+    check(`${nv} ${e}: elegir marca uno (Torchic, «Elegir a Torchic», sus tipos y su movimiento abajo); «Al azar» elige otro distinto sin confirmar; nada se mueve`,
+      elegido.sel === 255 && elegido.boton === 'Elegir a Torchic' && elegido.activo && elegido.marcadas.join() === '255' && /Fuego/.test(elegido.info) && /Ascuas/.test(elegido.info) &&
+      azar && azar !== 255 && botonAzar === 'Elegir a ' + nombreAzar && bienCompanero(m2, tactilDex), { elegido, azar, botonAzar, m2: bienCompanero(m2, tactilDex) ? 'bien' : m2 });
+    if (v.tactil) await page.tap('#ec-ok'); else await page.click('#ec-ok');
+    await page.locator('#scr-menu').waitFor({ state: 'visible', timeout: 15000 });
+    await sleep(200);
+    const fin = await page.evaluate(() => { const s = G.DB.save; return { starter: s.starter, partner: s.partner, personality: s.personality, origen: s.owned[s.partner] && s.owned[s.partner].from,
+      logro: !!(s.ach && s.ach.own1), test: window.__testVisto === true, clase: document.getElementById('scr-starters').classList.contains('sin-test') }; });
+    check(`${nv} ${e}: «Elegir a ${nombreAzar}» guarda el inicial y el compañero, la personalidad en null y el logro «Primer compañero», y va al menú (la pantalla vuelve a ser la de upstream)`,
+      fin.starter === azar && fin.partner === azar && fin.personality === null && fin.origen === 'starter' && fin.logro && !fin.test && !fin.clase, fin);
+    check(`${nv} ${e}: consola sin errores ni avisos y nada pedido fuera de 127.0.0.1`, !P.consola.length && !P.fuera.length, { consola: P.consola.slice(0, 5), fuera: P.fuera.slice(0, 5) });
+    await P.ctx.close();
+  }
+  report.medidas.companero = resumen;
+  console.log('[INFO] «Elige a tu compañero»: ' + Object.entries(resumen).map(([k, x]) => `${k} ${x}`).join(' · '));
+
+  // Teclado (escritorio, los dos estilos): una sola parada de Tab para la rejilla, flechas, Inicio, Fin, Espacio, Tab hasta los
+  // botones e Intro: elige y lleva a «Elegir a X»; otro Intro confirma. Con el anillo de foco a la vista.
+  for (const e of ESTILOS) {
+    const P = await nuevoCompanero(browser, VP.pc, e), { page } = P;
+    const estado = () => page.evaluate(() => {
+      const cs = [...document.querySelectorAll('#starter-grid .ec-celda')], a = document.activeElement;
+      return { foco: cs.indexOf(a), id: a && a.id, sel: cs.findIndex(c => c.getAttribute('aria-checked') === 'true'), paradas: cs.filter(c => c.tabIndex === 0).length,
+        anillo: a && getComputedStyle(a).outlineStyle !== 'none' && parseFloat(getComputedStyle(a).outlineWidth) >= 2, cols: G.ElegirCompanero.disp.cols,
+        rol: document.getElementById('starter-grid').getAttribute('role') };
+    });
+    const pasos = { inicio: await estado() };
+    await page.keyboard.press('ArrowRight'); pasos.derecha = await estado();
+    await page.keyboard.press('ArrowDown'); pasos.abajo = await estado();
+    await page.keyboard.press('End'); pasos.fin = await estado();
+    await page.keyboard.press('Home'); pasos.casa = await estado();
+    await page.keyboard.press('ArrowLeft'); pasos.izquierda = await estado();   // del primero, al último (da la vuelta)
+    await page.keyboard.press('Space'); pasos.espacio = await estado();
+    await sleep(200);   // el botón «Elegir a X» acaba de activarse (su filtro tarda 0,12 s)
+    await captura(page, `companero-foco-${e}-${nombreVp(VP.pc)}`);
+    await page.keyboard.press('Tab'); pasos.tab1 = await estado();
+    await page.keyboard.press('Tab'); pasos.tab2 = await estado();
+    await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Shift+Tab'); pasos.vuelta = await estado();
+    await page.keyboard.press('ArrowRight'); await page.keyboard.press('Enter'); pasos.intro = await estado();
+    const c = pasos.inicio.cols;
+    const bien = pasos.inicio.rol === 'radiogroup' && pasos.inicio.foco === 0 && pasos.inicio.paradas === 1 && pasos.derecha.foco === 1 && pasos.derecha.sel === 1 &&
+      pasos.derecha.anillo && pasos.abajo.foco === 1 + c && pasos.abajo.sel === 1 + c && pasos.fin.sel === 28 && pasos.casa.sel === 0 && pasos.izquierda.sel === 28 &&
+      pasos.espacio.sel === 28 && pasos.tab1.id === 'ec-azar' && pasos.tab2.id === 'ec-ok' && pasos.vuelta.foco === 28 && pasos.vuelta.paradas === 1 &&
+      pasos.intro.id === 'ec-ok' && pasos.intro.sel === 0;
+    const dexIntro = await page.evaluate(() => G.ElegirCompanero.elegido);
+    await page.keyboard.press('Enter');
+    await page.locator('#scr-menu').waitFor({ state: 'visible', timeout: 15000 });
+    const guardado = await page.evaluate(() => G.DB.save.partner);
+    check(`${e}: teclado: la rejilla es una sola parada de Tab (grupo de opciones) con el anillo de foco; flechas (también abajo, por columnas, y la vuelta), Inicio, Fin y Espacio eligen; Tab lleva a «Al azar» y a «Elegir a X»; Intro elige y lleva a «Elegir a X» y otro Intro confirma`,
+      bien && guardado === dexIntro && dexIntro === 1, { pasos, dexIntro, guardado });
+    await P.ctx.close();
+  }
+
+  // Cambiar de tamaño con la pantalla abierta (escritorio → móvil en horizontal) y el Magic V6 plegado en vertical: «Gira el
+  // móvil» encima y, al girarlo, la pantalla cabe.
+  {
+    const P = await nuevoCompanero(browser, VP.pc, 'dex'), { page } = P;
+    const antes = await page.evaluate(MEDIR_COMPANERO);
+    await page.setViewportSize({ width: 844, height: 390 });
+    await sleep(500);
+    const m = await page.evaluate(MEDIR_COMPANERO);
+    const igual = await page.evaluate(() => { const d = G.ElegirCompanero.disposicion(G.ElegirCompanero.medidas), e = G.ElegirCompanero.disp; return d.cols === e.cols && d.k === e.k && d.modo === e.modo; });
+    check(`al cambiar de tamaño con la pantalla abierta (1440x900 → 844x390) se recoloca (${antes.cols}x${antes.filas} k${antes.k} → ${m.cols}x${m.filas} k${m.k}): los 29 caben sin desplazar`,
+      bienCompanero(antes, false) && bienCompanero(m, false) && m.k < antes.k && igual, { antes, m, igual });
+    await P.ctx.close();
+  }
+  for (const e of ESTILOS) {
+    const v = { w: 360, h: 807, dpr: 3, tactil: true }, P = await nuevoCompanero(browser, v, e), { page } = P;
+    const vertical = await page.evaluate(() => ({ gira: !document.getElementById('rotate').classList.contains('hidden'),
+      encima: (() => { const el = document.elementFromPoint(innerWidth / 2, innerHeight / 2); return !!(el && el.closest('#rotate')); })(),
+      pagina: document.documentElement.scrollWidth - document.documentElement.clientWidth }));
+    await captura(page, `companero-gira-${e}-${nombreVp(v)}`);
+    await page.setViewportSize({ width: 807, height: 360 });
+    await sleep(600);
+    const m = await page.evaluate(MEDIR_COMPANERO);
+    const girado = await page.evaluate(() => document.getElementById('rotate').classList.contains('hidden'));
+    await captura(page, `companero-girado-${e}-${nombreVp({ w: 807, h: 360, dpr: 3 })}`);
+    check(`${e}: plegado en vertical (360x807), «Gira el móvil» tapa «Elige a tu compañero» sin desplazamiento; al girarlo (807x360), la pantalla cabe entera`,
+      P.gira && vertical.gira && vertical.encima && vertical.pagina <= 0 && girado && bienCompanero(m, e === 'dex'), { vertical, girado, m });
+    await P.ctx.close();
+  }
+
+  // En inglés (navegador en inglés), en el móvil: título, botones, la pista, el botón con el nombre y los tipos.
+  {
+    const v = VP.movil;
+    const ctx = await browser.newContext({ viewport: { width: v.w, height: v.h }, deviceScaleFactor: v.dpr, hasTouch: true, isMobile: true, serviceWorkers: 'block', locale: 'en-US' });
+    await ctx.addInitScript(SIN_NUBE);
+    await ctx.addInitScript(VIGIA_TEST);
+    const page = await ctx.newPage(), consola = [], fuera = [];
+    page.on('request', x => { if (!x.url().startsWith(`http://127.0.0.1:${PORT}/`) && !/^(data|blob):/.test(x.url())) fuera.push(x.url()); });
+    page.on('console', x => { if ((x.type() === 'error' || x.type() === 'warning') && !AVISOS_ENTORNO.some(re => re.test(x.text()))) consola.push(x.text()); });
+    page.on('pageerror', x => consola.push('pageerror: ' + x.message));
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForFunction(() => document.getElementById('boot').classList.contains('hidden'), null, { timeout: 30000 });
+    await sleep(200);
+    if (await page.locator('#tap-start').isVisible().catch(() => false)) await page.tap('#tap-start');
+    await page.tap('#btn-guest');
+    await page.locator('#scr-starters.sin-test').waitFor({ state: 'visible', timeout: 15000 });
+    await sleep(600);
+    const antes = await page.evaluate(() => ({ titulo: document.querySelector('#scr-starters h2').textContent.trim(), azar: document.getElementById('ec-azar').textContent.trim(),
+      ok: document.getElementById('ec-ok').textContent.trim(), info: document.getElementById('ec-info').textContent.trim(), grupo: document.getElementById('starter-grid').getAttribute('aria-label'),
+      etiqueta: document.querySelector('#starter-grid .ec-celda').getAttribute('aria-label') }));
+    await page.locator('#starter-grid .ec-celda').nth(0).tap();
+    await sleep(200);
+    const despues = await page.evaluate(() => ({ ok: document.getElementById('ec-ok').textContent.trim(), info: document.getElementById('ec-info').textContent.replace(/\s+/g, ' ').trim() }));
+    const m = await page.evaluate(MEDIR_COMPANERO);
+    await captura(page, `companero-ingles-${nombreVp(v)}`);
+    check('en inglés: «Choose your partner», «Random», «Choose», la pista y la etiqueta de la rejilla; al elegir, «Choose Bulbasaur» con «Grass» y «Poison»; los 29 caben',
+      antes.titulo === 'Choose your partner' && antes.azar === 'Random' && antes.ok === 'Choose' && antes.info === 'Pick one or leave it to chance.' && antes.grupo === 'Starters' &&
+      /Grass/.test(antes.etiqueta) && /Poison/.test(antes.etiqueta) && despues.ok === 'Choose Bulbasaur' && /Grass/.test(despues.info) && /Poison/.test(despues.info) &&
+      bienCompanero(m, false) && !consola.length && !fuera.length, { antes, despues, m: bienCompanero(m, false) ? 'bien' : m, consola, fuera });
+    await ctx.close();
+  }
+}
+
 // ---------------- hoja de contactos ----------------
 function hojaDeContactos() {
   const pares = {};
@@ -2492,6 +2757,9 @@ function hojaDeContactos() {
 
     // 14. Ajustes de juego (lote 4): píxel nítido, encuadre, golpe final e iris. 15. Pantalla dividida (lote 5).
     if (OTRAS || SOLO_JUEGO) { await pruebaJuego(browser); await pruebaDividida(browser); }
+
+    // 16. «Elige a tu compañero» sin el test de personalidad.
+    if (OTRAS || SOLO_COMPANERO) await pruebaCompanero(browser);
 
     // 8. Sin internet: con el service worker y en Clásico, se cargan las fuentes en reposo; luego, sin red, a Dex.
     if (OTRAS) {
