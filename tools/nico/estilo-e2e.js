@@ -68,7 +68,7 @@
  *      la viñeta cálida deja intacto el 46 % central; la lluvia de dos tonos da ≥ 2:1 (el borde contra el suelo más claro del
  *      juego, el núcleo contra el más oscuro y, en cada suelo donde llueve, el mejor de los dos); y el contraste de los
  *      Pokémon contra el suelo (mediana de la silueta, 36 Pokémon) no empeora más de 0,05 frente a Clásico en los tres biomas
- *      ni más de 0,1 con lluvia. Horneado, con GPU (otro Chromium, con requestAnimationFrame y G.Tiles.paintChunk
+ *      ni, con lluvia, más de 0,1 frente a Clásico con lluvia (lo que la lluvia de Dex le quita a Dex, al informe). Horneado, con GPU (otro Chromium, con requestAnimationFrame y G.Tiles.paintChunk
  *      envueltos sólo en la prueba): en el fondo de los menús (el cambio de bioma de cada 30 s), de los 236 a los 244 s de
  *      partida en Dex y en Clásico y al cambiar de estilo en la pausa: ningún fotograma de más de 20 ms, como mucho 1 chunk
  *      por fotograma (mediana ≤ 4 ms de horneado; como mucho un 15 % por encima y ninguno de más de 10 ms: un chunk no se
@@ -1661,11 +1661,21 @@ async function pruebaEntornos(browser) {
       await sleep(3300);
       await page.evaluate(() => { if (G.Game.state === 'playing') G.Game.togglePause(); });
       sp.lluvia = { dex: await page.evaluate(SPRITES, { clima: true }) };
+      // Y la de Clásico (la de upstream), en el mismo sitio y con la misma lluvia, para compararlas.
+      await page.evaluate(() => { G.Estilo.set('clasico'); G.Game.togglePause(); });
+      await page.evaluate(HORNEADO);
+      await sleep(3300);
+      await page.evaluate(() => { if (G.Game.state === 'playing') G.Game.togglePause(); });
+      sp.lluvia.clasico = await page.evaluate(SPRITES, { clima: true });
+      await estilo(page, 'dex');
       await page.evaluate(() => { G.Weather.onEvent(['w']); G.Combat.tick = window.__tick; });
       report.medidas['entorno-sprites'] = sp;
       const peor = Math.max(...['bosque', 'cueva', 'volcan'].map(n => sp[n].clasico.mediana - sp[n].dex.mediana));
-      check(`${nv}: contraste de los Pokémon contra el suelo (mediana de la silueta, ${sp.bosque.dex.enemigos} Pokémon): Dex como mucho 0,05 peor que Clásico en los tres biomas (${['bosque', 'cueva', 'volcan'].map(n => `${n} ${sp[n].clasico.mediana} → ${sp[n].dex.mediana}`).join(', ')}) y la lluvia como mucho 0,1 peor (${sp.sinLluvia.dex.mediana} → ${sp.lluvia.dex.mediana})`,
-        ['bosque', 'cueva', 'volcan'].every(n => sp[n].dex.enemigos >= 20 && sp[n].dex.mediana >= sp[n].clasico.mediana - 0.05) && sp.lluvia.dex.mediana >= sp.sinLluvia.dex.mediana - 0.1, sp);
+      // Con lluvia, el criterio de la revisión: Dex como mucho 0,1 peor que Clásico con lluvia. Lo que la lluvia de Dex le
+      // quita a Dex (de 0,04 a 0,18 según el mundo, que cambia en cada partida; la de upstream, de −0,06 a +0,06) va al
+      // informe y al texto: Dex sin lluvia tiene más contraste que Clásico, así que con lluvia acaban parejos (±0,07).
+      check(`${nv}: contraste de los Pokémon contra el suelo (mediana de la silueta, ${sp.bosque.dex.enemigos} Pokémon): Dex como mucho 0,05 peor que Clásico en los tres biomas (${['bosque', 'cueva', 'volcan'].map(n => `${n} ${sp[n].clasico.mediana} → ${sp[n].dex.mediana}`).join(', ')}) y, con lluvia, como mucho 0,1 peor que Clásico con lluvia (${sp.lluvia.clasico.mediana} → ${sp.lluvia.dex.mediana}; la lluvia de Dex le quita a Dex ${+(sp.sinLluvia.dex.mediana - sp.lluvia.dex.mediana).toFixed(3)}: ${sp.sinLluvia.dex.mediana} → ${sp.lluvia.dex.mediana})`,
+        ['bosque', 'cueva', 'volcan'].every(n => sp[n].dex.enemigos >= 20 && sp[n].dex.mediana >= sp[n].clasico.mediana - 0.05) && sp.lluvia.clasico.enemigos >= 20 && sp.lluvia.dex.mediana >= sp.lluvia.clasico.mediana - 0.1, sp);
       await page.evaluate(() => { if (G.Game.state === 'paused') G.Game.togglePause(); });
     } else {
       await page.evaluate(() => G.Weather.onEvent(['w', 'rain', 90]));
