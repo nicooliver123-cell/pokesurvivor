@@ -116,8 +116,10 @@ ellos.
 
 ## Licencia
 
-El código es MIT; los sprites, las fuentes y los datos tienen sus propias
-licencias. Todo está en [LICENSE](LICENSE) y [CREDITS.md](CREDITS.md).
+PokéSwarm parte del código de otro juego de fans, publicado con licencia MIT; su
+aviso de copyright se conserva en [LICENSE](LICENSE). El código es MIT; los
+sprites, las fuentes y los datos tienen sus propias licencias. Todo está en
+[LICENSE](LICENSE) y [CREDITS.md](CREDITS.md).
 
 ## Desarrollo
 
