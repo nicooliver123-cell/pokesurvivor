@@ -1,8 +1,9 @@
 /* ============ portada.css — portada y menú «Tarjeta de entrenador» del estilo Dex (MOD nico) ============
  * Variante C de la portada, elegida por Nico el 12-10-2026, con los cuatro retoques del jurado:
  *   (a) en un móvil (alto < 520), como mucho un 25 % de la pantalla opaca en el menú, el compañero a ×4 y botones
- *       de 44 px; (b) sin la lengüeta roja: el Rotom-Dex mínimo (--marca-rotom de css/tokens-dex.css) delante del
- *       nombre; (c) «…» con la letra de reserva (el unicode-range de tokens-dex.css); (d) el test sin oscurecido.
+ *       de 44 px (los del menú, 46: el icono y el nombre no cabían en 44); (b) sin la lengüeta roja: el Rotom-Dex
+ *       mínimo (--marca-rotom de css/tokens-dex.css) delante del nombre; (c) «…» con la letra de reserva (el
+ *       unicode-range de tokens-dex.css); (d) el test sin oscurecido.
  * Una sola tarjeta de cristal que cambia de cara en la entrada: el dorso en la pantalla de carga y «Pulsa para
  * empezar» (sin velo: el mundo se ve entero), la cara del formulario en el inicio de sesión, el test y su resultado,
  * y el anverso en el menú principal (tu compañero asomando por encima del borde, sobre su peana del color de su tipo,
@@ -46,12 +47,13 @@ html.estilo-dex {
 @media (max-width: 559.98px) and (min-height: 520px) {
   html.estilo-dex { --tc-pad-x: var(--space-4); --tc-lienzo-w: 168px; --tc-lienzo-h: 200px; --tc-escala: 4; --tc-vuelo: var(--space-2); --tc-boton-h: 48px; }
 }
-/* Móvil en horizontal (retoque a): ×4, botones de 44, tarjeta de dos renglones. */
+/* Móvil en horizontal (retoque a): ×4, botones de 46 (con 44, el icono de 24 y el nombre no cabían: la letra se salía
+   por abajo), tarjeta de dos renglones. */
 @media (max-height: 519.98px) {
   html.estilo-dex {
     --tc-ancho: 480px; --tc-pad-x: var(--space-3); --tc-pad-y: var(--space-1);
     --tc-lienzo-w: 152px; --tc-lienzo-h: 184px; --tc-escala: 4; --tc-vuelo: var(--space-2);
-    --tc-boton-h: 44px; --tc-dock: 640px; --tc-hueco: var(--space-2); --tc-abajo: var(--space-2);
+    --tc-boton-h: 46px; --tc-dock: 640px; --tc-hueco: var(--space-2); --tc-abajo: var(--space-2);
   }
 }
 
@@ -265,6 +267,17 @@ html.estilo-dex #scr-menu .menu-item.play.tc-sala small {
   html.estilo-dex #scr-menu .menu-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
   html.estilo-dex #scr-menu .menu-item.play { grid-column: 1 / -1; }
 }
+/* Más estrecha (menos de 460; ninguna pantalla del Magic V6: su exterior en vertical pide girar): «PokéSwarm» siempre
+   entero. La cuenta se queda en su icono (su nombre se sigue leyendo), como en la barra superior por debajo de 520, y,
+   si ni así caben, baja de renglón; por debajo de 360, el nombre del juego un punto menor. Antes, a 440, «PokéSwa» y
+   «Inv…». */
+@media (max-width: 459.98px) {
+  html.estilo-dex .tc-head { flex-wrap: wrap; row-gap: var(--space-1); }
+  html.estilo-dex .tc-title { flex: none; max-width: 100%; }
+  html.estilo-dex .tc-user { padding: 0 var(--space-2); }
+  html.estilo-dex .tc-user span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}
+@media (max-width: 359.98px) { html.estilo-dex .tc-title { font-size: var(--fs-3); } }
 
 /* Alrededor, lo mínimo: la tarjeta ya lleva tu cuenta y la fila ya tiene Ajustes. */
 html.estilo-dex body:has(#scr-menu:not(.hidden)):not(:has(.scr.dim:not(.hidden))) :is(#user-pill, #btn-settings) { display: none; }
@@ -336,17 +349,22 @@ html.estilo-dex #scr-result .row { margin-top: var(--space-4) !important; gap: v
   html.estilo-dex .tc-mon { order: 4; }
   html.estilo-dex .tc-user { order: 5; margin-left: auto; }
   html.estilo-dex .tc-title { font-size: var(--fs-3); }
-  html.estilo-dex .tc-user { min-height: 28px; }
-  html.estilo-dex .tc-user::after { inset: -8px -2px; }   /* 28 + 16 = 44 de toque */
+  html.estilo-dex .tc-user { min-height: 24px; }   /* el renglón, del alto de los tipos: 4 px menos de tarjeta opaca */
+  html.estilo-dex .tc-user::after { inset: -10px -2px; }   /* 24 + 20 = 44 de toque */
   html.estilo-dex .tc-mon { flex-wrap: nowrap; gap: var(--space-1); }
   html.estilo-dex .tc-name { font-size: var(--fs-2); }
   html.estilo-dex .tc-no, html.estilo-dex .tc-nivel, html.estilo-dex .tc-sin, html.estilo-dex .tc-guest { display: none; }
   html.estilo-dex .tc-stats { flex-wrap: nowrap; column-gap: var(--space-2); }
   html.estilo-dex .tc-stats b { font-size: var(--fs-2); }
-  /* La fila, del ancho de sus botones (cada uno, el de su nombre): icono encima y nombre debajo, 44 px de alto. */
+  /* La fila, del ancho de sus botones (cada uno, el de su nombre): icono encima y nombre debajo, 46 px de alto. El icono
+     (24) y el renglón del nombre (14,3) dejan 2,85 px arriba y abajo en los 44 de dentro, y la caja de la letra (18 px a
+     13 px, que sobresale 1,9 del renglón) acaba casi 1 px por encima del borde interior; la tinta, a unos 2,5. Sin
+     separación: el renglón empieza bajo el icono y la letra (también una tilde) queda a 2 px de él. Con 44 de alto y 4 de
+     separación, la letra acababa 1,7 px por debajo del borde interior. 48, como la maqueta, llegaba al 25,0 % de pantalla
+     opaca con un compañero grande en la mitad del plegable (784x362): sin margen. */
   html.estilo-dex #scr-menu > .menu-right { width: auto; max-width: 100%; }
   html.estilo-dex #scr-menu .menu-list { gap: var(--space-2); }
-  html.estilo-dex #scr-menu .menu-item { flex: 0 1 auto; min-width: var(--tap-min); gap: var(--space-1); padding: 0 var(--space-1); line-height: 1.1; }
+  html.estilo-dex #scr-menu .menu-item { flex: 0 1 auto; min-width: var(--tap-min); gap: 0; padding: 0 var(--space-1); line-height: 1.1; }
   html.estilo-dex #scr-menu .menu-item.play { flex: 0 1 auto; padding: 0 var(--space-4); font-size: var(--fs-3); }
   html.estilo-dex #scr-menu .menu-item.play .mi-ico img { width: 24px; height: 24px; }
   html.estilo-dex #scr-menu .menu-item:has(> small.gold)::after { top: var(--space-1); right: var(--space-1); }

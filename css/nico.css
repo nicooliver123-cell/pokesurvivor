@@ -61,6 +61,11 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
    784x700 a 680) la línea se montaba en la caja de estadísticas; ahora, si no cabe todo, el menú se desplaza por encima
    de ella. En pantallas bajas upstream oculta la línea (0). */
 @media (min-height: 521px) { #scr-menu { bottom: var(--hueco-creditos, 0px); } }
+/* Y la línea sólo se ve con el menú principal: en los submenús (.scr.dim) se montaba en el pie de las cajas que llegan
+   abajo (el gacha, la colección, las mejoras o las misiones del plegable: 724x784, 784x724 y con la barra del
+   navegador), también en Clásico. El aviso legal sigue a mano en Ajustes > Acerca de y en el inicio de sesión.
+   visibility y no display: conserva su alto, así que --hueco-creditos no cambia por debajo. */
+body:has(.scr.dim:not(.hidden)) .credits-line { visibility: hidden; }
 /* Las cajas de la columna del menú no se encogen: si no caben, se desplaza la columna (como quiere upstream), en vez de
    recortar la lista de opciones dentro de su caja. */
 #scr-menu .menu-right > .box { flex-shrink: 0; }
@@ -349,7 +354,9 @@ html.estilo-dex.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: calc(var
 /* Pantalla de carga, «Pulsa para empezar» e inicio de sesión: los del original (decisión de Nico). Sólo se
    conserva la letra pixel del título y se ponen a mano las sombras que el original saca de --shadow. */
 html.estilo-dex .boot-in h1 { font-family: var(--font-logo); text-shadow: 3px 3px 0 #a55f00, 6px 6px 0 #071318; }
-html.estilo-dex #rotate { background: rgba(5, 14, 18, .94); }
+/* «Gira el móvil», opaco: al 94 %, la tarjeta de «Pulsa para empezar» (css/portada.css, más ancha y sin velo) asomaba
+   detrás de la suya (el exterior del plegable en vertical, 360x807). */
+html.estilo-dex #rotate { background: rgb(5, 14, 18); }
 
 /* ---------- logo: el del original (título pixel con su sombra y «Mundo Misterioso»), decisión de Nico ---------- */
 html.estilo-dex .logo .t1, html.estilo-dex .logo .t2, html.estilo-dex .about-logo { font-family: var(--font-logo); }

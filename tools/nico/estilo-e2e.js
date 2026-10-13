@@ -9,8 +9,8 @@
  *      1024x768; móvil táctil 844x390@3 y 780x360@3; el Magic V6 de Nico, con los tamaños que usó la
  *      verificación del 12-10-2026 (sin confirmar en el teléfono): interior 724x784 y 784x724 y exterior
  *      807x360 @3 táctil; y otros plegables o tabletas casi cuadrados, 1000x900 y 900x1000 @2,5 táctil) y
- *      exige: nada de desplazamiento horizontal (página, pantalla y caja), la caja dentro de la ventana y el
- *      menú principal oculto detrás de cualquier .scr.dim. Con Dex, que la piel está puesta en cada una
+ *      exige: nada de desplazamiento horizontal (página, pantalla y caja), la caja dentro de la ventana, el
+ *      menú principal oculto detrás de cualquier .scr.dim y la línea de créditos sin pisar la caja. Con Dex, que la piel está puesta en cada una
  *      (borde de la caja y letra y fondo de los botones: si upstream renombra .box o .btn, falla); con
  *      Clásico, que no. Y el menú principal: las 8 opciones a la vista sin desplazar, el logotipo libre de la
  *      barra superior y la línea de créditos sin pisar ninguna caja.
@@ -35,7 +35,8 @@
  *   6. Teclado (Dex, 1440x900): Tab recorre el menú, las cartas de nivel y Ajustes con el anillo de
  *      foco visible; «Estilo» es la primera sección de Gráficos y cambiarlo ahí funciona.
  *   7. «Gira el móvil»: sí en un móvil en vertical (390x844) y en el Magic V6 plegado en vertical
- *      (360x807), no en los plegables abiertos.
+ *      (360x807), no en los plegables abiertos; con Dex, la capa opaca. Y la 404 en una ruta profunda (/a/b/c):
+ *      con su hoja de estilo y sin peticiones fallidas.
  *   8. Sin internet: tras la primera carga (en Clásico, con el service worker), se corta la red y se
  *      pasa a Dex: la letra está (document.fonts.check) y no se pide nada fuera de assets/fonts.
  *   9. Consola sin errores ni avisos (menos los del entorno de la prueba: ver AVISOS_ENTORNO).
@@ -50,11 +51,17 @@
  *      de arriba del HUD (también el que salió en el menú); en el plegable abierto nada pisa el pliegue; y las flechas
  *      del mismo cuadrante (jefe y tres compañeros, uno caído) no se pisan y sus etiquetas quedan en la zona libre.
  *  11. Arreglos de la verificación de los lotes 1 y 2: el Magic V6 con la barra del navegador (724x740 a 640 y 784x700
- *      a 640, con `screen` de la pantalla entera): el menú entero sin desplazar y sin los créditos encima, el pliegue
- *      vertical a 724x700 sin nada encima (tampoco un aviso largo) y las tiradas a 724x640 y 784x640; la ×10 de 640x360
- *      y 667x375; la barra superior compacta a 640, 600, 520 y 400 de ancho; el aviso flotante del menú, al empezar la
- *      partida, por encima de las ranuras; «…» con los puntos en la línea base; y zonas seguras simuladas (cada
- *      env(safe-area-inset-*) de lo que se sirve, cambiado por píxeles: 844x390 con 47/24/47/21).
+ *      a 640, con `screen` de la pantalla entera): el menú entero sin desplazar y sin los créditos encima, ni encima
+ *      del gacha, la colección, las mejoras, las misiones o Ajustes (724x700, 724x640 y 784x640), el pliegue vertical a
+ *      724x700 sin nada encima (tampoco un aviso largo) y las tiradas a 724x640 y 784x640; la ×10 de 640x360 y 667x375;
+ *      la barra superior compacta a 640, 600, 520, 440 y 400 de ancho (con Dex, «PokéSwarm» entero en la tarjeta); el
+ *      aviso flotante del menú, al empezar la partida, por encima de las ranuras; «…» con los puntos en la línea base;
+ *      y zonas seguras simuladas (cada env(safe-area-inset-*) de lo que se sirve, cambiado por píxeles: 844x390 con
+ *      47/24/47/21).
+ *  12. Portada «Tarjeta de entrenador» (--solo-portada), con Dex, en 10 tamaños: «Pulsa para empezar», el inicio de
+ *      sesión, el test, su resultado y el menú, cada cara entera; los 8 botones del menú de 44 px o más, sin textos
+ *      cortados ni desbordados en vertical (el icono y la caja de la letra del nombre dentro del borde); el compañero a
+ *      ×4 en el móvil; la pantalla opaca del menú ≤ 25 % en el móvil y el plegable; y Clásico.
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
@@ -198,19 +205,23 @@ const PANTALLAS = [
 ];
 const salirDePartida = `G.UI.hideAll(); if (G.Game.state !== 'ui') { G.Game.quit(); } G.Flow.goMenu();`;
 
-/** Mide la pantalla abierta: desplazamiento horizontal, caja dentro de la ventana y el menú de detrás. */
+/** Mide la pantalla abierta: desplazamiento horizontal, caja dentro de la ventana, el menú de detrás y la línea de créditos
+ *  (fija abajo) encima de la caja (en el plegable tapaba el pie del gacha, la colección, las mejoras y las misiones). */
 const MEDIR_PANTALLA = id => {
   const scr = document.getElementById(id), box = scr && scr.querySelector('.box');
   const W = innerWidth, de = document.documentElement;
-  const menu = document.getElementById('scr-menu');
+  const menu = document.getElementById('scr-menu'), cl = document.getElementById('credits-line');
   const dimAbierta = !!document.querySelector('.scr.dim:not(.hidden)');
   const r = box ? box.getBoundingClientRect() : null;
+  const clVisible = !!cl && !cl.classList.contains('hidden') && getComputedStyle(cl).display !== 'none' && getComputedStyle(cl).visibility !== 'hidden';
+  const c = clVisible ? cl.getBoundingClientRect() : null;
   return {
     visible: !!scr && !scr.classList.contains('hidden'),
     pagina: de.scrollWidth - de.clientWidth, cuerpo: document.body.scrollWidth - W,
     pantalla: scr ? scr.scrollWidth - scr.clientWidth : 0, caja: box ? box.scrollWidth - box.clientWidth : 0,
     cajaFuera: r ? Math.max(0, -r.left, r.right - W) : 0,
-    menuDetras: dimAbierta && !menu.classList.contains('hidden') && getComputedStyle(menu).visibility !== 'hidden'
+    menuDetras: dimAbierta && !menu.classList.contains('hidden') && getComputedStyle(menu).visibility !== 'hidden',
+    creditosPisan: !!(c && r && c.width > 0 && id !== 'scr-menu' && c.left < r.right - 0.5 && c.right > r.left + 0.5 && c.top < r.bottom - 0.5 && c.bottom > r.top + 0.5)
   };
 };
 
@@ -239,7 +250,7 @@ async function recorrerPantallas(P) {
       await page.evaluate(abrir);
       await sleep(id === 'scr-gacha' || id === 'scr-dex' ? 120 : 30);
       const m = await page.evaluate(MEDIR_PANTALLA, id);
-      const mal = !m.visible || m.pagina > 0 || m.cuerpo > 0 || m.pantalla > 1 || m.caja > 1 || m.cajaFuera > 1 || m.menuDetras;
+      const mal = !m.visible || m.pagina > 0 || m.cuerpo > 0 || m.pantalla > 1 || m.caja > 1 || m.cajaFuera > 1 || m.menuDetras || m.creditosPisan;
       if (mal) malas.push({ estilo: e, cual: id + (sub ? '/' + sub : ''), ...m });
       const p = await page.evaluate(PIEL, id);
       if (!(e === 'dex' ? conPiel(p) : sinPiel(p))) piel.push({ estilo: e, cual: id + (sub ? '/' + sub : ''), ...p });
@@ -958,6 +969,21 @@ async function pruebaArreglos(browser) {
       check(`${nv} ${e} (plegable con la barra del navegador): menú principal con las 8 opciones a la vista, entero sin desplazar (${m.sobra} px de más) y la línea de créditos sin pisar ninguna caja`,
         m.opciones === 8 && !m.mal.length && m.sobra <= 1 && !m.logoTapado && !m.creditosPisan, m);
       if (clave === 'v680' || clave === 'g680') await captura(page, `menu-barra-${e}-${nv}`);
+      // Los submenús que llegan abajo (gacha, colección, mejoras, misiones y Ajustes): la línea de créditos, que sólo va con
+      // el menú principal, no se monta en el pie de su caja (la verificación de PokéSwarm la vio sobre «Probabilidades»).
+      if (clave === 'v700' || clave === 'v640' || clave === 'g640') {
+        const malas = [];
+        for (const [id, abrir, cerrar] of PANTALLAS.filter(([id, , , sub]) => ['scr-gacha', 'scr-dex', 'scr-upgrades', 'scr-goals', 'scr-settings'].includes(id) && !sub)) {
+          await page.evaluate(abrir);
+          await sleep(id === 'scr-gacha' || id === 'scr-dex' ? 150 : 60);
+          const m = await page.evaluate(MEDIR_PANTALLA, id);
+          if (!m.visible || m.creditosPisan) malas.push({ id, ...m });
+          if (id === 'scr-gacha' && clave === 'v700') await captura(page, `gacha-creditos-${e}-${nv}`);
+          if (cerrar) await page.evaluate(cerrar);
+        }
+        await page.evaluate(() => G.MenuUI.open());
+        check(`${nv} ${e} (plegable con la barra del navegador): la línea de créditos no tapa el gacha, la colección, las mejoras, las misiones ni Ajustes`, !malas.length, malas);
+      }
     }
     // El pliegue sale de la pantalla: en vertical con la barra (724x700), vertical en x = 362; y nada del HUD encima,
     // tampoco un aviso largo junto al jefe.
@@ -1005,7 +1031,7 @@ async function pruebaArreglos(browser) {
   }
 
   // 11c. Barra superior en anchos de menos de 680 (en vertical): compacta, en una fila (dos, sin salirse, por debajo de 480).
-  for (const v of [{ w: 640, h: 780, dpr: 3, tactil: true }, { w: 600, h: 740, dpr: 3, tactil: true }, { w: 520, h: 640 }, { w: 400, h: 700 }]) {
+  for (const v of [{ w: 640, h: 780, dpr: 3, tactil: true }, { w: 600, h: 740, dpr: 3, tactil: true }, { w: 520, h: 640 }, { w: 440, h: 760 }, { w: 400, h: 700 }]) {
     const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
     if (!await entrar(P)) { check(`${nv}: se entra`, false); await P.ctx.close(); continue; }
     for (const e of ESTILOS) {
@@ -1017,6 +1043,21 @@ async function pruebaArreglos(browser) {
       check(`${nv} ${e}: barra superior compacta: dentro de la ventana, ${v.w >= 480 ? 'en una fila' : 'en dos filas como mucho'}, sin desplazamiento horizontal y sin tapar el logotipo`,
         !b.fuera && b.filas <= (v.w >= 480 ? 1 : 2) && b.pagina <= 0 && !b.logoTapado, b);
       if (v.w === 600) await captura(page, `barra-${e}-${nv}`);
+      // Con Dex, «PokéSwarm» entero en la tarjeta (por debajo de unos 450 px salía «PokéSwa», sin «…») y la cuenta sin cortar
+      // (o sólo su icono).
+      if (e === 'dex') {
+        const tt = await page.evaluate(() => {
+          const t = document.querySelector('#tc-card .tc-title'), u = document.querySelector('#tc-card .tc-user span'), g = document.createRange();
+          g.selectNodeContents(t);
+          const tx = g.getBoundingClientRect(), r = t.getBoundingClientRect(), card = document.getElementById('tc-card').getBoundingClientRect();
+          const uVisible = u && getComputedStyle(u).clipPath === 'none';
+          return { titulo: [Math.round(tx.left), Math.round(tx.right)], caja: [Math.round(r.left), Math.round(r.right)], tarjeta: [Math.round(card.left), Math.round(card.right)],
+            entero: tx.right <= r.right + 0.5 && tx.right <= card.right + 0.5, cuenta: uVisible ? (u.scrollWidth <= u.clientWidth + 1 ? 'entera' : 'cortada') : 'icono' };
+        });
+        report.medidas[`titulo-tarjeta-${nv}`] = tt;
+        check(`${nv} Dex: «PokéSwarm» entero en la tarjeta y la cuenta ${tt.cuenta === 'icono' ? 'en su icono' : 'entera'}`, tt.entero && tt.cuenta !== 'cortada', tt);
+        if (v.w === 440) await captura(page, `tarjeta-estrecha-${e}-${nv}`);
+      }
     }
     await P.ctx.close();
   }
@@ -1247,6 +1288,15 @@ async function pruebaPortada(browser) {
           lengueta: getComputedStyle(card, '::before').display !== 'none',
           botones: botones.length, fuera: botones.filter(b => !dentro(r(b))).map(b => b.dataset.go), bajos: botones.filter(b => r(b).height < 44 - 0.5).map(b => b.dataset.go),
           cortados: botones.filter(b => b.scrollWidth > b.clientWidth + 1).map(b => b.dataset.go),
+          // Y en vertical: el contenido cabe (scrollHeight) y el icono y la caja de la letra del nombre quedan dentro del borde
+          // interior (en el móvil, con 44 px, el nombre acababa 1,7 px por debajo y el icono tocaba arriba).
+          desbordan: botones.filter(b => {
+            const cs = getComputedStyle(b), q = r(b), top = q.top + parseFloat(cs.borderTopWidth), bot = q.bottom - parseFloat(cs.borderBottomWidth);
+            const dentro = x => x.height === 0 || (x.top >= top - 0.5 && x.bottom <= bot + 0.5);
+            const textos = [...b.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim()).map(n => { const g = document.createRange(); g.selectNodeContents(n); return g.getBoundingClientRect(); });
+            const ico = b.querySelector('.mi-ico');
+            return b.scrollHeight > b.clientHeight + 0.5 || !textos.every(dentro) || (ico && !dentro(r(ico)));
+          }).map(b => b.dataset.go),
           pisaBarra: tb.some(t => cruza(t, r(card)) || botones.some(b => cruza(t, r(b)))),
           escala: c && c.k, escalaMax: +getComputedStyle(card).getPropertyValue('--tc-escala'), dex: c && c.dex,
           renglones: (() => {   // renglones de la tarjeta: los centros de sus piezas, agrupados con 8 px de tolerancia
@@ -1261,8 +1311,8 @@ async function pruebaPortada(browser) {
     await captura(page, `portada-menu-dex-${nv}`);
     const pMenu = await opaco(page);
     report.medidas[`portada-opaco-${nv}`] = { menu: pMenu, login: pLogin };
-    check(`${nv} Dex: menú «Tarjeta de entrenador»: la tarjeta y los 8 botones dentro de la ventana, de 44 px o más, sin textos cortados ni la barra superior encima; el Rotom-Dex delante del nombre, sin lengüeta; el compañero a ×${m.escalaMax}${movil ? ' (retoque a: ×4)' : ''}; ${pMenu} % de pantalla opaca${movil || plegable ? ' (≤ 25 %)' : ''}`,
-      m.tarjeta && m.izquierda === 'none' && m.rotom && !m.lengueta && m.botones === 8 && !m.fuera.length && !m.bajos.length && !m.cortados.length && !m.pisaBarra &&
+    check(`${nv} Dex: menú «Tarjeta de entrenador»: la tarjeta y los 8 botones dentro de la ventana, de 44 px o más, sin textos cortados ni desbordados en vertical (icono y nombre dentro del borde) ni la barra superior encima; el Rotom-Dex delante del nombre, sin lengüeta; el compañero a ×${m.escalaMax}${movil ? ' (retoque a: ×4)' : ''}; ${pMenu} % de pantalla opaca${movil || plegable ? ' (≤ 25 %)' : ''}`,
+      m.tarjeta && m.izquierda === 'none' && m.rotom && !m.lengueta && m.botones === 8 && !m.fuera.length && !m.bajos.length && !m.cortados.length && !m.desbordan.length && !m.pisaBarra &&
       m.escala === m.escalaMax && (!movil || m.escala === 4) && (!(movil || plegable) || pMenu <= 25) && m.pagina <= 0, { m, pMenu });
     if (movil) {
       // El peor caso: un compañero grande (Dragonite) a ×4 y un nombre largo con dos tipos (Crabominable, tan ancho que va a
@@ -1273,7 +1323,7 @@ async function pruebaPortada(browser) {
         report.medidas[`portada-opaco-${nv}-${dex}`] = pg;
         if (dex === 149) await captura(page, `portada-menu-grande-dex-${nv}`);
         check(`${nv} Dex: menú con ${dex === 149 ? 'Dragonite (grande), a ×4' : 'Crabominable (nombre largo, dos tipos; ancho: ×3)'}, dos renglones en la tarjeta, ${pg} % opaco (≤ 25 %)`,
-          g.escala === (dex === 149 ? 4 : 3) && g.renglones === 2 && pg <= 25 && !g.fuera.length && !g.cortados.length, { g, pg });
+          g.escala === (dex === 149 ? 4 : 3) && g.renglones === 2 && pg <= 25 && !g.fuera.length && !g.cortados.length && !g.desbordan.length, { g, pg });
       }
     }
     // Clásico: la composición del proyecto base, con el nombre y el lema.
@@ -1318,6 +1368,30 @@ function hojaDeContactos() {
       await sleep(200);
       const gira = await P.page.evaluate(() => !document.getElementById('rotate').classList.contains('hidden'));
       check(`«Gira el móvil» en un móvil en vertical (${nombreVp(v)}, táctil)`, gira);
+      // Con Dex, la capa es opaca: al 94 %, la tarjeta de «Pulsa para empezar» (más ancha, sin velo) asomaba detrás.
+      if (v.w === 360) await captura(P.page, `gira-clasico-${nombreVp(v)}`);
+      await P.page.evaluate(() => G.Estilo.set('dex'));
+      await sleep(150);
+      const fondo = await P.page.evaluate(() => getComputedStyle(document.getElementById('rotate')).backgroundColor);
+      if (v.w === 360) await captura(P.page, `gira-dex-${nombreVp(v)}`);
+      check(`«Gira el móvil» con Dex (${nombreVp(v)}): la capa es opaca (${fondo}), sin la tarjeta de «Pulsa para empezar» asomando detrás`, gira && /^rgb\(/.test(fondo), fondo);
+      await P.ctx.close();
+    }
+
+    // 404 en una ruta profunda (/a/b/c): la hoja de estilo llega una vez y bien, sin un 404 de más en la consola (antes, el
+    // escáner de precarga la pedía relativa a la ruta, /a/b/css/pages.css, antes de que el script escribiera la base).
+    if (!SOLO_HUD && !SOLO_PORTADA) {
+      const P = await nuevo(browser, VP.pc), { page } = P, url = `http://127.0.0.1:${PORT}/a/b/c`, fallidas = [];
+      page.on('response', r => { if (r.status() >= 400 && r.url() !== url) fallidas.push(`${r.status()} ${r.url()}`); });
+      page.on('requestfailed', r => fallidas.push(`falló ${r.url()}`));
+      const res = await page.goto(url, { waitUntil: 'load' });
+      await sleep(300);
+      const d = await page.evaluate(() => ({ titulo: document.title, hojas: [...document.styleSheets].map(h => ({ href: h.href, reglas: (() => { try { return h.cssRules.length; } catch (e) { return -1; } })() })) }));
+      // La consola sólo puede tener el 404 de la propia página (el servidor responde 404 a la ruta, como GitHub Pages).
+      const ajenos = P.consola.filter(x => !/status of 404/.test(x));
+      check(`404 en una ruta profunda (/a/b/c): «${d.titulo}» con su hoja de estilo (${d.hojas.map(h => h.href).join(', ')}), sin peticiones fallidas y como mucho el 404 de la propia página en la consola`,
+        res.status() === 404 && /PokéSwarm/.test(d.titulo) && d.hojas.length === 1 && /\/css\/pages\.css$/.test(d.hojas[0].href) && d.hojas[0].reglas > 0 &&
+        !fallidas.length && !ajenos.length && P.consola.length <= 1 && !P.fuera.length, { d, fallidas, consola: P.consola, fuera: P.fuera });
       await P.ctx.close();
     }
 
@@ -1329,7 +1403,7 @@ function hojaDeContactos() {
 
       // 1. Las 21 pantallas en los dos estilos (y la piel Dex puesta en cada una).
       const { malas, piel } = await recorrerPantallas(P);
-      check(`${nv}: las 21 pantallas en Dex y Clásico sin desplazamiento horizontal, con la caja dentro y sin el menú detrás`, !malas.length, malas.slice(0, 6));
+      check(`${nv}: las 21 pantallas en Dex y Clásico sin desplazamiento horizontal, con la caja dentro, sin el menú detrás y sin la línea de créditos encima de la caja`, !malas.length, malas.slice(0, 6));
       check(`${nv}: la piel Dex está puesta en las 21 pantallas (borde de la caja, letra y fondo de los botones) y en Clásico no`, !piel.length, piel.slice(0, 4));
 
       // El menú principal.
