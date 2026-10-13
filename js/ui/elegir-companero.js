@@ -13,10 +13,10 @@
  *
  * Rejilla: disposicion(), pura (la prueba tools/nico/check.js §19), elige columnas y escala para que quepan los 29
  * sin desplazar: el sprite a un número entero de píxeles físicos por píxel de arte (nítido, como el píxel nítido del
- * juego) y lo más grande posible hasta 2,5 px CSS por píxel de arte. Los tipos van en píldoras con su nombre
- * (G.UI.typeChips) en una línea o, si no caben, en dos; si así los Pokémon quedarían mucho más pequeños, con su
- * emblema (G.Icons 'type:…'), y el nombre del tipo va en la etiqueta accesible, en el título y abajo al elegir. Si ni
- * así cabe (una ventana muy pequeña), la rejilla se desplaza en vertical dentro de la caja.
+ * juego) y lo más grande posible hasta 2,5 px CSS por píxel de arte (los pinta este fichero, en su animación Idle).
+ * Los tipos van en píldoras con su nombre (G.UI.typeChips) en una línea o, si no caben, en dos; si así los Pokémon
+ * quedarían mucho más pequeños, con su emblema (G.Icons 'type:…'), y el nombre del tipo va en la etiqueta accesible,
+ * en el título y abajo al elegir. Si ni así cabe (una ventana muy pequeña), la rejilla se desplaza dentro de la caja.
  *
  * Teclado: la rejilla es un grupo de opciones (role radiogroup, una sola parada de Tab): las flechas mueven y eligen,
  * Inicio y Fin van al primero y al último, Espacio elige e Intro elige y lleva el foco a «Elegir a X» (otro Intro
@@ -24,10 +24,14 @@
  * colección (el logro «Primer compañero» sale solo) y al menú.
  */
 G.ElegirCompanero = (() => {
-  const ALTO_ARTE = 35;    // alto del recuadro del sprite en píxeles de arte: ui.js pone los pies al 88 % y, con 35,
-                           // la cabeza más alta de los iniciales (ay 27,5) cabe sin que ui.js lo centre (ay·k > 0,8·alto)
-  const ANCHO_ARTE = 34;   // ancho mínimo que se ve entero (el más ancho, Fennekin, en un fotograma de 40)
-  const ANCHO_LIENZO = 40; // ancho del lienzo si la celda lo permite
+  // El recuadro de cada sprite, en píxeles de arte, medido sobre los 29 iniciales en su animación Idle (13-10-2026): la
+  // cabeza más alta sube 26,5 sobre los pies (Totodile) y lo que más baja, 6 (la cola de Slowpoke; la sombra, 3,4); de
+  // ancho, 21 como mucho (con la sombra, 18). Los pinta este fichero: G.UI.sprite pone los pies al 88 % del lienzo, y
+  // para que cupiera la cola de Slowpoke el recuadro tendría que medir 54 de alto.
+  const PIES = 28;         // de arriba a los pies
+  const ALTO_ARTE = 35;    // alto del recuadro (7 por debajo de los pies)
+  const ANCHO_ARTE = 24;   // ancho que tiene que caber en la celda
+  const ANCHO_LIENZO = 32; // ancho del lienzo si la celda lo permite
   const A_MAX = 2.5;       // px CSS por píxel de arte, como mucho (la colección usa 2)
   const A_MIN = 1;         // por debajo, la rejilla se desplaza
   // Cuánto vale cada forma de enseñar el tipo frente al tamaño del sprite: con el nombre del tipo, mejor; los
@@ -139,6 +143,7 @@ G.ElegirCompanero = (() => {
     if (window.visualViewport) visualViewport.removeEventListener('resize', alCambiar);
     if (document.fonts && document.fonts.removeEventListener) document.fonts.removeEventListener('loadingdone', alCambiar);
     cancelAnimationFrame(raf);
+    cancelAnimationFrame(rafSprites); rafSprites = 0; sprites = [];
   }
 
   function alCambiar() {
@@ -148,9 +153,37 @@ G.ElegirCompanero = (() => {
 
   const celdas = () => [...grid.querySelectorAll('.ec-celda')];
 
+  // ---------------- sprites ----------------
+  let sprites = [], rafSprites = 0, tPrev = 0;
+  /** Un sprite en su lienzo: Idle mirando abajo, como la colección, con los pies a PIES píxeles de arte de arriba. */
+  function nuevoSprite(cv, dex, k) {
+    const a = new G.Sprites.Animator(dex, k / G.Sprites.PX, false);
+    a.dir = 0;
+    a.loop('Idle');
+    a.update(Math.random() * 2);   // cada uno en un momento de su animación
+    return { cv, ctx: cv.getContext('2d'), a, k };
+  }
+  function pintarSprite({ cv, ctx, a, k }) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.imageSmoothingEnabled = false;
+    const fx = Math.round(cv.width / 2), fy = PIES * k;
+    ctx.fillStyle = 'rgba(0,0,0,.35)';   // la sombra de ui.js
+    ctx.beginPath(); ctx.ellipse(fx, fy, 9 * k, 3.4 * k, 0, 0, 6.2832); ctx.fill();
+    a.draw(ctx, fx, fy);
+  }
+  function bucle(t) {
+    const dt = tPrev ? Math.min(0.1, (t - tPrev) / 1000) : 0;
+    tPrev = t;
+    for (const s of sprites) { s.a.update(dt); pintarSprite(s); }
+    rafSprites = abierta ? requestAnimationFrame(bucle) : 0;
+  }
+  function animar() { if (!rafSprites && abierta) { tPrev = 0; rafSprites = requestAnimationFrame(bucle); } }
+
   /** Las celdas sin tamaño (para medir) o con el de la disposición `d`. */
   function pintarCeldas(d) {
     grid.innerHTML = '';
+    sprites = [];
     G.STARTERS.forEach((s, i) => {
       const mon = G.DEX_BY[s.dex];
       if (!mon) return;
@@ -172,7 +205,7 @@ G.ElegirCompanero = (() => {
         cv.width = cw; cv.height = ALTO_ARTE * d.k;
         cv.style.width = cw / dpr + 'px'; cv.style.height = ALTO_ARTE * d.k / dpr + 'px';
         b.appendChild(cv);
-        G.UI.sprite(cv, s.dex, { scale: d.k });
+        sprites.push(nuevoSprite(cv, s.dex, d.k));
       }
       b.insertAdjacentHTML('beforeend', `<b translate="no">${esc(mon.name)}</b><span class="ec-tipos">` +
         `<span class="ec-txt">${G.UI.typeChips(mon.types)}</span>` +
@@ -238,6 +271,8 @@ G.ElegirCompanero = (() => {
     grid.classList.toggle('ec-desplaza', !d.cabe);
     grid.style.maxHeight = d.cabe ? '' : Math.max(80, m.alto) + 'px';
     pintarCeldas(d);
+    for (const sp of sprites) pintarSprite(sp);
+    animar();
     if (fc) { const c = celdas()[foco]; if (c) c.focus({ preventScroll: true }); }
   }
 
@@ -326,6 +361,6 @@ G.ElegirCompanero = (() => {
     get elegido() { return sel; },
     get disp() { return disp; },
     get medidas() { return medidas; },
-    ALTO_ARTE, A_MAX, A_MIN
+    ALTO_ARTE, ANCHO_ARTE, PIES, A_MAX, A_MIN
   };
 })();

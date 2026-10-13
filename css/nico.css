@@ -260,6 +260,8 @@ html.pantalla-dividida.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: c
 #starter-grid.ec-midiendo .ec-celda b, #starter-grid.ec-midiendo .ec-txt, #starter-grid.ec-midiendo .ec-emb { display: inline-flex; flex-wrap: nowrap;
   width: max-content; max-width: none; }
 #scr-starters .ec-celda:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+/* En una pantalla táctil, la celda tocada no se queda levantada (el :hover de upstream sigue tras el toque). */
+@media (hover: none) { #scr-starters .ec-celda:hover { transform: none; } }
 .ec-pie { grid-area: pie; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; }
 .ec-pie .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
 #ec-info { flex: 1 1 160px; min-width: 0; color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

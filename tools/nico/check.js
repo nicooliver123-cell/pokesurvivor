@@ -4791,12 +4791,12 @@ function companeroChecks() {
       const lineaT = d.modo === 'texto2' ? m.lineaTipo2 : m.lineaTipo;
       const bien = d.cabe && Number.isInteger(d.k) && d.k >= 1 && Math.abs(d.a - d.k / m.dpr) < 1e-9 && d.a <= E.A_MAX + 1e-9 && d.a >= E.A_MIN - 1e-9 &&
         d.cols * d.filas >= 29 && d.cols * (d.filas - 1) < 29 && d.altoRejilla <= m.alto + 1e-6 &&
-        d.celdaW - m.rellenoH >= Math.max(m.nombre, tipoW) && d.celdaW - m.rellenoH >= 34 * d.a &&
+        d.celdaW - m.rellenoH >= Math.max(m.nombre, tipoW) && d.celdaW - m.rellenoH >= E.ANCHO_ARTE * d.a &&
         Math.abs(d.celdaH - (m.relleno + m.lineaNombre + lineaT + E.ALTO_ARTE * d.a)) < 1e-6 && d.cols * d.celdaW + (d.cols - 1) * m.hueco <= m.ancho + 1e-6;
       filas[k] = `${d.cols}x${d.filas} k${d.k} ${d.modo}`;
       if (!bien) mal.push([k, d]);
     }
-    t('disposicion() con las medidas de Chromium en 12 pantallas y los dos estilos: los 29 caben sin desplazar, el píxel de arte en px físicos enteros (≤ 2,5 px CSS), nombre, tipos y sprite (34 px de arte) dentro de cada celda',
+    t('disposicion() con las medidas de Chromium en 12 pantallas y los dos estilos: los 29 caben sin desplazar, el píxel de arte en px físicos enteros (≤ 2,5 px CSS), nombre, tipos y sprite (24 px de arte de ancho, lo que miden con su sombra) dentro de cada celda',
       !mal.length, mal.length ? mal.slice(0, 3) : filas);
     const movil = ['844x390', '780x360', '807x360', '784x362'].flatMap(p => ['clasico', 'dex'].map(e => D(medidaCompanero(MEDIDAS_COMPANERO[p + ' ' + e]))));
     t('en un móvil en horizontal y en el exterior del Magic V6 (y la mitad de la pantalla dividida, 784x362): 10 columnas y 3 filas, el Pokémon a 4 o 5 px físicos por píxel de arte',
