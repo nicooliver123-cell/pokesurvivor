@@ -6,7 +6,7 @@ Comando exacto, desde la raíz del repo:
 cd tools/nico && npm install && npm test
 ```
 
-`npm install` sólo hace falta la primera vez (o tras cambiar `package.json`). `npm test` ejecuta las tres pruebas seguidas (unos 14-15 min: 14 min 32 s el 13-10-2026 con los lotes 3, 4 y 5 unidos, de ellos check.js 82 s, el cooperativo 89 s y `estilo-e2e.js` 11 min 41 s; antes de los lotes 3-5, 9 min 27 s, con los arreglos de la verificación de PokéSwarm; 9 min 16 s con la portada; antes, 8 min 27 s con los arreglos de la verificación de los lotes 1 y 2) y termina con código 0 si todo pasa.
+`npm install` sólo hace falta la primera vez (o tras cambiar `package.json`). `npm test` ejecuta las tres pruebas seguidas (unos 14-15 min: 14 min 47 s el 13-10-2026 con los arreglos de la verificación de los lotes 3-5 (check.js, unos 80 s); 14 min 32 s con los lotes 3, 4 y 5 recién unidos, de ellos check.js 82 s, el cooperativo 89 s y `estilo-e2e.js` 11 min 41 s; antes de los lotes 3-5, 9 min 27 s, con los arreglos de la verificación de PokéSwarm; 9 min 16 s con la portada; antes, 8 min 27 s con los arreglos de la verificación de los lotes 1 y 2) y termina con código 0 si todo pasa.
 
 | Prueba | Comando suelto | Qué comprueba | Tarda |
 |---|---|---|---|
