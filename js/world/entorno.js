@@ -82,9 +82,8 @@ G.Entorno = (() => {
     const a = H(xi, yi, s), b = H(xi + 1, yi, s), c = H(xi, yi + 1, s), d = H(xi + 1, yi + 1, s);
     return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
   }
-  /** Desenfoque 3×3 (caja) de un campo S×S, en su sitio. */
-  function blur(F, S) {
-    const t = new Float32Array(F.length);
+  /** Desenfoque 3×3 (caja) de un campo S×S, en su sitio (`t`: un búfer del mismo tamaño). */
+  function blur(F, S, t) {
     for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
       let s = 0, n = 0;
       for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) {
@@ -104,27 +103,32 @@ G.Entorno = (() => {
    * 3 tiles de margen, se desenfocan dos veces y se interpolan por píxel: nada de bordes ni trazos. Determinista.
    * Con Clásico no hace nada (el chunk es el de upstream).
    */
+  let buf = null;                      // campos y tablas de gradar(), reutilizados (sin basura por chunk)
+  function bufs(S, W) {
+    if (buf && buf.S === S && buf.W === W) { buf.pared.fill(0); buf.liq.fill(0); buf.tipo.fill(0); return buf; }
+    return (buf = { S, W, pared: new Float32Array(S * S), liq: new Float32Array(S * S), tipo: new Uint8Array(S * S), ruido: new Float32Array(S * S),
+      tmp: new Float32Array(S * S), cA: new Float32Array(S), cL: new Float32Array(S), cR: new Float32Array(S), I0: new Int32Array(W), FU: new Float32Array(W), TX: new Int32Array(W) });
+  }
   function gradar(P, cx, cy, n, at, bi) {
     if (aplicada !== 'dex' || !conDex()) return;
     const g = grad(bi), GR = MARCA().gradacion, RU = GR.ruido;
     const W = n * T, Mg = GR.margenTiles, S = n + 2 * Mg;
     const tx0 = cx * n - Mg, ty0 = cy * n - Mg;
-    const pared = new Float32Array(S * S), liq = new Float32Array(S * S), tipo = new Uint8Array(S * S), ruido = new Float32Array(S * S);
+    const Bf = bufs(S, W), { pared, liq, tipo, ruido, tmp } = Bf;
     for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
       const k = at(tx0 + i, ty0 + j), o = j * S + i;
       if (k === 'wall') { pared[o] = 1; tipo[o] = 1; } else if (k === 'liquid') { liq[o] = 1; tipo[o] = 2; }
       ruido[o] = vnoise((tx0 + i) / RU.escalas[0], (ty0 + j) / RU.escalas[0], RU.semillas[0]) * RU.pesos[0] +
                  vnoise((tx0 + i) / RU.escalas[1], (ty0 + j) / RU.escalas[1], RU.semillas[1]) * RU.pesos[1];
     }
-    for (let k = 0; k < GR.desenfoques; k++) { blur(pared, S); blur(liq, S); }
+    for (let k = 0; k < GR.desenfoques; k++) { blur(pared, S, tmp); blur(liq, S, tmp); }
     const [sr, sg, sb] = rgb(g.sombra), [lr, lg, lb] = rgb(g.luz);
     const X = g.brillo ? rgb(g.brillo) : g.humedo ? rgb(g.humedo) : null, XK = g.brillo ? GR.brillo : GR.humedo;
     const OCK = GR.oclusion.k, OCM = GR.oclusion.max, XKk = XK.k, XKm = XK.max, LM = GR.luzMax, SM = GR.sombraMax, GAN = RU.ganancia;
     // Coordenadas de cada columna en la rejilla de tiles (iguales en todas las filas).
-    const I0 = new Int32Array(W), FU = new Float32Array(W), TX = new Int32Array(W);
+    const { I0, FU, TX, cA, cL, cR } = Bf;
     for (let px = 0; px < W; px++) { const u = (px + 0.5) / T + Mg - 0.5; I0[px] = Math.floor(u); FU[px] = u - I0[px]; TX[px] = Math.floor(px / T); }
     // Interpolación bilineal en dos pasos: en vertical, una vez por fila y columna de la rejilla; en horizontal, por píxel.
-    const cA = new Float32Array(S), cL = new Float32Array(S), cR = new Float32Array(S);
     for (let py = 0; py < W; py++) {
       const v = (py + 0.5) / T + Mg - 0.5, j0 = Math.floor(v), fv = v - j0, gv = 1 - fv;
       const fila = (Math.floor(py / T) + Mg) * S + Mg;
