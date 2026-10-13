@@ -134,6 +134,7 @@ G.Weather = (() => {
 
   /** Partículas suaves y un tinte leve. Se llama después de dibujar el mundo. */
   function draw(ctx, w, h, dt) {
+    if (G.Entorno && G.Entorno.clima(ctx, w, h, dt, cur && cur.kind, level())) return;   // MOD nico: con Dex, clima de dos tonos (js/world/entorno.js)
     const d = def();
     const k = level();
     if (!d || k <= 0) { parts.length = 0; return; }

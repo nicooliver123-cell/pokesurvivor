@@ -595,6 +595,7 @@ G.Game = (() => {
     const t = performance.now() / 1000;
     G.World.drawGround(ctx, cam);
     G.World.drawLiquid(ctx, cam, t);
+    if (G.Entorno) G.Entorno.suelo(ctx, cam, t);   // MOD nico: horno escalonado y, con Dex, farol, halos, motas y salpicaduras sobre el suelo (js/world/entorno.js)
     G.Hazards.draw(ctx);
     G.Combat.drawGroundFields(ctx);
     G.Pickups.draw(ctx);

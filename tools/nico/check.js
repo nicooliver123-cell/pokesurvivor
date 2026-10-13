@@ -79,6 +79,13 @@
  *      caché de anchos que se vacía al cargar una fuente. Y el acabado de las flechas (verificación de la tanda
  *      PokéSwarm): 12 px de texto a texto entre etiquetas, el cuerpo a 8 px o más de las piezas, de la píldora y de la
  *      ranura activa (donde se pinta, corrida), y nada sobre el pliegue (también con la barra del navegador).
+ *  16. Entornos del Gremio, clima y horneado escalonado (js/world/entorno.js y horno.js con tiles.js, world.js y weather.js
+ *      reales): paletas (el suelo, el de upstream; Clásico vuelve a upstream), el chunk de Clásico byte a byte el de upstream,
+ *      gradación sólo en el suelo, determinista y sin trazos; horno (precalentado desde t % 240 = 237, 0 horneados al cambiar,
+ *      como mucho 1 chunk por fotograma con un paintChunk lento, la imagen vieja sólo con fundido o cambio de estilo, una
+ *      grieta, otro mundo o el estilo descartan lo precalentado, el fondo de los menús, y sin ganchos igual que upstream);
+ *      tabla de Calidad (farol, halos y motas; ningún halo de disparos enemigos por defecto; halos sin bordes duros);
+ *      viñeta cálida con el centro intacto y clima de dos tonos (con Clásico, los de upstream).
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -357,7 +364,16 @@ const HOOKS = [
   // HUD Dex (js/ui/hud-dex.js)
   ['dev.html', /src="js\/ui\/hud\.js"><\/script>\r?\n<script defer src="js\/ui\/hud-dex\.js"><\/script><!-- MOD nico/, 'HUD Dex: hud-dex.js justo después de hud.js'],
   ['js/ui/hud.js', /function draw\(ctx, w, h, pl, st\) \{\r?\n    if \(G\.Estilo && G\.Estilo\.hud\(ctx, w, h, pl, st\)\) return;\s*\/\/ MOD nico[^\n]*\r?\n    ctx\.save\(\);/, 'HUD Dex: primera línea de G.HUD.draw (con Clásico, o si falla, sigue el de upstream)'],
-  ['js/systems/events.js', /get current\(\) \{ return cur \? cur\.id : null; \},\r?\n    get estado\(\) \{ return cur \|\| lost \? \{[^\n]*\} : null; \},\s*\/\/ MOD nico/, 'HUD Dex: getter aditivo del evento en curso (events.js)']
+  ['js/systems/events.js', /get current\(\) \{ return cur \? cur\.id : null; \},\r?\n    get estado\(\) \{ return cur \|\| lost \? \{[^\n]*\} : null; \},\s*\/\/ MOD nico/, 'HUD Dex: getter aditivo del evento en curso (events.js)'],
+  // Entornos del Gremio y horneado escalonado (js/world/entorno.js y horno.js)
+  ['dev.html', /src="js\/world\/world\.js"><\/script>\r?\n<script defer src="js\/world\/entorno\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/horno\.js"><\/script><!-- MOD nico/, 'entornos: entorno.js y horno.js justo después de world.js'],
+  ['js/world/tiles.js', /\}\r?\n    \}\r?\n    if \(G\.Entorno\) G\.Entorno\.gradar\(P, cx, cy, n, at, bi\);\s*\/\/ MOD nico[^\n]*\r?\n    return P\.canvas\(\);\r?\n  \}\r?\n\r?\n  function paintFloor/, 'entornos: la gradación del suelo en paintChunk, antes de devolver el lienzo'],
+  ['js/world/world.js', /let img = cache\.get\(k\);\r?\n    if \(img\) return img;\r?\n    if \(G\.Horno\) \{ const o = G\.Horno\.aplazar\(k, fade, cache === images\); if \(o\) return o; \}\s*\/\/ MOD nico/, 'horno: chunkImage aplaza con la imagen vieja (sin guardarla)'],
+  ['js/world/world.js', /biome = b;\r?\n    images = new Map\(\);\r?\n    if \(G\.Horno\) G\.Horno\.alCambiar\(b, images\);\s*\/\/ MOD nico/, 'horno: setBiome pasa lo precalentado al mapa nuevo'],
+  ['js/world/world.js', /function drawVignette\(ctx, w, h\) \{\r?\n    if \(G\.Entorno && G\.Entorno\.vineta\(ctx, w, h\)\) return;\s*\/\/ MOD nico/, 'entornos: primera línea de drawVignette (con Dex, la viñeta cálida)'],
+  ['js/world/world.js', /damageProp, breakAt, specialsNear, update,\r?\n    chunkImage, get semilla\(\) \{ return seed; \}, rehornear\(\) \{ const v = images; images = new Map\(\); fade = null; return v; \},\s*\/\/ MOD nico/, 'horno: world.js expone chunkImage, la semilla y rehornear()'],
+  ['js/game.js', /G\.World\.drawLiquid\(ctx, cam, t\);\r?\n    if \(G\.Entorno\) G\.Entorno\.suelo\(ctx, cam, t\);\s*\/\/ MOD nico[^\n]*\r?\n    G\.Hazards\.draw\(ctx\);/, 'entornos: la capa del suelo (y el horno) en drawScene, tras drawLiquid'],
+  ['js/systems/weather.js', /function draw\(ctx, w, h, dt\) \{\r?\n    if \(G\.Entorno && G\.Entorno\.clima\(ctx, w, h, dt, cur && cur\.kind, level\(\)\)\) return;\s*\/\/ MOD nico/, 'entornos: primera línea de G.Weather.draw (con Dex, el clima de dos tonos)']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -2843,10 +2859,11 @@ function identidadChecks() {
     const ficheros = ['dev.html', 'css/style.css', 'css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/settings-ui.js', 'js/ui/run-ui.js',
       'js/ui/menu.js', 'js/ui/gacha-ui.js', 'js/game.js', 'js/core/mods.js', 'js/data/lang-en-mod.js', 'js/entities/claridad.js', 'CREDITS.md', 'assets/fonts/OFL-MPLUSRounded1c.txt',
       'tools/nico/check.js', 'js/ui/hud.js', 'js/ui/hud-dex.js', 'js/systems/events.js', 'tools/nico/coop-e2e.js', 'css/portada.css', 'js/ui/portada.js',
-      'tools/nico/iconos.py', 'js/main.js', 'js/core/importar.js', 'js/ui/importar-ui.js', 'js/ui/ui.js', '404.html', 'contacto/index.html', 'manifest.webmanifest'].concat(ex('tools/nico/estilo-e2e.js') ? ['tools/nico/estilo-e2e.js'] : []);
+      'tools/nico/iconos.py', 'js/main.js', 'js/core/importar.js', 'js/ui/importar-ui.js', 'js/ui/ui.js', '404.html', 'contacto/index.html', 'manifest.webmanifest',
+      'js/world/entorno.js', 'js/world/horno.js', 'js/world/tiles.js', 'js/world/world.js', 'js/systems/weather.js'].concat(ex('tools/nico/estilo-e2e.js') ? ['tools/nico/estilo-e2e.js'] : []);
     const mezcla = ficheros.filter(f => { const s = rd(f), crlf = (s.match(/\r\n/g) || []).length, lf = (s.match(/\n/g) || []).length; return crlf && crlf !== lf; });
     const nuevosCRLF = ['css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/hud-dex.js', 'assets/fonts/OFL-MPLUSRounded1c.txt',
-      'css/portada.css', 'js/ui/portada.js', 'tools/nico/iconos.py'].filter(f => /\r/.test(rd(f)));
+      'css/portada.css', 'js/ui/portada.js', 'tools/nico/iconos.py', 'js/world/entorno.js', 'js/world/horno.js'].filter(f => /\r/.test(rd(f)));
     t('finales de línea: ningún fichero tocado mezcla CRLF y LF, y los nuevos van en LF', !mezcla.length && !nuevosCRLF.length, { mezcla, nuevosCRLF });
   } catch (e) { t('finales de línea', false, String(e && e.stack || e)); }
   try {
@@ -3701,6 +3718,383 @@ function hudDexChecks() {
   for (const [name, , detail] of failed) bad(`HUD Dex: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 16. Entornos del Gremio, clima de dos tonos y horneado escalonado (lote 3) ----------------
+function entornoChecks() {
+  console.log('16. Entornos del Gremio, clima y horneado escalonado (js/world/entorno.js y horno.js con tiles.js, world.js y weather.js reales)');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  /** Un canvas de mentira: guarda lo que se pone con putImageData (los chunks y los halos se leen así). */
+  const lienzoFalso = () => {
+    const cv = { width: 0, height: 0, _img: null };
+    cv.getContext = () => ({ createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }), putImageData(img) { cv._img = img; } });
+    return cv;
+  };
+  /** Un contexto 2D de mentira que apunta cada llamada (y el alfa con que se pinta cada imagen). */
+  const ctxFalso = () => {
+    const o = { ops: [], imgs: [], grads: [], alfas: [], estilos: [], globalAlpha: 1 };
+    return new Proxy(o, {
+      get(x, k) {
+        if (k in x) return x[k];
+        if (k === 'createRadialGradient') return (...a) => { const g = { args: a, stops: [], addColorStop(p, c) { g.stops.push([p, c]); } }; x.grads.push(g); x.ops.push([k]); return g; };
+        return (...a) => { x.ops.push([k, ...a]); if (k === 'drawImage') { x.imgs.push(a); x.alfas.push(x.globalAlpha); } };
+      },
+      set(x, k, v) { if (k === 'fillStyle') x.estilos.push(v); x[k] = v; return true; }
+    });
+  };
+  const camara = (x, y, w = 768, h = 432) => ({ x, y, w, h, scale: 1, left() { return this.x - this.w / 2; }, top() { return this.y - this.h / 2; },
+    sees(px, py, pad = 60) { return px > this.left() - pad && px < this.left() + this.w + pad && py > this.top() - pad && py < this.top() + this.h + pad; } });
+  /** El mundo real (tiles.js y world.js; `upstream`: sin las líneas «MOD nico») con entorno.js y horno.js si se piden, un reloj
+   *  de mentira y un estilo de mentira con la interfaz de G.Estilo (actual, dex, on). paintChunk apunta cada horneado (y lo
+   *  alarga `lento` ms en el reloj) y marca el lienzo con su bioma, su estilo y su chunk. */
+  function mundo({ estilo = 'dex', entorno = true, horno = true, upstream = false, lento = 0 } = {}) {
+    const reloj = { t: 1000 };
+    const c = { console, performance: { now: () => reloj.t }, document: { createElement: lienzoFalso } };
+    vm.createContext(c);
+    c.window = c; c.G = {};
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js']) vm.runInContext(rd(f), c, { filename: f });
+    const G = c.G, oyentes = [];
+    G.Estilo = { actual: estilo, get dex() { return this.actual === 'dex'; }, on(fn) { oyentes.push(fn); }, set(v) { this.actual = v; oyentes.forEach(fn => fn(v)); } };
+    G.Settings = { fx: 2, get: () => false };
+    G.Sprites = { PX: 2 };
+    G.Game = { state: 'playing', st: { time: 10 }, player: { x: 0, y: 0 } };
+    G.Rift = { inArena: false, rift: null };
+    const src = f => (upstream ? rd(f).split(/\r?\n/).filter(l => !/MOD nico/.test(l)).join('\n') : rd(f));
+    for (const f of ['js/world/tiles.js', 'js/world/world.js']) vm.runInContext(src(f), c, { filename: f });
+    if (entorno) vm.runInContext(rd('js/world/entorno.js'), c, { filename: 'js/world/entorno.js' });
+    if (horno) vm.runInContext(rd('js/world/horno.js'), c, { filename: 'js/world/horno.js' });
+    const pinta = G.Tiles.paintChunk, hornos = [];
+    G.Tiles.paintChunk = function (cx, cy, n, at, df, bi) {
+      const cv = pinta.apply(this, arguments);
+      reloj.t += lento;
+      cv.__bi = bi; cv.__estilo = G.Estilo.actual; cv.__k = cx + ',' + cy; cv.__sem = G.World.semilla;
+      hornos.push(cv.__k);
+      return cv;
+    };
+    return { G, c, reloj, hornos };
+  }
+  /** Un fotograma como en el juego: el terreno (drawGround), el horno (tick, que llama G.Entorno.suelo) y update().
+   *  Devuelve cuántos chunks se han horneado, cuáles y el contexto con lo pintado. */
+  function fotograma(M, cam, dt = 1 / 60) {
+    const ctx = ctxFalso(), antes = M.hornos.length;
+    M.G.World.drawGround(ctx, cam);
+    if (M.G.Horno && M.G.Entorno) M.G.Horno.tick(cam);
+    M.reloj.t += dt * 1000;
+    M.G.World.update(dt, cam);
+    return { n: M.hornos.length - antes, ctx, hechos: M.hornos.slice(antes) };
+  }
+  const visibles = (cam, CW = 512) => {
+    const out = [];
+    for (let cy = Math.floor(cam.top() / CW); cy <= Math.floor((cam.top() + cam.h) / CW); cy++)
+      for (let cx = Math.floor(cam.left() / CW); cx <= Math.floor((cam.left() + cam.w) / CW); cx++) out.push(cx + ',' + cy);
+    return out;
+  };
+  const bytes = cv => cv && cv._img && cv._img.data;
+  const iguales = (a, b) => !!(a && b && a.length === b.length && a.every((v, i) => v === b[i]));
+  const SEMILLA = 1234;
+
+  // ---- A. Paletas: el suelo conserva su tono; Clásico vuelve a upstream ----
+  try {
+    const U = mundo({ upstream: true, entorno: false, horno: false }).G, D = mundo().G;
+    const BU = U.Tiles.BIOMES, BD = D.Tiles.BIOMES, PAL = D.MARCA.biomas;
+    const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const suelo = [0, 1, 2].every(i => ['floor', 'dirt', 'speck'].every(k => eq(BD[i][k], BU[i][k])));
+    const gremio = [0, 1, 2].every(i => Object.keys(PAL[i]).filter(k => k !== 'nombre' && k[0] !== '_').every(k => eq(BD[i][k], PAL[i][k])));
+    const luz = [0, 1, 2].map(i => BD[i].light !== BU[i].light);
+    t('paletas del Gremio con Dex: floor, dirt y speck idénticos a upstream en los 3 biomas; paredes, agua, flores, hojas, troncos, rocas y hierba de G.MARCA.biomas; `light` cambia sólo en cueva y volcán (algo más oscuro)',
+      suelo && gremio && !luz[0] && luz[1] && luz[2] && D.Entorno.aplicada === 'dex', { luz, light: [0, 1, 2].map(i => [BU[i].light, BD[i].light]) });
+    const arenas = BD.slice(3).every((b, i) => eq(b, BU[3 + i]));
+    D.Estilo.set('clasico');
+    const vuelta = [0, 1, 2].every(i => D.Entorno.CAMPOS.every(k => eq(BD[i][k], BU[i][k])) && eq(BD[i], BU[i])) && BD.length === BU.length;
+    t('con Clásico, las paletas vuelven a las de upstream (copia ORIG, campo a campo) y las arenas de la grieta no se tocan nunca', arenas && vuelta && D.Entorno.aplicada === 'clasico');
+  } catch (e) { t('paletas', false, String(e && e.stack || e)); }
+
+  // ---- B. Con Clásico, el chunk es byte a byte el de upstream (también tras ir y volver de Dex) ----
+  try {
+    const U = mundo({ upstream: true, entorno: false, horno: false }), C = mundo({ estilo: 'dex' });
+    C.G.Estilo.set('clasico');
+    let casos = 0;
+    const mal = [];
+    for (const bi of [0, 1, 2, U.G.Tiles.arenaBiome('fire')]) for (const [x, y] of [[0, 0], [2600, -1800], [-4100, 3300]]) {
+      for (const M of [U, C]) { M.G.World.reset(SEMILLA); M.G.World.setBiome(bi, true); }
+      const cam = camara(x, y), a = ctxFalso(), b = ctxFalso();
+      U.G.World.drawGround(a, cam); C.G.World.drawGround(b, cam);
+      a.imgs.forEach((im, i) => { casos++; if (!iguales(bytes(im[0]), bytes(b.imgs[i] && b.imgs[i][0]))) mal.push({ bi, x, y, i }); });
+    }
+    t(`con Clásico, cada chunk horneado es byte a byte el de upstream (${casos} chunks: bosque, cueva, volcán y una arena, con paredes y charcos, después de pasar por Dex)`, casos >= 24 && !mal.length, mal.slice(0, 4));
+  } catch (e) { t('Clásico = upstream', false, String(e && e.stack || e)); }
+
+  // ---- C. Gradación: sólo el suelo, determinista y sin trazos ----
+  try {
+    const M = mundo(), G = M.G, W = G.World, TS = W.TS;
+    W.reset(SEMILLA);
+    const at = (tx, ty) => W.kindAt(tx * TS + 1, ty * TS + 1);
+    // Chunks con paredes y con charcos cerca del centro.
+    const cand = [];
+    for (let cy = -6; cy <= 6 && cand.length < 6; cy++) for (let cx = -6; cx <= 6 && cand.length < 6; cx++) {
+      let p = 0, l = 0;
+      for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) { const k = at(cx * 16 + i, cy * 16 + j); if (k === 'wall') p++; else if (k === 'liquid') l++; }
+      if (p > 8 && l > 8) cand.push([cx, cy]);
+    }
+    let soloSuelo = true, cambiados = 0, sueloTotal = 0, determinista = true, maxGrad = 0;
+    const df = (gx, gy) => (Math.sin(gx / 90) + Math.cos(gy / 70)) / 4 + 0.5;
+    for (const bi of [0, 1, 2, G.Tiles.arenaBiome('fire')]) for (const [cx, cy] of cand.slice(0, 3)) {
+      const pinta = () => G.Tiles.paintChunk(cx, cy, 16, at, df, bi, SEMILLA);
+      const con = bytes(pinta());
+      const otra = bytes(pinta());
+      const E = G.Entorno; G.Entorno = null; const sin = bytes(pinta()); G.Entorno = E;
+      if (!iguales(con, otra)) determinista = false;
+      for (let py = 0; py < 256; py++) for (let px = 0; px < 256; px++) {
+        const o = (py * 256 + px) * 4, k = at(cx * 16 + (px >> 4), cy * 16 + (py >> 4));
+        const dif = con[o] !== sin[o] || con[o + 1] !== sin[o + 1] || con[o + 2] !== sin[o + 2] || con[o + 3] !== sin[o + 3];
+        if (k === 'floor') { sueloTotal++; if (dif) cambiados++; } else if (dif) soloSuelo = false;
+      }
+    }
+    t(`gradación: sólo cambia píxeles de suelo, nunca de pared ni de charco (chunks ${cand.slice(0, 3).map(c => c.join(',')).join(' ')}, en 3 biomas y una arena de lava), y gradúa casi todo el suelo (${Math.round(100 * cambiados / Math.max(1, sueloTotal))} %)`,
+      cand.length >= 3 && soloSuelo && cambiados / sueloTotal > 0.6);
+    t('gradación determinista: dos horneados del mismo chunk dan los mismos bytes', determinista);
+    // Sin trazos: sobre un suelo liso, la diferencia entre dos píxeles de suelo vecinos ≤ 6/255 por canal.
+    let lisos = 0;
+    for (const bi of [0, 1, 2, G.Tiles.arenaBiome('fire'), G.Tiles.arenaBiome('water')]) for (const [cx, cy] of cand.slice(0, 3)) {
+      const col = parseInt(G.Tiles.BIOMES[bi].floor[0].slice(1), 16), base = ((255 << 24) | ((col & 255) << 16) | (col & 0xff00) | (col >> 16)) >>> 0;
+      const buf = new Uint32Array(256 * 256).fill(base);
+      G.Entorno.gradar({ w: 256, h: 256, get: (x, y) => buf[y * 256 + x], set(x, y, v) { buf[y * 256 + x] = v; } }, cx, cy, 16, at, bi);
+      const ch = (v, s) => (v >>> s) & 255;
+      for (let py = 0; py < 256; py++) for (let px = 0; px < 256; px++) {
+        if (at(cx * 16 + (px >> 4), cy * 16 + (py >> 4)) !== 'floor') continue;
+        for (const [dx, dy] of [[1, 0], [0, 1]]) {
+          const qx = px + dx, qy = py + dy;
+          if (qx > 255 || qy > 255 || at(cx * 16 + (qx >> 4), cy * 16 + (qy >> 4)) !== 'floor') continue;
+          const a = buf[py * 256 + px], b = buf[qy * 256 + qx];
+          for (const s of [0, 8, 16]) maxGrad = Math.max(maxGrad, Math.abs(ch(a, s) - ch(b, s)));
+        }
+      }
+      lisos++;
+    }
+    t(`gradación sin trazos: sobre un suelo liso, la diferencia entre dos píxeles de suelo vecinos es como mucho ${maxGrad}/255 por canal (≤ 6: todo en baja frecuencia), en 3 biomas y 2 arenas`, lisos >= 15 && maxGrad <= 6, { maxGrad });
+    // Con Clásico, gradar no hace nada.
+    G.Estilo.set('clasico');
+    const buf = new Uint32Array(256 * 256).fill(0xff336699);
+    G.Entorno.gradar({ w: 256, h: 256, get: (x, y) => buf[y * 256 + x], set(x, y, v) { buf[y * 256 + x] = v; } }, cand[0][0], cand[0][1], 16, at, 0);
+    t('con Clásico, gradar() no toca ningún píxel', buf.every(v => v === 0xff336699));
+  } catch (e) { t('gradación', false, String(e && e.stack || e)); }
+
+  // ---- D. Horno ----
+  /** Lo visible y el anillo ya horneados (como al llevar un rato quieto). */
+  const asentar = (M, cam, n = 80) => { for (let i = 0; i < n; i++) fotograma(M, cam); };
+  try {
+    // D1. Precalentado desde t % 240 = 237 (no antes), primero el chunk de tu Pokémon; al cambiar, 0 horneados.
+    const M = mundo(), G = M.G, cam = camara(300, 200);
+    G.Game.player = { x: 300, y: 200 };
+    G.World.reset(SEMILLA); G.World.setBiome(0, true);
+    G.Game.st.time = 236.9; asentar(M, cam);
+    const antes = G.Horno.stats.precalentados;
+    G.Game.st.time = 237;
+    const f1 = fotograma(M, cam), f2 = fotograma(M, cam);
+    const primero = [...f1.hechos, ...f2.hechos][0];
+    for (let i = 0; i < 60; i++) fotograma(M, cam);
+    const pre = G.Horno.precalentado;
+    G.Game.st.time = 240;
+    G.World.setBiome(1);                                   // lo que hace game.js al cambiar de tramo
+    const cambio = fotograma(M, cam);
+    const vis = visibles(cam), dibujados = cambio.ctx.imgs.filter((im, i) => i % 2 === 1).map(im => im[0].__bi);
+    t(`precalentado: nada antes de t % 240 = 237 (${antes} a los 236,9 s); desde ahí el bioma siguiente, primero el chunk de tu Pokémon (${primero}); al cambiar, 0 chunks horneados en ese fotograma (${pre && pre.n} precalentados) y el bioma nuevo ya pintado en los ${vis.length} visibles`,
+      antes === 0 && primero === '0,0' && pre && pre.bioma === 1 && pre.n >= vis.length && cambio.n === 0 && G.Horno.stats.ultimoCambio.horneados === 0 && dibujados.length === vis.length && dibujados.every(b => b === 1),
+      { antes, primero, pre, cambio: cambio.n, ultimo: G.Horno.stats.ultimoCambio, dibujados });
+    G.Rift.inArena = true; G.Game.st.time = 477;
+    t('precalentado: nunca en la arena de la grieta', G.Horno.siguiente() === null);
+    G.Rift.inArena = false;
+    G.Game.st.time = 717; G.World.setBiome(2, true);
+    t('precalentado: el bioma siguiente sale de G.MODS.biomaNormal (a los 717 s, del volcán al bosque)', G.Horno.siguiente() === 0);
+  } catch (e) { t('precalentado', false, String(e && e.stack || e)); }
+  try {
+    // D2. Sin precalentado (un salto de reloj), con un paintChunk lento (12 ms): como mucho 1 chunk por fotograma, uno cada
+    // ceil(12 / 4) = 3, del más cercano al más lejano; mientras, la imagen vieja (sin guardarla en el mapa nuevo).
+    const M = mundo({ lento: 12 }), G = M.G, cam = camara(300, 200);
+    G.Game.player = { x: 300, y: 200 };
+    G.World.reset(SEMILLA); G.World.setBiome(0, true); G.Game.st.time = 100;
+    asentar(M, cam, 120);
+    G.World.setBiome(1);
+    const ns = [], hechos = [];
+    let primeras = null;
+    for (let i = 0; i < 90; i++) { const f = fotograma(M, cam); ns.push(f.n); hechos.push(...f.hechos.map(k => [i, k])); if (i === 0) primeras = f.ctx.imgs.map(im => im[0]); }
+    const vis = visibles(cam), cuando = vis.map(k => (hechos.find(h => h[1] === k) || [Infinity])[0]);
+    const enVis = hechos.filter(h => vis.includes(h[1])).map(h => h[0]);
+    const juntos = enVis.filter((v, i, a) => i > 0 && v - a[i - 1] < 3);
+    // En el primer fotograma del fundido, la capa nueva de cada chunk aplazado es la MISMA imagen vieja.
+    const viejaEnNueva = primeras.length === 2 * vis.length && primeras.every((im, i) => i % 2 === 0 || im === primeras[i - 1]);
+    // Pasado el fundido, lo que hay en el mapa del bioma es del bioma nuevo (la vieja nunca se guardó).
+    const finales = vis.map(k => { const [cx, cy] = k.split(',').map(Number); return G.World.chunkImage(cx, cy).__bi; });
+    t(`horneado escalonado con un chunk de 12 ms (presupuesto 4): como mucho 1 por fotograma (máximo ${Math.max(...ns)}), uno cada 3 fotogramas o más, primero el de tu Pokémon (fotogramas ${cuando.join(', ')}); mientras, la imagen vieja, nunca guardada en el mapa nuevo`,
+      Math.max(...ns) <= 1 && !juntos.length && cuando.every(c => c < 90) && cuando[vis.indexOf('0,0')] === Math.min(...cuando) && viejaEnNueva && finales.every(b => b === 1),
+      { ns: ns.slice(0, 20), cuando, juntos: juntos.slice(0, 5), viejaEnNueva, finales });
+    // Durante el fundido, un chunk que no se había visto: la capa vieja se hornea en el acto (como upstream) y cuenta: ese
+    // fotograma el horno no añade otro. Fuera del fundido (sin imagen vieja), aplazar no hace nada: se hornea ya.
+    const lejos = camara(9000, 9000), fv = fotograma(M, lejos), nv = visibles(lejos).length;
+    for (let i = 0; i < 160; i++) fotograma(M, cam);
+    const lejos2 = camara(-9000, 9000), f = fotograma(M, lejos2);
+    t(`aplazar sólo con imagen vieja: durante el fundido, un sitio nunca visto hornea su capa vieja como upstream (${fv.n} de ${nv}) y el horno no añade nada; fuera del fundido, cada chunk nuevo se hornea en el acto (${f.n} de ${visibles(lejos2).length})`,
+      fv.n === nv && fv.ctx.imgs.every(im => im[0].__bi === 0) && f.n === visibles(lejos2).length && f.ctx.imgs.every(im => im[0].__bi === 1), { fv: fv.n, f: f.n });
+  } catch (e) { t('horneado escalonado', false, String(e && e.stack || e)); }
+  try {
+    // D3. Lo precalentado se descarta con una grieta, con otro mundo o al cambiar de estilo.
+    const M = mundo(), G = M.G, cam = camara(300, 200);
+    G.World.reset(SEMILLA); G.World.setBiome(0, true); G.Game.st.time = 237.5;
+    asentar(M, cam, 40);
+    const n0 = G.Horno.precalentado && G.Horno.precalentado.n;
+    G.World.setArena({ tx: 400, ty: 400, r: 12, type: 'fire' }); fotograma(M, cam);
+    const n1 = G.Horno.precalentado && G.Horno.precalentado.n;
+    asentar(M, cam, 40);
+    G.World.reset(99); fotograma(M, cam);
+    const n2 = G.Horno.precalentado && G.Horno.precalentado.n;
+    asentar(M, cam, 40);
+    G.Estilo.set('clasico');
+    const n3 = G.Horno.precalentado;
+    t(`una grieta, otro mundo (reset con otra semilla) o un cambio de estilo descartan lo precalentado (${n0} → ${n1}, ${n2} y ${n3 && n3.n})`, n0 >= 6 && n1 <= 1 && n2 <= 1 && !n3, { n0, n1, n2, n3 });
+  } catch (e) { t('invalidación del precalentado', false, String(e && e.stack || e)); }
+  try {
+    // D4. Cambio de estilo (en la pausa): 0 horneados de golpe; el suelo se rehornea de uno en uno desde tu Pokémon.
+    const M = mundo(), G = M.G, cam = camara(-700, 900);
+    G.Game.player = { x: -700, y: 900 }; G.Game.state = 'paused';
+    G.World.reset(SEMILLA); G.World.setBiome(2, true);
+    asentar(M, cam);
+    G.Estilo.set('clasico');
+    const ns = [], hechos = [];
+    for (let i = 0; i < 30; i++) { const f = fotograma(M, cam, 0); ns.push(f.n); hechos.push(...f.hechos); }
+    const vis = visibles(cam), mio = Math.floor(-700 / 512) + ',' + Math.floor(900 / 512);
+    const finales = vis.map(k => { const [cx, cy] = k.split(',').map(Number); return G.World.chunkImage(cx, cy).__estilo; });
+    t(`al cambiar de estilo (en la pausa): ningún horneado de golpe, como mucho 1 por fotograma (${ns.slice(0, vis.length + 1).join(',')}), el de tu Pokémon primero (${hechos[0]}) y, en ${vis.length + 1} fotogramas, todo lo visible en Clásico`,
+      Math.max(...ns) <= 1 && hechos[0] === mio && finales.every(e => e === 'clasico') && !G.Horno.conViejas, { ns: ns.slice(0, 12), hechos: hechos.slice(0, 4), finales });
+    // Y si justo después empieza otra partida (otro mundo) o se abre una arena, nada de las imágenes viejas.
+    G.World.reset(SEMILLA); G.World.setBiome(0, true); asentar(M, cam);
+    G.Estilo.set('dex'); G.World.reset(777); G.World.setBiome(1, true);
+    const f = fotograma(M, cam);
+    G.Estilo.set('clasico'); G.World.setArena({ tx: Math.floor(-700 / 32), ty: Math.floor(900 / 32), r: 10, type: 'water' }); G.World.setBiome(G.Tiles.arenaBiome('water'), true);
+    const g = fotograma(M, cam);
+    t('tras cambiar de estilo, si empieza otra partida (otro mundo) o se abre una arena, no se pinta ninguna imagen vieja: se hornea lo de ese mundo, como upstream',
+      f.ctx.imgs.length && f.ctx.imgs.every(im => im[0].__sem === 777 && im[0].__bi === 1) && g.ctx.imgs.length && g.ctx.imgs.every(im => im[0].__sem === 777 && im[0].__bi === G.Tiles.arenaBiome('water')),
+      { f: f.ctx.imgs.map(im => [im[0].__sem, im[0].__bi]), g: g.ctx.imgs.map(im => [im[0].__sem, im[0].__bi]) });
+  } catch (e) { t('cambio de estilo', false, String(e && e.stack || e)); }
+  try {
+    // D5. El fondo de los menús: siempre precalentado el bioma siguiente; el cambio de cada 30 s no hornea nada.
+    const M = mundo(), G = M.G, cam = camara(100, -50);
+    G.Game.state = 'ui'; G.Game.player = null;
+    G.World.reset(4242); G.World.setBiome(0, true);
+    asentar(M, cam);
+    const sig = G.Horno.siguiente();
+    G.World.setBiome(1);                                   // Backdrop.step(), cada 30 s
+    const f = fotograma(M, cam);
+    t(`fondo de los menús: el bioma siguiente (${sig}) siempre precalentado; el cambio de cada 30 s hornea 0 chunks en su fotograma`, sig === 1 && f.n === 0, { sig, n: f.n });
+  } catch (e) { t('fondo de los menús', false, String(e && e.stack || e)); }
+  try {
+    // D6. Sin horno.js, sin entorno.js (que es quien llama a tick) o sin los dos: como upstream, fotograma a fotograma.
+    const guion = M => {
+      const cam = camara(300, 200), out = [];
+      M.G.World.reset(SEMILLA); M.G.World.setBiome(0, true);
+      for (let i = 0; i < 6; i++) out.push(fotograma(M, cam).n);
+      M.G.World.setBiome(1);
+      for (let i = 0; i < 6; i++) out.push(fotograma(M, cam).n);
+      cam.x += 900;
+      for (let i = 0; i < 4; i++) out.push(fotograma(M, cam).n);
+      return out.join(',');
+    };
+    const up = guion(mundo({ upstream: true, entorno: false, horno: false }));
+    const sinNada = guion(mundo({ entorno: false, horno: false })), sinEntorno = guion(mundo({ entorno: false })), sinHorno = guion(mundo({ horno: false, estilo: 'clasico' }));
+    t(`sin horno.js, sin entorno.js (nadie llama a tick) o sin los dos, world.js hornea como upstream, fotograma a fotograma (${up})`, sinNada === up && sinEntorno === up && sinHorno === up, { up, sinNada, sinEntorno, sinHorno });
+  } catch (e) { t('sin ganchos', false, String(e && e.stack || e)); }
+
+  // ---- E. Calidad: farol, halos y motas; nunca halos de disparos enemigos por defecto ----
+  try {
+    const M = mundo(), G = M.G, cam = camara(0, 0);
+    G.World.reset(SEMILLA); G.World.setBiome(0, true);
+    G.Game.player = { x: 0, y: 0 };
+    G.Rift.rift = { x: 120, y: 60, t: 2, ttl: 10 };
+    const jefe = { boss: true, dead: false, x: -150, y: 40, r: 20, types: ['fire'] };
+    const disparos = [...Array(10)].map((_, i) => ({ friendly: false, x: 10 * i - 100, y: 100, color: '#ff7a9e' }))
+      .concat([...Array(30)].map((_, i) => ({ friendly: true, x: 8 * i - 120, y: -60, color: '#4b9bff' })));
+    G.EnemyMgr = { all: () => [jefe] }; G.Projectiles = { all: () => disparos };
+    G.Weather = { current: null, KINDS: {} };
+    const pinta = fx => { G.Settings.fx = fx; const ctx = ctxFalso(); G.Entorno.suelo(ctx, cam, M.reloj.t / 1000); M.reloj.t += 16; return ctx; };
+    pinta(2);
+    const c0 = pinta(0), c1 = pinta(1), c2 = pinta(2);
+    const motas = c => c.ops.filter(o => o[0] === 'fillRect').length - c.grads.length;   // menos el rectángulo del farol
+    const color = im => { const d = bytes(im[0]), n = im[0].width, o = ((n >> 1) * n + (n >> 1)) * 4; return [d[o], d[o + 1], d[o + 2]].join(); };
+    const halosDe = (c, col) => c.imgs.filter(im => color(im) === col).length;
+    const Q = G.MODS.calidadEntorno;
+    t(`Calidad Baja: sin farol, sin halos y sin motas (${c0.grads.length}, ${c0.imgs.length} y ${motas(c0)})`, !c0.grads.length && !c0.imgs.length && !motas(c0));
+    t(`Calidad Media: el farol, el halo de la grieta y las motas ×0,7 (${motas(c1)} de 26), sin halos del jefe ni de los disparos`,
+      c1.grads.length === 1 && c1.imgs.length === 1 && halosDe(c1, '180,138,255') === 1 && motas(c1) === Math.round(26 * 0.7), { grads: c1.grads.length, imgs: c1.imgs.length, motas: motas(c1) });
+    const amigos = halosDe(c2, '75,155,255'), hostiles = halosDe(c2, '255,36,64');
+    t(`Calidad Alta: además, el halo del jefe (color de su tipo) y los de tus disparos (${amigos}, como mucho 24), ninguno de los 10 disparos enemigos por defecto (${hostiles}), y las 26 motas del bosque`,
+      c2.grads.length === 1 && halosDe(c2, '255,123,61') === 1 && amigos === 24 && hostiles === 0 && motas(c2) === 26 && G.MODS.halosDisparosHostiles === false, { amigos, hostiles, motas: motas(c2) });
+    G.MODS.halosDisparosHostiles = true;
+    const c3 = pinta(2);
+    G.MODS.halosDisparosHostiles = false;
+    t(`con halosDisparosHostiles = true (y Calidad Alta), los disparos enemigos llevan halo en el rojo de peligro (${halosDe(c3, '255,36,64')}; 24 en total)`, halosDe(c3, '255,36,64') === 10 && halosDe(c3, '75,155,255') === 14);
+    // La luz nunca va encima de un sprite: todo se pinta en la capa del suelo (drawScene, tras drawLiquid y antes de lo que tiene pies).
+    t('el farol, los halos, las motas y las salpicaduras van en la capa del suelo: drawScene los pinta tras drawLiquid y antes de avisos, objetos, Pokémon y disparos; la tabla de Calidad, en mods.js',
+      /G\.World\.drawLiquid\(ctx, cam, t\);\r?\n\s*if \(G\.Entorno\) G\.Entorno\.suelo\(ctx, cam, t\);[^\n]*\r?\n\s*G\.Hazards\.draw\(ctx\);/.test(rd('js/game.js')) && Q.length === 3 && !Q[0].farol && Q[1].farol && Q[2].halos.includes('disparos'));
+    // Halos sin bordes duros: entre dos píxeles de arte vecinos del halo, el alfa salta como mucho 0,05.
+    let salto = 0;
+    c2.imgs.forEach((im, i) => {
+      const d = bytes(im[0]), n = im[0].width, a = c2.alfas[i];
+      for (let y = 0; y < n; y++) for (let x = 0; x + 1 < n; x++)
+        salto = Math.max(salto, Math.abs(d[(y * n + x) * 4 + 3] - d[(y * n + x + 1) * 4 + 3]) / 255 * a, Math.abs(d[(x * n + y) * 4 + 3] - d[((x + 1) * n + y) * 4 + 3]) / 255 * a);
+    });
+    t(`halos pixelados sin bordes duros: el alfa salta como mucho ${salto.toFixed(3)} entre dos píxeles de arte vecinos (≤ 0,05)`, salto > 0 && salto <= 0.05);
+    // Movimiento reducido: el halo de la grieta no late.
+    G.Settings.get = k => k === 'calm';
+    const a1 = pinta(1).alfas[0]; M.reloj.t += 250; const a2 = pinta(1).alfas[0];
+    G.Settings.get = () => false;
+    t('con «Menos sacudidas y destellos», el halo de la grieta no late', a1 === a2, { a1, a2 });
+    // Con Clásico, nada en la capa del suelo (el horno sigue).
+    G.Estilo.set('clasico');
+    const cc = pinta(2);
+    t('con Clásico, la capa del suelo no pinta nada (farol, halos, motas ni salpicaduras)', !cc.ops.length && !cc.grads.length);
+  } catch (e) { t('Calidad', false, String(e && e.stack || e)); }
+
+  // ---- F. Viñeta cálida y clima de dos tonos ----
+  try {
+    const M = mundo(), G = M.G, W = 1280, Hh = 720;
+    const v = ctxFalso(), hizo = G.Entorno.vineta(v, W, Hh), g = v.grads[0];
+    t('viñeta con Dex: cálida y suave (rgba(24,12,5) de 0 a 0,26 en las esquinas) desde el 46 % del lado menor: el centro, intacto',
+      hizo && g && g.args[2] === Hh * 0.46 && g.args[5] === W * 0.8 && g.stops[0][1] === 'rgba(24,12,5,0)' && g.stops[1][1] === 'rgba(24,12,5,0.26)', g && { args: g.args, stops: g.stops });
+    const vw = ctxFalso(); G.World.drawVignette(vw, W, Hh);
+    G.Estilo.set('clasico');
+    const vc = ctxFalso(), noHizo = G.Entorno.vineta(vc, W, Hh); G.World.drawVignette(vc, W, Hh);
+    t('drawVignette (world.js): con Dex, la cálida; con Clásico, vineta() devuelve false y sale la negra de upstream (0,5, desde el 34 %)',
+      vw.grads.length === 1 && vw.grads[0].args[2] === Hh * 0.46 && !noHizo && vc.grads.length === 1 && vc.grads[0].args[2] === Hh * 0.34 && vc.grads[0].stops[1][1] === 'rgba(0,0,0,.5)');
+    G.Estilo.set('dex');
+    // El clima, con weather.js real.
+    G.Spawner = { say() {} }; G.Audio = { sfx() {} }; G.Coop = { active: false, isHost: false }; G.EnemyMgr = { all: () => [] };
+    vm.runInContext('Math.random = () => 0.5;', M.c);      // gotas en sitios fijos, todas dentro (si no, alguna nace fuera y no se pinta)
+    vm.runInContext(rd('js/systems/weather.js'), M.c, { filename: 'js/systems/weather.js' });
+    const clima = (seg, fx = 2, kind = 'rain') => {
+      G.Settings.fx = fx;
+      G.Weather.reset(); G.Weather.force(kind, 70);
+      if (seg > 0) G.Weather.update(seg, 0, null);
+      const ctx = ctxFalso();
+      G.Weather.draw(ctx, W, Hh, 0);
+      const rects = ctx.ops.filter(o => o[0] === 'fillRect');
+      return { rects: rects.length, gotas: Math.max(0, rects.length - 1) / (kind === 'rain' ? 10 : 2), ctx };
+    };
+    const l1 = clima(3), l05 = clima(1.5), l0 = clima(0), baja = clima(3, 0), niebla = clima(3, 2, 'fog'), nieve = clima(3, 2, 'snow');
+    t(`clima Dex con weather.js real: la lluvia sigue a level() (${l1.gotas} gotas con el clima entero, ${l05.gotas} a mitad de la entrada de 3 s, ${l0.rects} rectángulos al empezar), a la mitad con Calidad Baja (${baja.gotas}); con niebla, sólo el tinte; nieve de dos tonos (${nieve.gotas})`,
+      l1.gotas === 120 && l05.gotas === 60 && l0.rects === 0 && baja.gotas === 60 && niebla.rects === 1 && nieve.gotas === 70, { l1: l1.rects, l05: l05.rects, l0: l0.rects, baja: baja.rects, niebla: niebla.rects, nieve: nieve.rects });
+    // Dos tonos: borde oscuro debajo y núcleo claro encima, en píxeles enteros; el tinte, con su tope.
+    const enteros = l1.ctx.ops.filter(o => o[0] === 'fillRect').slice(1).every(o => o.slice(1).every(n => Number.isInteger(n)));
+    const est = l1.ctx.estilos;
+    t(`lluvia de dos tonos (#1d4a78 debajo y #e6f2ff encima, en píxeles enteros) y tinte con tope (${est[0]}: 0,09 × 1,6, como mucho 0,16)`,
+      est[0] === 'rgba(50,90,170,0.144)' && est.indexOf('#1d4a78') > 0 && est.indexOf('#e6f2ff') > est.indexOf('#1d4a78') && enteros, { tinte: est[0], enteros });
+    G.Estilo.set('clasico');
+    const cu = clima(3);
+    t(`con Clásico, el clima de upstream (70 gotas de 4 trazos y su tinte: ${cu.rects} rectángulos)`, cu.rects === 1 + 70 * 4, cu.rects);
+  } catch (e) { t('viñeta y clima', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`entornos del Gremio: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`entornos: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -3709,6 +4103,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { pantallasChecks(); } catch (e) { bad('no se pudo probar las pantallas: ' + (e && e.stack || e)); }
   try { identidadChecks(); } catch (e) { bad('no se pudo probar la identidad visual: ' + (e && e.stack || e)); }
   try { hudDexChecks(); } catch (e) { bad('no se pudo probar el HUD Dex: ' + (e && e.stack || e)); }
+  try { entornoChecks(); } catch (e) { bad('no se pudo probar los entornos del Gremio: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

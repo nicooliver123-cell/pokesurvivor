@@ -416,6 +416,7 @@ G.World = (() => {
     const k = cx + ',' + cy;
     let img = cache.get(k);
     if (img) return img;
+    if (G.Horno) { const o = G.Horno.aplazar(k, fade, cache === images); if (o) return o; }   // MOD nico: horneado escalonado; la imagen vieja, sin guardarla (js/world/horno.js)
     const at = (tx, ty) => KIND[terrainAt(tx, ty)];
     // Campo continuo de "tierra"; tiles.js lo muestrea en rejilla y lo
     // interpola por píxel para que las manchas tengan bordes orgánicos.
@@ -565,12 +566,14 @@ G.World = (() => {
     fade = instant ? null : { from: biome, images, t: 0 };
     biome = b;
     images = new Map();
+    if (G.Horno) G.Horno.alCambiar(b, images);   // MOD nico: lo precalentado del bioma nuevo pasa al mapa nuevo (js/world/horno.js)
   }
 
   function biomeName() { return G.Tiles.BIOMES[biome].name; }
 
   /** Viñeta en coordenadas de pantalla. */
   function drawVignette(ctx, w, h) {
+    if (G.Entorno && G.Entorno.vineta(ctx, w, h)) return;   // MOD nico: con Dex, la viñeta cálida (js/world/entorno.js)
     const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.34, w / 2, h / 2, Math.max(w, h) * 0.78);
     g.addColorStop(0, 'rgba(0,0,0,0)');
     g.addColorStop(1, 'rgba(0,0,0,.5)');
@@ -582,6 +585,7 @@ G.World = (() => {
     TS, CW, reset, setBiome, biomeName, liquidKind, liquidEffect, walkable,
     kindAt, isWall, isLiquid, isFree, collide, projectileBlock, propsInCircle, nearestBreakable,
     damageProp, breakAt, specialsNear, update,
+    chunkImage, get semilla() { return seed; }, rehornear() { const v = images; images = new Map(); fade = null; return v; },   // MOD nico: horneado escalonado y entornos (js/world/horno.js)
     breakProp(p) { if (!broken.has(p.tx + ',' + p.ty)) destroyProp(p); },
     /** Arena de la grieta: { tx, ty, r } (en tiles) o null. */
     setArena(a) {

@@ -1,5 +1,5 @@
 /* ============ tools/nico/estilo-e2e.js — prueba de la identidad visual en el navegador ============
- *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud]
+ *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud | --solo-portada | --solo-entornos]
  *
  * Arnés del estilo «Dex de Expedición» (lote 1: base del estilo y menús). Modo local, un jugador
  * invitado, sin emulador: abre index.html (con --dev, dev.html) en Chromium con Playwright y, en
@@ -62,6 +62,19 @@
  *      sesión, el test, su resultado y el menú, cada cara entera; los 8 botones del menú de 44 px o más, sin textos
  *      cortados ni desbordados en vertical (el icono y la caja de la letra del nombre dentro del borde); el compañero a
  *      ×4 en el móvil; la pantalla opaca del menú ≤ 25 % en el móvil y el plegable; y Clásico.
+ *  13. Entornos del Gremio, clima y horneado escalonado (--solo-entornos; lote 3). Capturas por pares de los tres biomas
+ *      (en un sitio con paredes y charcos) a 1440x900, 844x390@3 y 724x784@3, una arena y la lluvia, la nieve y la arena.
+ *      Imagen (1440x900): los píxeles de un Pokémon cerca del borde son idénticos con y sin el farol (que sólo va en el suelo);
+ *      la viñeta cálida deja intacto el 46 % central; la lluvia de dos tonos da ≥ 2:1 (el borde contra el suelo más claro del
+ *      juego, el núcleo contra el más oscuro y, en cada suelo donde llueve, el mejor de los dos); y el contraste de los
+ *      Pokémon contra el suelo (mediana de la silueta, 36 Pokémon) no empeora más de 0,05 frente a Clásico en los tres biomas
+ *      ni más de 0,1 con lluvia. Horneado, con GPU (otro Chromium, con requestAnimationFrame y G.Tiles.paintChunk
+ *      envueltos sólo en la prueba): en el fondo de los menús (el cambio de bioma de cada 30 s), de los 236 a los 244 s de
+ *      partida en Dex y en Clásico y al cambiar de estilo en la pausa: ningún fotograma de más de 20 ms, como mucho 1 chunk
+ *      por fotograma (mediana ≤ 4 ms de horneado; como mucho un 15 % por encima y ninguno de más de 10 ms: un chunk no se
+ *      parte) y 0 chunks en el fotograma del cambio; 844x390@3 con la CPU ×4: 1 chunk por fotograma y ningún fotograma de
+ *      más de 33 ms (con su p95 en el informe). Rendimiento, minuto 8 con 80 Pokémon y lluvia: Dex frente a Clásico, Δ de
+ *      la CPU media por fotograma ≤ 0,3 ms y del p95 ≤ 0,5 ms con GPU y calidad Alta, y ≤ 0,5 ms sin GPU y calidad Baja.
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
@@ -84,6 +97,8 @@ const HEADLESS = !process.argv.includes('--headed');
 const CAPTURAS = !process.argv.includes('--sin-capturas');
 const SOLO_HUD = process.argv.includes('--solo-hud');   // sólo el HUD Dex en partida (sección 10), para ir más rápido
 const SOLO_PORTADA = process.argv.includes('--solo-portada');   // sólo la portada «Tarjeta de entrenador» (sección 12)
+const SOLO_ENTORNOS = process.argv.includes('--solo-entornos');   // sólo los entornos del Gremio, el clima y el horneado (sección 13)
+const OTRAS = !SOLO_HUD && !SOLO_PORTADA && !SOLO_ENTORNOS;      // todas las secciones
 const ESTILOS = ['clasico', 'dex'];
 
 /** Avisos de la consola que son del entorno de la prueba, no del juego. */
@@ -129,11 +144,12 @@ async function captura(page, nombre) {
 }
 
 // ---------------- arranque de un jugador (invitado, modo local) ----------------
-async function nuevo(browser, v, { sw = false } = {}) {
+async function nuevo(browser, v, { sw = false, perf = false } = {}) {
   // v.pantalla: [ancho, alto] de la pantalla entera si no es la ventana (el plegable con la barra del navegador).
   const ctx = await browser.newContext({ viewport: { width: v.w, height: v.h }, deviceScaleFactor: v.dpr || 1, hasTouch: !!v.tactil, isMobile: !!v.tactil,
     serviceWorkers: sw ? 'allow' : 'block', locale: 'es-ES', ...(v.pantalla ? { screen: { width: v.pantalla[0], height: v.pantalla[1] } } : {}) });
   if (v.seguras) await simularSeguras(ctx, v.seguras);
+  if (perf) await ctx.addInitScript(PERF_INIT);
   const page = await ctx.newPage();
   const P = { ctx, page, v, consola: [], fuera: [] };
   page.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !AVISOS_ENTORNO.some(re => re.test(m.text()))) P.consola.push(`${m.type()}: ${m.text()}`); });
@@ -1345,6 +1361,428 @@ async function pruebaPortada(browser) {
   }
 }
 
+// ---------------- 13. Entornos del Gremio, clima y horneado escalonado (lote 3) ----------------
+const GPU = ['--enable-gpu', '--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-gpu-rasterization'];
+/** Antes de cargar el juego (addInitScript): la CPU de cada fotograma (requestAnimationFrame envuelto), lo que se hornea en
+ *  él (G.Tiles.paintChunk envuelto, en cuanto existe) y el bioma con que acaba. Sólo en la prueba. */
+const PERF_INIT = () => {
+  const raf = window.requestAnimationFrame.bind(window);
+  const P = window.__perf = { on: false, f: [], cur: null };
+  window.requestAnimationFrame = cb => raf(ts => {
+    const fr = { t: performance.now(), ms: 0, hornos: 0, msHorno: 0, bi: -1 };
+    P.cur = fr;
+    try { cb(ts); } finally {
+      fr.ms = performance.now() - fr.t; P.cur = null;
+      if (P.on) { fr.bi = window.G && G.World ? G.World.biome : -1; P.f.push(fr); }
+    }
+  });
+  const envolver = () => {
+    if (!window.G || !G.Tiles || !G.Tiles.paintChunk) return setTimeout(envolver, 5);
+    const pc = G.Tiles.paintChunk;
+    G.Tiles.paintChunk = function () {
+      const t0 = performance.now();
+      try { return pc.apply(this, arguments); } finally { const c = window.__perf.cur; if (c) { c.hornos++; c.msHorno += performance.now() - t0; } }
+    };
+  };
+  envolver();
+};
+/** Resumen de los fotogramas apuntados (y deja de apuntar). `desde`/`hasta`: ms de performance.now(). */
+const RESUMEN_PERF = ({ desde = -Infinity, hasta = Infinity } = {}) => {
+  const P = window.__perf; P.on = false;
+  const f = P.f.filter(x => x.t >= desde && x.t <= hasta), ms = f.map(x => x.ms).sort((a, b) => a - b);
+  const q = p => (ms.length ? +ms[Math.min(ms.length - 1, Math.floor(p * ms.length))].toFixed(2) : null);
+  let cambio = null;
+  for (let i = 1; i < f.length; i++) if (f[i].bi !== f[i - 1].bi) { cambio = { i, hornos: f[i].hornos, msHorno: +f[i].msHorno.toFixed(2), t: f[i].t }; break; }
+  return { n: f.length, media: ms.length ? +(ms.reduce((a, b) => a + b, 0) / ms.length).toFixed(3) : null, p95: q(0.95), max: q(1),
+    mas20: f.filter(x => x.ms > 20).length, mas33: f.filter(x => x.ms > 33).length, maxHornos: Math.max(0, ...f.map(x => x.hornos)),
+    maxMsHorno: +Math.max(0, ...f.map(x => x.msHorno)).toFixed(2), hornos: f.reduce((a, x) => a + x.hornos, 0), cambio,
+    // Lo horneado en los fotogramas que hornean: la mediana y cuántos pasan de 4 ms.
+    conHorno: f.filter(x => x.hornos).length,
+    medMsHorno: (() => { const h = f.filter(x => x.hornos).map(x => x.msHorno).sort((a, b) => a - b); return h.length ? +h[h.length >> 1].toFixed(2) : 0; })(),
+    mas4: f.filter(x => x.msHorno > 4).length };
+};
+const apuntar = page => page.evaluate(() => { window.__perf.f = []; window.__perf.on = true; });
+/** El horneado de un fotograma: como mucho 1 chunk, y el presupuesto de 4 ms. Un chunk Dex cuesta 2,3-2,8 ms (Clásico,
+ *  1,7) y no se puede partir; en plena partida, alguno suelto tarda 4-6,5 ms (crear su lienzo y subirlo a la GPU en
+ *  paintChunk de upstream coincide con el resto del fotograma, o una recolección de basura; aislado, el mismo chunk tarda
+ *  lo de siempre, y en Clásico también salen). Así que: la mediana ≤ 4 ms, como mucho un 15 % de los fotogramas que hornean
+ *  por encima de 4 ms y ninguno por encima de 10 (lo que se nota, ningún fotograma de más de 20 ms, se mide aparte). */
+const horneadoOk = r => r.maxHornos <= 1 && r.medMsHorno <= 4 && r.mas4 <= Math.max(1, Math.floor(0.15 * r.conHorno)) && r.maxMsHorno <= 10;
+const horneadoTxt = r => `como mucho 1 chunk por fotograma (${r.maxHornos}) y 4 ms de horneado (mediana ${r.medMsHorno} ms; ${r.mas4} de ${r.conHorno} por encima de 4 ms, el mayor ${r.maxMsHorno} ms)`;
+
+/** Un sitio de suelo con paredes y charcos a la vista (cerca del principio): allí se pone tu Pokémon, sin enemigos ni
+ *  oleadas (sólo en la prueba), para que las capturas enseñen la oclusión, la tierra mojada y el agua. */
+const ESCENA_ENTORNO = () => {
+  const pl = G.Game.player, W = G.World, TS = W.TS;
+  for (const x of document.querySelectorAll('.ach-pop, .toast')) x.remove();   // los avisos del invitado nuevo, fuera de las capturas
+  pl.hurt = function () {};
+  G.Spawner.update = () => {};
+  G.EnemyMgr.clear(); G.Projectiles.clear(); G.FX.clear();
+  let mejor = null;
+  for (let r = 14; r < 70 && !mejor; r += 2) for (let a = 0; a < 6.283 && !mejor; a += 0.3) {
+    const tx = Math.round(Math.cos(a) * r), ty = Math.round(Math.sin(a) * r);
+    if (W.kindAt(tx * TS + 16, ty * TS + 16) !== 'floor') continue;
+    let p = 0, l = 0;
+    for (let j = -5; j <= 5; j++) for (let i = -9; i <= 9; i++) { const k = W.kindAt((tx + i) * TS + 16, (ty + j) * TS + 16); if (k === 'wall') p++; else if (k === 'liquid') l++; }
+    if (p >= 10 && l >= 10 && p + l < 80) mejor = { tx, ty, p, l };
+  }
+  if (mejor) { pl.x = mejor.tx * TS + 16; pl.y = mejor.ty * TS + 16; G.Camera.x = pl.x; G.Camera.y = pl.y; }
+  return mejor;
+};
+/** Espera a que el suelo esté horneado con el estilo de ahora (sin imágenes viejas) y unos fotogramas más. */
+const HORNEADO = async () => {
+  for (let i = 0; i < 200 && G.Horno && G.Horno.conViejas; i++) await new Promise(r => requestAnimationFrame(r));
+  for (let i = 0; i < 6; i++) await new Promise(r => requestAnimationFrame(r));
+};
+
+/** Los píxeles de un Pokémon son los mismos con y sin el farol (que sólo va en el suelo): un Pokémon quieto cerca del borde
+ *  izquierdo, donde el farol oscurece el suelo; el mismo fotograma con la capa del suelo y sin ella, y sin el Pokémon para
+ *  saber cuáles son los suyos. En la pausa, sin sombras ni brillos del agua (que se mueven solos). */
+const FAROL_SPRITES = async () => {
+  const fr = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const cam = G.Camera, cv = document.getElementById('game'), cx = cv.getContext('2d'), k = cam.scale * cam.dpr, W = cv.width;
+  const e = new G.Enemy({ dex: 25, hp: 500, spd: 0, dmg: 0, xp: 0, behavior: 'melee' }, cam.left() + cam.w * 0.16, cam.top() + cam.h * 0.55, { hp: 1, spd: 1, dmg: 1 }, false);
+  e.spd = 0; G.EnemyMgr.add(e);
+  if (G.Game.state === 'playing') G.Game.togglePause();
+  G.FX.clear();
+  const sombra = G.Sprites.drawShadow, liquido = G.World.drawLiquid, suelo = G.Entorno.suelo;
+  G.Sprites.drawShadow = () => {}; G.World.drawLiquid = () => {};
+  try {
+    await fr();
+    const A = cx.getImageData(0, 0, W, cv.height).data.slice();
+    G.Entorno.suelo = (c, cm) => { if (G.Horno) G.Horno.tick(cm); };
+    await fr();
+    const B = cx.getImageData(0, 0, W, cv.height).data.slice();
+    G.Entorno.suelo = suelo;
+    const dib = e.draw; e.draw = () => {};
+    await fr();
+    const C = cx.getImageData(0, 0, W, cv.height).data;
+    e.draw = dib;
+    const sx = (e.x - cam.left()) * k, sy = (e.y - cam.top()) * k, half = Math.max(e.r * 1.7, e.bodyH * 0.65) * k;
+    const x0 = Math.max(0, Math.floor(sx - half)), x1 = Math.min(W - 1, Math.ceil(sx + half)), y0 = Math.max(0, Math.floor(sy - (e.bodyH + 6) * k)), y1 = Math.min(cv.height - 1, Math.ceil(sy + 4 * k));
+    let sprite = 0, cambian = 0, suelo2 = 0;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const o = (y * W + x) * 4, dAC = Math.abs(A[o] - C[o]) + Math.abs(A[o + 1] - C[o + 1]) + Math.abs(A[o + 2] - C[o + 2]);
+      const dAB = A[o] !== B[o] || A[o + 1] !== B[o + 1] || A[o + 2] !== B[o + 2];
+      if (dAC > 36) { sprite++; if (dAB) cambian++; } else if (dAB) suelo2++;
+    }
+    return { sprite, cambian, sueloConFarol: suelo2, calidad: G.Settings.fx };
+  } finally {
+    G.Sprites.drawShadow = sombra; G.World.drawLiquid = liquido; G.Entorno.suelo = suelo;
+    e.dead = true; e.fade = 0;
+    if (G.Game.state === 'paused') G.Game.togglePause();
+  }
+};
+/** La viñeta, pintada sola en un lienzo transparente del tamaño de la ventana: alfa dentro del 46 % central y en las esquinas. */
+const VINETA = () => {
+  const W = innerWidth, H = innerHeight, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'); G.World.drawVignette(c, W, H);
+  const d = c.getImageData(0, 0, W, H).data, R = Math.min(W, H) * 0.46;
+  let centro = 0;
+  for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) if (Math.hypot(x - W / 2, y - H / 2) < R - 1) centro = Math.max(centro, d[(y * W + x) * 4 + 3]);
+  return { centro, esquina: +(d[3] / 255).toFixed(3), color: [d[0], d[1], d[2]] };
+};
+/** Contraste de los dos tonos de la lluvia (G.Entorno.clima de verdad, quieta, sobre un lienzo del color de un suelo; fondo =
+ *  el color más repetido, el suelo con el tinte). Los píxeles del borde (oscuro) y del núcleo (claro) son los que salen del
+ *  color del tono mezclado con el fondo con su alfa (±12 por canal). Devuelve: el borde contra el suelo más claro del juego y
+ *  el núcleo contra el más oscuro (de todos los biomas y arenas), y, en cada color de suelo de donde llueve (los tres normales,
+ *  la Gruta Marina y la Central Voltio), el mejor de los dos tonos. */
+const LLUVIA_CONTRASTE = () => {
+  const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const L = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b), ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  const hex = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const B = G.Tiles.BIOMES, R = G.MARCA.clima.rain;
+  const colores = bis => {
+    const out = [];
+    for (const bi of bis) for (const k of ['floor', 'dirt', 'light', 'speck']) [].concat(B[bi][k]).forEach(h => { if (!out.includes(h)) out.push(h); });
+    return out.sort((a, b) => L(...hex(a)) - L(...hex(b)));
+  };
+  const medir = h => {
+    const W = 320, H = 180, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const c = cv.getContext('2d'); c.fillStyle = h; c.fillRect(0, 0, W, H);
+    G.Entorno.clima(c, W, H, 0, 'rain', 1);
+    const d = c.getImageData(0, 0, W, H).data, cuenta = new Map();
+    for (let i = 0; i < d.length; i += 4) { const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; cuenta.set(k, (cuenta.get(k) || 0) + 1); }
+    const fondo = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0][0], f = [(fondo >> 16) & 255, (fondo >> 8) & 255, fondo & 255], lf = L(...f), out = { suelo: h };
+    for (const [nombre, [tono, alfa]] of [['borde', R.borde], ['nucleo', R.nucleo]]) {
+      const esp = hex(tono).map((v, i) => v * alfa + f[i] * (1 - alfa)), rs = [];
+      for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - esp[0]) <= 12 && Math.abs(d[i + 1] - esp[1]) <= 12 && Math.abs(d[i + 2] - esp[2]) <= 12) rs.push(ratio(L(d[i], d[i + 1], d[i + 2]), lf));
+      rs.sort((a, b) => a - b);
+      out[nombre] = rs.length > 50 ? +rs[rs.length >> 1].toFixed(2) : 0;
+    }
+    return out;
+  };
+  const todos = colores(B.map((_, i) => i)), llueve = colores([0, 1, 2, G.Tiles.arenaBiome('water'), G.Tiles.arenaBiome('electric')]).map(medir);
+  const mejor = x => Math.max(x.borde, x.nucleo);
+  return { claro: medir(todos[todos.length - 1]), oscuro: medir(todos[0]), peor: llueve.reduce((a, x) => (mejor(x) < mejor(a) ? x : a)), suelos: llueve.length };
+};
+/** Contraste de los Pokémon contra el suelo (como medir.sprites() de la maqueta del Gremio): el mismo fotograma con y sin
+ *  Pokémon (sin HUD, efectos ni disparos; con el clima si `clima`); por enemigo, la luminancia mediana de su silueta frente
+ *  a la del suelo de su caja. Devuelve la mediana de esas razones. En la pausa (todo quieto, también la lluvia). */
+const SPRITES = async ({ clima = false } = {}) => {
+  const fr = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const L = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b), ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  const q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(s.length * p))]; };
+  const cv = document.getElementById('game'), cx = cv.getContext('2d'), cam = G.Camera, k = cam.scale * cam.dpr, pl = G.Game.player;
+  const undo = [], tapar = (o, key, fn) => { const own = Object.prototype.hasOwnProperty.call(o, key), prev = o[key]; o[key] = fn; undo.push(() => { if (own) o[key] = prev; else delete o[key]; }); };
+  for (const [o, key] of [[G.HUD, 'draw'], [G.FX, 'draw'], [G.Projectiles, 'draw'], [G.Combat, 'drawAirFields'], [G.Combat, 'drawGroundFields'], [G.Hazards, 'draw'], [G.Pickups, 'draw'], [G.Touch, 'draw']].concat(clima ? [] : [[G.Weather, 'draw']])) tapar(o, key, () => {});
+  try {
+    await fr();
+    const A = cx.getImageData(0, 0, cv.width, cv.height).data.slice();
+    tapar(G.EnemyMgr, 'drawables', () => []); tapar(pl, 'draw', () => {});
+    await fr();
+    const Bd = cx.getImageData(0, 0, cv.width, cv.height).data, W = cv.width, Hh = cv.height, res = [];
+    for (const e of G.EnemyMgr.all().filter(e => !e.dead && cam.sees(e.x, e.y, -10))) {
+      const sx = (e.x - cam.left()) * k, sy = (e.y - cam.top()) * k;
+      const half = Math.max(e.r * 1.7, e.bodyH * 0.65) * k, top = sy - (e.bodyH + 6) * k, bot = sy - e.r * 0.45 * k;
+      const x0 = Math.max(1, Math.floor(sx - half)), x1 = Math.min(W - 2, Math.ceil(sx + half)), y0 = Math.max(1, Math.floor(top)), y1 = Math.min(Hh - 2, Math.ceil(bot));
+      if (x1 - x0 < 4 || y1 - y0 < 4) continue;
+      const ls = [], lg = [];
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const o = (y * W + x) * 4, dif = Math.abs(A[o] - Bd[o]) + Math.abs(A[o + 1] - Bd[o + 1]) + Math.abs(A[o + 2] - Bd[o + 2]);
+        if (dif > 36) ls.push(L(A[o], A[o + 1], A[o + 2])); else lg.push(L(Bd[o], Bd[o + 1], Bd[o + 2]));
+      }
+      if (ls.length >= 30 && lg.length >= 30) res.push(ratio(q(ls, 0.5), q(lg, 0.5)));
+    }
+    return { enemigos: res.length, mediana: res.length ? +q(res, 0.5).toFixed(3) : null };
+  } finally { for (const u of undo.reverse()) u(); await fr(); }
+};
+/** Pokémon salvajes quietos alrededor de tu Pokémon (sólo en la prueba), siempre los mismos y en los mismos sitios. */
+const RODEAR = n => {
+  const pl = G.Game.player, cam = G.Camera, dex = [1, 4, 7, 25, 52, 92, 129, 133, 143, 147, 16, 43, 60, 69, 74, 35, 39, 54, 79, 113, 197, 94, 248, 359, 302];
+  for (let i = 0; i < n; i++) {
+    const a = i * 2.39996, r = 0.12 + 0.36 * ((i * 0.618) % 1);
+    const x = pl.x + Math.cos(a) * r * cam.w, y = pl.y + Math.sin(a) * r * cam.h;
+    const e = new G.Enemy({ dex: dex[i % dex.length], hp: 9999, spd: 0, dmg: 0, xp: 0, behavior: 'melee' }, x, y, { hp: 1, spd: 1, dmg: 1 }, false);
+    e.spd = 0; G.EnemyMgr.add(e);
+  }
+};
+
+async function pruebaEntornos(browser) {
+  // --- Capturas: los tres biomas en Dex y en Clásico, en escritorio, móvil y el plegable abierto; una arena y el clima. ---
+  for (const clave of ['pc', 'movil', 'pleg2']) {
+    const v = VP[clave], P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: entornos: se entra a jugar`, false); await P.ctx.close(); continue; }
+    await page.evaluate(() => { G.Estilo.set('dex'); G.Flow.play(); });
+    await sleep(1200);
+    const sitio = await page.evaluate(ESCENA_ENTORNO);
+    report.medidas['entorno-sitio-' + nv] = sitio;
+    for (const [n, b] of [['bosque', 0], ['cueva', 1], ['volcan', 2]]) {
+      await page.evaluate(b => G.World.setBiome(b, true), b);
+      for (const est of ['dex', 'clasico']) {
+        await estilo(page, est);
+        await page.evaluate(HORNEADO);
+        await sleep(250);
+        await captura(page, `entorno-${n}-${est}-${nv}`);
+      }
+      await estilo(page, 'dex');
+    }
+    if (clave === 'pc') {
+      // Una arena (la del volcán ígneo) y el clima: lluvia, nieve y arena (y la lluvia de upstream en Clásico).
+      await page.evaluate(() => G.World.setBiome(G.Tiles.arenaBiome('fire'), true));
+      for (const est of ['dex', 'clasico']) { await estilo(page, est); await page.evaluate(HORNEADO); await sleep(250); await captura(page, `entorno-arena-${est}-${nv}`); }
+      await estilo(page, 'dex');
+      await page.evaluate(() => G.World.setBiome(0, true));
+      for (const [n, kind] of [['lluvia', 'rain'], ['nieve', 'snow'], ['arena', 'sand']]) {
+        await page.evaluate(k => G.Weather.onEvent(['w', k, 90]), kind);
+        await sleep(3300);
+        await captura(page, `clima-${n}-dex-${nv}`);
+        if (kind === 'rain') { await estilo(page, 'clasico'); await page.evaluate(HORNEADO); await sleep(300); await captura(page, `clima-${n}-clasico-${nv}`); await estilo(page, 'dex'); await page.evaluate(HORNEADO); }
+      }
+      await page.evaluate(() => G.Weather.onEvent(['w']));
+      await sleep(3200);
+
+      // --- Imagen ---
+      const fs1 = await page.evaluate(FAROL_SPRITES);
+      report.medidas['entorno-farol-sprites'] = fs1;
+      check(`${nv}: el farol sólo va en el suelo: los ${fs1.sprite} píxeles de un Pokémon cerca del borde son idénticos con y sin él (${fs1.cambian} cambian) y el suelo de su alrededor sí cambia (${fs1.sueloConFarol} píxeles)`,
+        fs1.sprite >= 200 && fs1.cambian === 0 && fs1.sueloConFarol > 200, fs1);
+      const vi = await page.evaluate(VINETA);
+      report.medidas['entorno-vineta'] = vi;
+      check(`${nv}: viñeta cálida: el 46 % central queda intacto (alfa ${vi.centro}) y en las esquinas llega a ${vi.esquina} (tope 0,26, en marrón ${vi.color.join(',')}; la negra de upstream, unos 0,33)`, vi.centro === 0 && vi.esquina > 0.1 && vi.esquina <= 0.26, vi);
+      const ll = await page.evaluate(LLUVIA_CONTRASTE);
+      report.medidas['entorno-lluvia-contraste'] = ll;
+      check(`${nv}: lluvia de dos tonos: el borde oscuro contra el suelo más claro del juego (${ll.claro.suelo}) da ${ll.claro.borde}:1 y el núcleo claro contra el más oscuro (${ll.oscuro.suelo}), ${ll.oscuro.nucleo}:1; y en los ${ll.suelos} colores de suelo de donde llueve, el mejor tono da al menos ${Math.max(ll.peor.borde, ll.peor.nucleo)}:1 (${ll.peor.suelo}) (≥ 2:1 todo)`,
+        ll.claro.borde >= 2 && ll.oscuro.nucleo >= 2 && Math.max(ll.peor.borde, ll.peor.nucleo) >= 2 && ll.suelos >= 20, ll);
+      // Contraste de los Pokémon contra el suelo: Dex frente a Clásico en los tres biomas (≤ 0,05 peor) y con lluvia (≤ 0,1).
+      // Sin ataques mientras se mide (sólo en la prueba): un golpe enseña la barra de vida o el destello del Pokémon.
+      await page.evaluate(() => { G.EnemyMgr.clear(); G.Projectiles.clear(); window.__tick = G.Combat.tick; G.Combat.tick = () => {}; });
+      await page.evaluate(RODEAR, 36);
+      await page.evaluate(() => { if (G.Game.state === 'playing') G.Game.togglePause(); });
+      const sp = {};
+      for (const [n, b] of [['bosque', 0], ['cueva', 1], ['volcan', 2]]) {
+        await page.evaluate(b => G.World.setBiome(b, true), b);
+        sp[n] = {};
+        for (const est of ['clasico', 'dex']) { await estilo(page, est); await page.evaluate(HORNEADO); sp[n][est] = await page.evaluate(SPRITES, {}); }
+      }
+      // La lluvia: el mismo sitio en Dex, tras 3,3 s de partida sin lluvia y tras 3,3 s con ella.
+      await page.evaluate(() => { G.World.setBiome(0, true); G.Game.togglePause(); });
+      await sleep(3300);
+      await page.evaluate(() => { if (G.Game.state === 'playing') G.Game.togglePause(); });
+      sp.sinLluvia = { dex: await page.evaluate(SPRITES, { clima: true }) };
+      await page.evaluate(() => { G.Game.togglePause(); G.Weather.onEvent(['w', 'rain', 90]); });
+      await sleep(3300);
+      await page.evaluate(() => { if (G.Game.state === 'playing') G.Game.togglePause(); });
+      sp.lluvia = { dex: await page.evaluate(SPRITES, { clima: true }) };
+      await page.evaluate(() => { G.Weather.onEvent(['w']); G.Combat.tick = window.__tick; });
+      report.medidas['entorno-sprites'] = sp;
+      const peor = Math.max(...['bosque', 'cueva', 'volcan'].map(n => sp[n].clasico.mediana - sp[n].dex.mediana));
+      check(`${nv}: contraste de los Pokémon contra el suelo (mediana de la silueta, ${sp.bosque.dex.enemigos} Pokémon): Dex como mucho 0,05 peor que Clásico en los tres biomas (${['bosque', 'cueva', 'volcan'].map(n => `${n} ${sp[n].clasico.mediana} → ${sp[n].dex.mediana}`).join(', ')}) y la lluvia como mucho 0,1 peor (${sp.sinLluvia.dex.mediana} → ${sp.lluvia.dex.mediana})`,
+        ['bosque', 'cueva', 'volcan'].every(n => sp[n].dex.enemigos >= 20 && sp[n].dex.mediana >= sp[n].clasico.mediana - 0.05) && sp.lluvia.dex.mediana >= sp.sinLluvia.dex.mediana - 0.1, sp);
+      await page.evaluate(() => { if (G.Game.state === 'paused') G.Game.togglePause(); });
+    } else {
+      await page.evaluate(() => G.Weather.onEvent(['w', 'rain', 90]));
+      await sleep(3300);
+      await captura(page, `clima-lluvia-dex-${nv}`);
+    }
+    check(`${nv}: entornos: consola sin errores ni avisos`, !P.consola.length, P.consola.slice(0, 5));
+    await P.ctx.close();
+  }
+
+  // --- Horneado y rendimiento, con GPU (como el PC de Nico) ---
+  const bGpu = await chromium.launch({ headless: HEADLESS, args: GPU });
+  try {
+    const P = await nuevo(bGpu, VP.pc, { perf: true }), { page } = P, nv = nombreVp(VP.pc);
+    if (await entrar(P)) {
+      const gpu = await page.evaluate(() => { const g = document.createElement('canvas').getContext('webgl'); const d = g && g.getExtension('WEBGL_debug_renderer_info'); return d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : null; });
+      report.medidas['entorno-gpu'] = gpu;
+      // El fondo de los menús cambia de bioma cada 30 s (con Dex): los 2 s alrededor del cambio.
+      await estilo(page, 'dex');
+      await apuntar(page);
+      const t0 = await page.evaluate(() => G.World.biome);
+      await page.waitForFunction(b => G.World.biome !== b, t0, { timeout: 40000, polling: 50 });
+      await sleep(1100);
+      const menu = await page.evaluate(() => { const f = window.__perf.f; let t = null; for (let i = 1; i < f.length; i++) if (f[i].bi !== f[i - 1].bi) { t = f[i].t; break; } return t; });
+      const rm = await page.evaluate(RESUMEN_PERF, { desde: menu - 1000, hasta: menu + 1000 });
+      report.medidas['horno-menu-' + nv] = rm;
+      check(`${nv} (GPU: ${gpu}): fondo de los menús, en los 2 s alrededor del cambio de bioma de cada 30 s: ningún fotograma pasa de 20 ms (máximo ${rm.max} ms, p95 ${rm.p95}), ${horneadoTxt(rm)} y 0 chunks en el fotograma del cambio (${rm.cambio && rm.cambio.hornos})`,
+        rm.n > 60 && rm.mas20 === 0 && horneadoOk(rm) && rm.cambio && rm.cambio.hornos === 0, rm);
+      // En partida: de debugTime(236) a los 244 s, en Dex y en Clásico.
+      for (const est of ['dex', 'clasico']) {
+        await page.evaluate(e => { G.Estilo.set(e); G.Flow.play(); }, est);
+        await sleep(1500);
+        await page.evaluate(() => { G.Game.player.hurt = function () {}; G.Game.debugTime(236); });
+        await apuntar(page);
+        await page.waitForFunction(() => G.Game.st.time >= 244, null, { timeout: 30000, polling: 100 });
+        const r = await page.evaluate(RESUMEN_PERF, {});
+        const enCambio = r.cambio ? await page.evaluate(RESUMEN_PERF, { desde: r.cambio.t - 1000, hasta: r.cambio.t + 1000 }) : null;
+        report.medidas[`horno-partida-${est}-${nv}`] = { r, enCambio };
+        check(`${nv} (GPU), ${est === 'dex' ? 'Dex' : 'Clásico'}: de los 236 a los 244 s de partida (cambio de bioma a los 240): ningún fotograma pasa de 20 ms (máximo ${r.max} ms, p95 ${r.p95}), ${horneadoTxt(r)} y 0 chunks en el fotograma del cambio (${r.cambio && r.cambio.hornos})`,
+          r.n > 200 && r.mas20 === 0 && horneadoOk(r) && r.cambio && r.cambio.hornos === 0, { r, enCambio });
+        // Cambiar de estilo en la pausa: el suelo se rehornea de uno en uno.
+        if (est === 'dex') {
+          await page.evaluate(() => G.Game.togglePause());
+          await apuntar(page);
+          for (const e of ['clasico', 'dex']) { await estilo(page, e); await sleep(1500); }
+          const rs = await page.evaluate(RESUMEN_PERF, {});
+          report.medidas['horno-estilo-pausa-' + nv] = rs;
+          check(`${nv} (GPU): cambiar de estilo en la pausa (a Clásico y otra vez a Dex, 3 s): ningún fotograma pasa de 20 ms (máximo ${rs.max} ms), ${horneadoTxt(rs)}`,
+            rs.n > 60 && rs.mas20 === 0 && horneadoOk(rs) && rs.hornos >= 8, rs);
+          await page.evaluate(() => G.Game.togglePause());
+        }
+        await page.evaluate(() => G.Game.quit());
+        await sleep(600);
+        await page.evaluate(() => { if (G.Game.state !== 'ui') G.Flow.goMenu(); });
+        await sleep(600);
+      }
+      // Rendimiento Dex frente a Clásico: minuto 8 (volcán), 80 Pokémon y lluvia; el mundo quieto (debugSpeed(0)) para medir
+      // sólo el dibujo, con calidad Alta; ventanas de 2,5 s alternas (Clásico, Dex, Clásico, Dex).
+      const comparar = async (pagina, calidad) => {
+        await pagina.evaluate(q => { G.Settings.set('quality', q); G.Estilo.set('dex'); G.Flow.play(); }, calidad);
+        await sleep(1500);
+        await pagina.evaluate(n => {
+          G.Game.player.hurt = function () {}; G.Spawner.update = () => {}; G.EnemyMgr.clear();
+          G.Game.debugTime(480); G.World.setBiome(2, true);
+          const pl = G.Game.player, cam = G.Camera;
+          for (let i = 0; i < n; i++) {
+            const a = i * 2.39996, r = 0.1 + 0.42 * ((i * 0.618) % 1);
+            const e = new G.Enemy({ dex: [1, 4, 7, 25, 52, 92, 129, 133, 143, 147][i % 10], hp: 9999, spd: 0, dmg: 0, xp: 0, behavior: 'melee' }, pl.x + Math.cos(a) * r * cam.w, pl.y + Math.sin(a) * r * cam.h, { hp: 1, spd: 1, dmg: 1 }, false);
+            e.spd = 0; G.EnemyMgr.add(e);
+          }
+          G.Weather.onEvent(['w', 'rain', 90]);
+        }, 80);
+        await sleep(3300);
+        await pagina.evaluate(() => G.Game.debugSpeed(0));
+        const r = { clasico: [], dex: [] };
+        for (const est of ['clasico', 'dex', 'clasico', 'dex']) {
+          await estilo(pagina, est); await pagina.evaluate(HORNEADO); await sleep(400);
+          await apuntar(pagina); await sleep(2500);
+          r[est].push(await pagina.evaluate(RESUMEN_PERF, {}));
+        }
+        const enemigos = await pagina.evaluate(() => G.EnemyMgr.all().filter(e => !e.dead).length);
+        await pagina.evaluate(() => { G.Game.debugSpeed(1); G.Game.quit(); });
+        await sleep(400);
+        const m = k => +((r[k][0].media + r[k][1].media) / 2).toFixed(3), p = k => +((r[k][0].p95 + r[k][1].p95) / 2).toFixed(3);
+        return { clasico: { media: m('clasico'), p95: p('clasico') }, dex: { media: m('dex'), p95: p('dex') }, enemigos, ventanas: r };
+      };
+      const cmp = await comparar(page, 'high');
+      report.medidas['rendimiento-' + nv] = cmp;
+      check(`${nv} (GPU), minuto 8 con ${cmp.enemigos} Pokémon y lluvia (calidad Alta): CPU por fotograma Dex ${cmp.dex.media} ms (p95 ${cmp.dex.p95}) frente a Clásico ${cmp.clasico.media} (p95 ${cmp.clasico.p95}): Δ media ≤ 0,3 ms y Δ p95 ≤ 0,5 ms`,
+        cmp.dex.media <= cmp.clasico.media + 0.3 && cmp.dex.p95 <= cmp.clasico.p95 + 0.5, cmp);
+      // debugTime (sólo en la prueba) marca la partida como de depuración: G.Guard lo avisa al terminarla, y es lo esperado.
+      const consola = P.consola.filter(x => !/partida no válida para el ranking: (debug|reloj)$/.test(x));
+      check(`${nv} (GPU): horneado y rendimiento: consola sin errores ni avisos (menos el aviso de G.Guard por debugTime)`, !consola.length, consola.slice(0, 5));
+    } else check(`${nv} (GPU): se entra a jugar`, false);
+    await P.ctx.close();
+  } finally { await bGpu.close().catch(() => {}); }
+
+  // --- Móvil con la CPU ×4 (aproximación a un teléfono): 844x390@3 ---
+  const bMovil = await chromium.launch({ headless: HEADLESS, args: GPU });
+  try {
+    const v = VP.movil, P = await nuevo(bMovil, v, { perf: true }), { page } = P, nv = nombreVp(v);
+    if (await entrar(P)) {
+      await page.evaluate(() => { G.Estilo.set('dex'); G.Flow.play(); });
+      await sleep(1500);
+      const cdp = await P.ctx.newCDPSession(page);
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+      await page.evaluate(() => { G.Game.player.hurt = function () {}; G.Game.debugTime(236); });
+      await apuntar(page);
+      await page.waitForFunction(() => G.Game.st.time >= 244, null, { timeout: 60000, polling: 200 });
+      const r = await page.evaluate(RESUMEN_PERF, {});
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+      report.medidas['horno-movil-cpu4'] = r;
+      check(`${nv} con la CPU ×4, Dex, de los 236 a los 244 s: como mucho 1 chunk por fotograma (${r.maxHornos}; el más caro, ${r.maxMsHorno} ms) y ningún fotograma pasa de 33 ms (máximo ${r.max} ms, p95 ${r.p95}); 0 chunks en el fotograma del cambio (${r.cambio && r.cambio.hornos})`,
+        r.n > 100 && r.maxHornos <= 1 && r.mas33 === 0 && r.cambio && r.cambio.hornos === 0, r);
+    } else check(`${nv}: CPU ×4: se entra a jugar`, false);
+    await P.ctx.close();
+  } finally { await bMovil.close().catch(() => {}); }
+
+  // --- Sin GPU (SwiftShader) y con calidad Baja: Dex frente a Clásico ---
+  const bSin = await chromium.launch({ headless: HEADLESS, args: ['--disable-gpu'] });
+  try {
+    const P = await nuevo(bSin, VP.pc, { perf: true }), { page } = P, nv = nombreVp(VP.pc);
+    if (await entrar(P)) {
+      await page.evaluate(() => { G.Settings.set('quality', 'low'); G.Estilo.set('dex'); G.Flow.play(); });
+      await sleep(1500);
+      await page.evaluate(n => {
+        G.Game.player.hurt = function () {}; G.Spawner.update = () => {}; G.EnemyMgr.clear();
+        G.Game.debugTime(480); G.World.setBiome(2, true);
+        const pl = G.Game.player, cam = G.Camera;
+        for (let i = 0; i < n; i++) {
+          const a = i * 2.39996, r = 0.1 + 0.42 * ((i * 0.618) % 1);
+          const e = new G.Enemy({ dex: [1, 4, 7, 25, 52, 92, 129, 133, 143, 147][i % 10], hp: 9999, spd: 0, dmg: 0, xp: 0, behavior: 'melee' }, pl.x + Math.cos(a) * r * cam.w, pl.y + Math.sin(a) * r * cam.h, { hp: 1, spd: 1, dmg: 1 }, false);
+          e.spd = 0; G.EnemyMgr.add(e);
+        }
+        G.Weather.onEvent(['w', 'rain', 90]);
+      }, 80);
+      await sleep(3300);
+      await page.evaluate(() => G.Game.debugSpeed(0));
+      const r = { clasico: [], dex: [] };
+      for (const est of ['clasico', 'dex', 'clasico', 'dex']) {
+        await estilo(page, est); await page.evaluate(HORNEADO); await sleep(400);
+        await apuntar(page); await sleep(2500);
+        r[est].push(await page.evaluate(RESUMEN_PERF, {}));
+      }
+      await page.evaluate(() => G.Game.debugSpeed(1));
+      const m = k => +((r[k][0].media + r[k][1].media) / 2).toFixed(3);
+      report.medidas['rendimiento-sin-gpu-baja'] = { clasico: m('clasico'), dex: m('dex'), ventanas: r };
+      check(`${nv} sin GPU y con calidad Baja, minuto 8 con 80 Pokémon y lluvia: CPU por fotograma Dex ${m('dex')} ms frente a Clásico ${m('clasico')} ms: Δ ≤ 0,5 ms`, m('dex') <= m('clasico') + 0.5, r);
+    } else check(`${nv} sin GPU: se entra a jugar`, false);
+    await P.ctx.close();
+  } finally { await bSin.close().catch(() => {}); }
+}
+
 // ---------------- hoja de contactos ----------------
 function hojaDeContactos() {
   const pares = {};
@@ -1361,7 +1799,7 @@ function hojaDeContactos() {
   const browser = await chromium.launch({ headless: HEADLESS });
   try {
     // 7. «Gira el móvil»: un móvil en vertical y el Magic V6 plegado en vertical, sí; los plegables abiertos, no (y entran a jugar más abajo).
-    for (const v of SOLO_HUD || SOLO_PORTADA ? [] : [{ w: 390, h: 844, dpr: 3, tactil: true }, { w: 360, h: 807, dpr: 3, tactil: true }]) {
+    for (const v of !OTRAS ? [] : [{ w: 390, h: 844, dpr: 3, tactil: true }, { w: 360, h: 807, dpr: 3, tactil: true }]) {
       const P = await nuevo(browser, v);
       await P.page.goto(BASE, { waitUntil: 'load' });
       await P.page.waitForFunction(() => document.getElementById('boot').classList.contains('hidden'), null, { timeout: 30000 });
@@ -1380,7 +1818,7 @@ function hojaDeContactos() {
 
     // 404 en una ruta profunda (/a/b/c): la hoja de estilo llega una vez y bien, sin un 404 de más en la consola (antes, el
     // escáner de precarga la pedía relativa a la ruta, /a/b/css/pages.css, antes de que el script escribiera la base).
-    if (!SOLO_HUD && !SOLO_PORTADA) {
+    if (OTRAS) {
       const P = await nuevo(browser, VP.pc), { page } = P, url = `http://127.0.0.1:${PORT}/a/b/c`, fallidas = [];
       page.on('response', r => { if (r.status() >= 400 && r.url() !== url) fallidas.push(`${r.status()} ${r.url()}`); });
       page.on('requestfailed', r => fallidas.push(`falló ${r.url()}`));
@@ -1395,7 +1833,7 @@ function hojaDeContactos() {
       await P.ctx.close();
     }
 
-    for (const [clave, v] of SOLO_HUD || SOLO_PORTADA ? [] : Object.entries(VP)) {
+    for (const [clave, v] of !OTRAS ? [] : Object.entries(VP)) {
       const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v), t0 = Date.now();
       const dentro = await entrar(P);
       if (v.tactil && v.w / v.h > 0.75) check(`${nv}: juega sin «Gira el móvil»`, dentro);
@@ -1601,17 +2039,20 @@ function hojaDeContactos() {
     }
 
     // 10. HUD Dex en partida (lote 2).
-    if (!SOLO_PORTADA) await pruebaHud(browser);
+    if (OTRAS || SOLO_HUD) await pruebaHud(browser);
 
     // 11. Arreglos de la verificación de los lotes 1 y 2 (barra del navegador, móviles pequeños, barra superior estrecha,
     //     el aviso flotante al empezar, «…» y zonas seguras simuladas).
-    if (!SOLO_HUD && !SOLO_PORTADA) await pruebaArreglos(browser);
+    if (OTRAS) await pruebaArreglos(browser);
 
     // 12. Portada «Tarjeta de entrenador» (Dex) y el menú del proyecto base con el nombre nuevo (Clásico).
-    if (!SOLO_HUD) await pruebaPortada(browser);
+    if (OTRAS || SOLO_PORTADA) await pruebaPortada(browser);
+
+    // 13. Entornos del Gremio, clima de dos tonos y horneado escalonado (lote 3).
+    if (OTRAS || SOLO_ENTORNOS) await pruebaEntornos(browser);
 
     // 8. Sin internet: con el service worker y en Clásico, se cargan las fuentes en reposo; luego, sin red, a Dex.
-    if (!SOLO_HUD && !SOLO_PORTADA) {
+    if (OTRAS) {
       const P = await nuevo(browser, VP.pc, { sw: true }), { page, ctx } = P;
       await page.goto(BASE, { waitUntil: 'load' });
       await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 30000 }).catch(() => {});
