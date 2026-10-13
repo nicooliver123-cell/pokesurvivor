@@ -13,8 +13,8 @@ compras. Pokémon no es nuestro (ver [Marca](#marca)).
 
 ## Cómo se juega
 
-Entra con una cuenta o como invitado, haz el test de personalidad (te da tu
-primer compañero) y a la mazmorra. Tu Pokémon ataca solo con su movimiento
+Entra con una cuenta o como invitado, elige tu primer compañero (uno de los
+29 iniciales) y a la mazmorra. Tu Pokémon ataca solo con su movimiento
 activo; tú te mueves, esquivas y eliges qué aprender al subir de nivel.
 
 | En el PC | Acción |
