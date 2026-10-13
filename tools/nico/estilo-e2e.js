@@ -285,8 +285,10 @@ const MEDIR_ACERCA = () => {
   const icono = b.content && b.content !== 'none' && b.display !== 'none' ? parseFloat(b.width) + (parseFloat(s.columnGap) || 0) : 0;
   const sb = document.getElementById('set-body'), cs = getComputedStyle(sb), v = texto(ver);
   const titulo = (t.left - icono + t.right) / 2, version = (v.left + v.right) / 2;
-  // El centro de lo que se ve del cuerpo de Ajustes, sin su barra de desplazamiento ni su relleno.
-  const caja = sb.getBoundingClientRect().left + sb.clientLeft + (parseFloat(cs.paddingLeft) + sb.clientWidth - parseFloat(cs.paddingRight)) / 2;
+  // El centro de lo que se ve del cuerpo de Ajustes, sin su barra de desplazamiento ni su relleno. clientWidth no lleva
+  // la escala de la animación de entrada de la pantalla (a los 30 ms aún va por ×0,95) y getBoundingClientRect sí: k.
+  const r = sb.getBoundingClientRect(), k = r.width / (sb.offsetWidth || 1);
+  const caja = r.left + k * (sb.clientLeft + (parseFloat(cs.paddingLeft) + sb.clientWidth - parseFloat(cs.paddingRight)) / 2);
   return { titulo: Math.round(titulo), version: Math.round(version), caja: Math.round(caja),
     dif: Math.round(Math.max(Math.abs(titulo - caja), Math.abs(version - caja)) * 10) / 10 };
 };
