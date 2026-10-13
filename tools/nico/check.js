@@ -76,7 +76,9 @@
  *      aviso de logro bajo el HUD. Y los de la verificación de los lotes 1 y 2: flechas del mismo cuadrante sin pisarse
  *      y con su etiqueta entera en la zona libre (cuatro esquinas, 9 pantallas, ocho a la vez, el caído en las
  *      esquinas), los avisos de la fila 2 a un lado del pliegue, el pliegue de la pantalla y no de la ventana, y la
- *      caché de anchos que se vacía al cargar una fuente.
+ *      caché de anchos que se vacía al cargar una fuente. Y el acabado de las flechas (verificación de la tanda
+ *      PokéSwarm): 12 px de texto a texto entre etiquetas, el cuerpo a 8 px o más de las piezas, de la píldora y de la
+ *      ranura activa (donde se pinta, corrida), y nada sobre el pliegue (también con la barra del navegador).
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -3616,6 +3618,83 @@ function hudDexChecks() {
     t('caché de anchos del HUD Dex: se vacía al terminar de cargar una fuente (document.fonts, evento «loadingdone»; y con fonts.ready): el aviso pasa a medir con la letra nueva',
       oyentes >= 1 && w1 === w0 && w2 < w1, { oyentes, w0, w1, w2 });
   } catch (e) { t('caché de anchos y fuentes', false, String(e && e.stack || e)); }
+
+  // ---- P. Acabado de las flechas (verificación de la tanda PokéSwarm) ----
+  // P1. Entre dos etiquetas, 12 px de texto a texto (a 6, «Kingambit · 18 m» y «Sol · 33 m» se leían como una frase); el
+  //     cuerpo de cada flecha, con su punta, a 8 px o más de las piezas del HUD y de la píldora del ataque (a 1,3 px
+  //     parecía señalar la ranura); y, en el plegable abierto, ninguna flecha ni su etiqueta sobre el pliegue (también con
+  //     la barra del navegador, con el pliegue de la pantalla).
+  try {
+    const res = [];
+    /** Hueco entre dos cajas (negativo si se pisan). */
+    const hueco = (a, b) => Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), b.y - (a.y + a.h), a.y - (b.y + b.h));
+    const revisar = (H, nombre, n) => {
+      const ctx = H.pintar(), B = H.G.HudDex.bandas(), F = B.flechas, mal = [];
+      const pzs = piezas(H.G, H.pl).concat(B.pildora ? [{ n: 'pildora', ...B.pildora }] : []);
+      const et = F.flatMap(f => f.cajas.filter(c => c.etiqueta).map(c => Object.assign({ f: f.tipo }, c)));
+      // Las cajas de etiqueta llevan 2 px de relleno por lado: 8 entre cajas son 12 entre textos.
+      for (let i = 0; i < et.length; i++) for (let j = i + 1; j < et.length; j++) {
+        const g = hueco(et[i], et[j]);
+        if (g < 8 - 0.5) mal.push(`etiquetas de ${et[i].f} y ${et[j].f} a ${Math.round(g + 4)} px de texto a texto`);
+      }
+      for (const f of F) {
+        const c = f.cajas.find(x => !x.etiqueta), p = c && pzs.find(q => hueco(c, q) < 8 - 0.5);
+        if (p) mal.push(`${f.tipo} a ${Math.round(hueco(c, p))} px de ${p.n}`);
+      }
+      if (B.pliegue) for (const f of F) for (const c of f.cajas) if (pisaPliegueR(c, B.pliegue)) mal.push(`${c.etiqueta ? 'etiqueta' : 'flecha'} de ${f.tipo} sobre el pliegue`);
+      const p = problemasFlechas(H, ctx);
+      if (mal.length || p.mal.length || p.n !== n) res.push({ caso: nombre, flechas: p.n, mal: mal.concat(p.mal).slice(0, 4) });
+    };
+    // Todos arriba (móvil y escritorio): el jefe y tres compañeros, uno caído, por encima de la pantalla.
+    for (const [w, h, tactil = false] of [[844, 390, true], [780, 360, true], [1440, 900], [1024, 768], [724, 784, true]]) {
+      const H = cargarHud({ w, h, tactil });
+      H.juego.jefes = [jefeFalso(w * 0.35, -700)];
+      H.juego.mates = [mateFalso('Ana', '#5FC8FF', w * 0.45, -500, { dead: true }), mateFalso('Leo', '#7EE07A', w * 0.6, -1200), mateFalso('Sol', '#FF8AD8', w * 0.42, -1000)];
+      revisar(H, `${w}x${h} todos arriba`, 4);
+    }
+    // En línea a la derecha, a la altura de la ranura activa (con la píldora del ataque, de nombre largo, a la vista).
+    for (const [w, h] of [[844, 390], [780, 360], [807, 360], [724, 784]]) {
+      const H = cargarHud({ w, h, tactil: true });
+      H.pl.slots[1][0].name = 'Danza Espada';
+      H.pintar();
+      const S1 = H.G.HudDex.bandas().piezas.ranuras[1], yc = S1.y + S1.h / 2;
+      H.juego.jefes = [jefeFalso(w + 900, yc)];
+      H.juego.mates = [mateFalso('Ana', '#5FC8FF', w + 300, yc + 10, { dead: true }), mateFalso('Leo', '#7EE07A', w + 1500, yc - 10), mateFalso('Sol', '#FF8AD8', w + 2000, yc + 20)];
+      revisar(H, `${w}x${h} en línea a la derecha`, 4);
+    }
+    // Las cuatro esquinas (las de N1), en el móvil, con muesca y en el plegable.
+    const ESQ = [[1, -1], [1, 1], [-1, -1], [-1, 1]];
+    for (const [w, h, seguras] of [[844, 390], [844, 390, { sup: 0, der: 47, inf: 21, izq: 47 }], [724, 784], [784, 724]]) {
+      for (const [sx, sy] of ESQ) {
+        const H = cargarHud({ w, h, tactil: true, seguras: seguras || { sup: 0, der: 0, inf: 0, izq: 0 } });
+        const cx = sx > 0 ? w : 0, cy = sy > 0 ? h : 0;
+        H.juego.jefes = [jefeFalso(cx + sx * 900, cy + sy * 500)];
+        H.juego.mates = [mateFalso('Ana', '#5FC8FF', cx + sx * 1500, cy + sy * 300, { dead: true }), mateFalso('Leo', '#7EE07A', cx + sx * 600, cy + sy * 1400),
+          mateFalso('Sol', '#FF8AD8', cx + sx * 2000, cy + sy * 900)];
+        revisar(H, `${w}x${h}${seguras ? ' muesca' : ''} esquina ${sx},${sy}`, 4);
+      }
+    }
+    // El pliegue: el jefe justo encima (vertical, x = 362) o los compañeros en el horizonte (horizontal, y = 362; girado con
+    // la barra del navegador, y = 278).
+    for (const [w, h, pantalla] of [[724, 784], [724, 700, { w: 724, h: 784 }], [784, 724], [784, 640, { w: 784, h: 724 }]]) {
+      const H = cargarHud({ w, h, tactil: true });
+      if (pantalla) H.G.Estilo.pantalla = () => pantalla;
+      const vertical = (pantalla || { w, h }).w < (pantalla || { w, h }).h, pos = vertical ? 362 : (pantalla ? 278 : 362);
+      if (vertical) {
+        H.juego.jefes = [jefeFalso(pos, -800)];
+        H.juego.mates = [mateFalso('Ana', '#5FC8FF', pos, -1500, { dead: true }), mateFalso('Leo', '#7EE07A', pos, h + 900)];
+      } else {
+        H.juego.jefes = [jefeFalso(-900, pos)];
+        H.juego.mates = [mateFalso('Ana', '#5FC8FF', w + 1500, pos, { dead: true }), mateFalso('Leo', '#7EE07A', w + 700, pos)];
+      }
+      H.pintar();
+      const pg = H.G.HudDex.bandas().pliegue;
+      if (!pg || pg.pos !== pos) { res.push({ caso: `${w}x${h} pliegue`, mal: ['el pliegue no es el esperado', pg] }); continue; }
+      revisar(H, `${w}x${h}${pantalla ? ' con la barra' : ''}: pliegue ${pg.eje === 'x' ? 'vertical' : 'horizontal'} en ${pos}`, 3);
+    }
+    t('acabado de las flechas: 12 px de texto a texto entre etiquetas, el cuerpo de cada flecha a 8 px o más de las piezas del HUD y de la píldora del ataque, y nada sobre el pliegue del plegable abierto (todos arriba, en línea a la altura de la ranura activa, en las cuatro esquinas y con el jefe o los compañeros sobre el pliegue; escritorio, móvil, muesca y el Magic V6, también con la barra del navegador)',
+      !res.length, res.slice(0, 6));
+  } catch (e) { t('acabado de las flechas', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`HUD Dex: ${r.length} casos bien`);

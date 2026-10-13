@@ -15,7 +15,9 @@
  *   - chips: mejoras, poder del altar y el evento en curso (horda, hora dorada);
  *   - ranuras de ataque con su tira de nivel y la píldora del tipo; objeto y vínculo; botón de pausa táctil;
  *   - flechas de borde comunes (jefe, grieta, shiny, compañeros, ladrón y Pokémon perdido), sujetas a la zona
- *     libre: salen si el objetivo está fuera de la pantalla o detrás de un panel del HUD;
+ *     libre: salen si el objetivo está fuera de la pantalla o detrás de un panel del HUD; sin pisarse, con 12 px
+ *     de texto a texto entre etiquetas, el cuerpo a 8 px o más de los paneles, la píldora y la ranura activa, y
+ *     fuera de la franja del pliegue del plegable abierto;
  *   - cooperativo: compañeros con su barra o «Caído», sus flechas y «Has caído…» con la barra de levantar.
  *
  * Variantes (G.Estilo.disposicion): escritorio (×escala, de 1 a 1,25) con la pila en el centro de arriba y las
@@ -1193,15 +1195,27 @@ G.HudDex = (() => {
       }
       return { cajas, lx, lb };
     };
-    const cruza = (c, o) => c.x < o.x + o.w + 3 && o.x - 3 < c.x + c.w && c.y < o.y + o.h + 3 && o.y - 3 < c.y + c.h;
+    /** ¿Se tocan las cajas c y o, o quedan a menos de m px? */
+    const cruza = (c, o, m = 3) => c.x < o.x + o.w + m && o.x - m < c.x + c.w && c.y < o.y + o.h + m && o.y - m < c.y + c.h;
+    // Aire: entre dos etiquetas, 8 px de caja a caja (con su relleno de 2, 12 de texto a texto: a 6, «Kingambit · 18 m» y
+    // «Sol · 33 m» se leían como una sola frase); del cuerpo de una flecha a la píldora del ataque y a la ranura activa, 8
+    // (a 1-3 px parecía señalarlas). De los demás paneles, el cuerpo ya queda a 8 o más: se coloca a ese aire dentro de la
+    // zona libre (abajo).
+    const AIRE_ETIQUETAS = 8, AIRE_CUERPO = 8, pg = L.pliegue;
+    // La ranura activa se pinta corrida hacia la zona libre (en la columna del compacto, P.desplazamiento a la izquierda;
+    // en la fila de escritorio, P.elevacion hacia arriba), como en ranuras(): cuenta donde se pinta.
+    const act = P.ranuras && P.ranuras[pl.active], colc = comp && L.columna;
+    if (act) evitar.push({ x: act.x - (colc ? P.desplazamiento || 0 : 0), y: act.y - (!colc ? P.elevacion || 0 : 0), w: act.w, h: act.h });
     const puestas = [];
-    /** Lo malo de un sitio: pisar otra flecha o su etiqueta (se leían una encima de otra), pisar la píldora del ataque y,
-     *  menos, una etiqueta bajo un panel del HUD. 0 = libre. */
+    /** Lo malo de un sitio: pisar otra flecha o su etiqueta (se leían una encima de otra), pisar la píldora del ataque,
+     *  caer sobre el pliegue del plegable abierto (a medio plegar, partida en dos) y, menos, una etiqueta bajo un panel del
+     *  HUD. 0 = libre. */
     const coste = H => {
       let c = 0;
       for (const b of H.cajas) {
-        if (puestas.some(p => p.some(o => cruza(b, o)))) c += 4;
-        if (evitar.some(o => cruza(b, o))) c += 3;
+        if (puestas.some(p => p.some(o => cruza(b, o, b.etiqueta && o.etiqueta ? AIRE_ETIQUETAS : 3)))) c += 4;
+        if (evitar.some(o => cruza(b, o, b.etiqueta ? 3 : AIRE_CUERPO))) c += 3;
+        if (pg && pisaPliegue(b, pg)) c += 2;
         if (b.etiqueta && paneles.some(o => cruza(b, o))) c += 1;
       }
       return c;
@@ -1211,34 +1225,48 @@ G.HudDex = (() => {
       if (f.tipo !== 'grietaVisible') continue;
       // Como lo pinta dibujarFlechas(): la flecha que bota entre 46 y 56 px por encima y el rótulo 18 px más arriba.
       const tw = medir('Grieta · ' + Math.ceil(f.rf.ttl) + ' s', 800, tamE) + 8;
-      puestas.push([{ x: f.sx - tw / 2, y: f.sy - 74 - tamE, w: tw, h: tamE + 12 }, { x: f.sx - 17, y: f.sy - 70, w: 34, h: 34 }]);
+      puestas.push([{ x: f.sx - tw / 2, y: f.sy - 74 - tamE, w: tw, h: tamE + 12, etiqueta: true }, { x: f.sx - 17, y: f.sy - 70, w: 34, h: 34 }]);
     }
     // Colocación: en el borde de la zona libre menos el margen, donde toca por la dirección del objetivo; si ahí pisa
-    // algo (otra flecha o su etiqueta, la píldora), se recorre ese borde, y si hace falta los de al lado, a pasos y a
-    // los dos lados a la vez, hasta el primer sitio libre: las flechas del mismo cuadrante (cooperativo con 3-4
+    // algo (otra flecha o su etiqueta, la píldora, el pliegue), se recorre ese borde, y si hace falta los de al lado, a
+    // pasos y a los dos lados a la vez, hasta el primer sitio libre: las flechas del mismo cuadrante (cooperativo con 3-4
     // jugadores, jefe y compañero) se separan o se apilan con sus etiquetas, por prioridad (jefe > caído > grieta >
     // compañero > evento > shiny). Sin sitio libre, el menos malo de los probados (el más cercano, a igual coste).
-    let x0 = Z.x + M, x1 = Z.x + Z.w - M, y0 = Z.y + M, y1 = Z.y + Z.h - M;
-    if (x1 < x0) x0 = x1 = Z.x + Z.w / 2;
-    if (y1 < y0) y0 = y1 = Z.y + Z.h / 2;
-    const Wr = x1 - x0, Hr = y1 - y0, per = 2 * (Wr + Hr);
-    /** Punto del borde a una distancia s (en el sentido de las agujas del reloj desde la esquina de arriba a la izquierda). */
-    const enBorde = s => {
-      s = ((s % per) + per) % per;
-      if (s <= Wr) return [x0 + s, y0];
-      if ((s -= Wr) <= Hr) return [x1, y0 + s];
-      if ((s -= Hr) <= Wr) return [x1 - s, y1];
-      return [x0, y1 - (s - Wr)];
-    };
-    /** Distancia por el borde del punto del borde más cercano a (x, y). */
-    const sobreBorde = (x, y) => {
-      const d = [y - y0, x1 - x, y1 - y, x - x0], m = Math.min(...d);
-      return m === d[0] ? x - x0 : m === d[1] ? Wr + (y - y0) : m === d[2] ? Wr + Hr + (x1 - x) : 2 * Wr + Hr + (y1 - y);
+    // El margen es el de la marca o, si el cuerpo (con su punta) no cabe en él con 8 px de aire, el que lo deja a 8 del
+    // borde de la zona libre, y así de los paneles de alrededor (la punta de la grieta o del jefe en compacto llegaba al
+    // borde, a 1-5 px de una ranura).
+    const bordes = new Map();
+    /** El rectángulo por el que se mueve el centro de una flecha a `ins` del borde de la zona libre, y cómo recorrerlo. */
+    const borde = ins => {
+      if (bordes.has(ins)) return bordes.get(ins);
+      let x0 = Z.x + ins, x1 = Z.x + Z.w - ins, y0 = Z.y + ins, y1 = Z.y + Z.h - ins;
+      if (x1 < x0) x0 = x1 = Z.x + Z.w / 2;
+      if (y1 < y0) y0 = y1 = Z.y + Z.h / 2;
+      const Wr = x1 - x0, Hr = y1 - y0, per = 2 * (Wr + Hr);
+      const B = {
+        x0, x1, y0, y1, per,
+        /** Punto del borde a una distancia s (en el sentido de las agujas del reloj desde la esquina de arriba a la izquierda). */
+        en: s => {
+          s = ((s % per) + per) % per;
+          if (s <= Wr) return [x0 + s, y0];
+          if ((s -= Wr) <= Hr) return [x1, y0 + s];
+          if ((s -= Hr) <= Wr) return [x1 - s, y1];
+          return [x0, y1 - (s - Wr)];
+        },
+        /** Distancia por el borde del punto del borde más cercano a (x, y). */
+        sobre: (x, y) => {
+          const d = [y - y0, x1 - x, y1 - y, x - x0], m = Math.min(...d);
+          return m === d[0] ? x - x0 : m === d[1] ? Wr + (y - y0) : m === d[2] ? Wr + Hr + (x1 - x) : 2 * Wr + Hr + (y1 - y);
+        }
+      };
+      bordes.set(ins, B);
+      return B;
     };
     const paso = Math.max(6, Math.round(8 * k));
     out.sort((a, b) => b.prio - a.prio);
     for (const f of out) {
       if (f.tipo === 'grietaVisible') continue;
+      const { x0, x1, y0, y1, per, en: enBorde, sobre: sobreBorde } = borde(Math.max(M, Math.ceil(f.alcance || 0) + AIRE_CUERPO));
       let mejor = null;
       const prueba = (ex, ey) => {
         ex = Math.round(ex); ey = Math.round(ey);
