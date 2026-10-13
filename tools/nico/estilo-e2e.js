@@ -1,5 +1,5 @@
 /* ============ tools/nico/estilo-e2e.js — prueba de la identidad visual en el navegador ============
- *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud | --solo-portada | --solo-entornos]
+ *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud | --solo-portada | --solo-entornos | --solo-juego]
  *
  * Arnés del estilo «Dex de Expedición» (lote 1: base del estilo y menús). Modo local, un jugador
  * invitado, sin emulador: abre index.html (con --dev, dev.html) en Chromium con Playwright y, en
@@ -75,6 +75,20 @@
  *      parte) y 0 chunks en el fotograma del cambio; 844x390@3 con la CPU ×4: 1 chunk por fotograma y ningún fotograma de
  *      más de 33 ms (con su p95 en el informe). Rendimiento, minuto 8 con 80 Pokémon y lluvia: Dex frente a Clásico, Δ de
  *      la CPU media por fotograma ≤ 0,3 ms y del p95 ≤ 0,5 ms con GPU y calidad Alta, y ≤ 0,5 ms sin GPU y calidad Baja.
+ *  14. Ajustes de juego del lote 4 (--solo-juego, con la 15): píxel nítido (un tablero de 8x8 píxeles de arte dibujado como
+ *      un sprite: todas sus filas y columnas miden lo mismo en píxeles físicos a 1440x900@1, 844x390@3 y 844x390@2,625; sin
+ *      el ajuste, como upstream) y su fila en Ajustes > Gráficos > Pantalla; el encuadre (tu Pokémon en el centro de la
+ *      zona libre ±4 px a 844x390; en escritorio, en el centro); el golpe final (140 ± 17 ms quieto con el reloj de la
+ *      partida); y el iris (el fotograma del tirón al entrar en la arena, negro; una captura a mitad, con el fogonazo dentro;
+ *      y la vuelta, cerrado antes y en negro).
+ *  15. Pantalla dividida estilo Nintendo DS (lote 5): elegida por Ajustes > Controles, en el Magic V6 (724x784, 784x724,
+ *      724x700 con la barra del navegador), plegado y emulado con CDP (Emulation.setDeviceMetricsOverride con devicePosture y
+ *      displayFeature; capturas con Page.captureScreenshot, porque las de Playwright apagan los segmentos): en modo mesa la
+ *      automática, por segmento (784x362 y 784x362), con una máscara de 20 px y en libro «a un lado»; y en escritorio
+ *      (1440x900, abajo y a la izquierda en Clásico). El lienzo del juego y el panel donde toca, el HUD Dex sin ficha ni
+ *      ranuras y nada junto a la división ni sobre el pliegue, botones de 44 px, el ataque 2 con el dedo o el ratón, el
+ *      joystick del panel mueve a tu Pokémon, el teclado sigue, desplegar y replegar en plena partida, cambiar el modo
+ *      desde la pausa sin reiniciar y, en el menú, la pantalla entera.
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
@@ -98,14 +112,16 @@ const CAPTURAS = !process.argv.includes('--sin-capturas');
 const SOLO_HUD = process.argv.includes('--solo-hud');   // sólo el HUD Dex en partida (sección 10), para ir más rápido
 const SOLO_PORTADA = process.argv.includes('--solo-portada');   // sólo la portada «Tarjeta de entrenador» (sección 12)
 const SOLO_ENTORNOS = process.argv.includes('--solo-entornos');   // sólo los entornos del Gremio, el clima y el horneado (sección 13)
-const OTRAS = !SOLO_HUD && !SOLO_PORTADA && !SOLO_ENTORNOS;      // todas las secciones
+const SOLO_JUEGO = process.argv.includes('--solo-juego');   // sólo los ajustes de juego y la pantalla dividida (secciones 14 y 15)
+const OTRAS = !SOLO_HUD && !SOLO_PORTADA && !SOLO_ENTORNOS && !SOLO_JUEGO;      // todas las secciones
 const ESTILOS = ['clasico', 'dex'];
 
 /** Avisos de la consola que son del entorno de la prueba, no del juego. */
 const AVISOS_ENTORNO = [
   /Service Worker registration blocked by Playwright/i,                         // la prueba bloquea el service worker (menos en la de sin internet)
   /AudioContext was not allowed to start/i,                                      // Chromium sin gesto del usuario al arrancar (upstream crea el audio al cargar)
-  /Multiple readback operations using getImageData/i                             // la prueba lee los píxeles de los lienzos del juego
+  /Multiple readback operations using getImageData/i,                            // la prueba lee los píxeles de los lienzos del juego
+  /partida no válida para el ranking: debug/i                                    // la prueba abre una arena con G.Rift.debugArena (sección 14)
 ];
 
 const VP = {
@@ -1783,6 +1799,343 @@ async function pruebaEntornos(browser) {
   } finally { await bSin.close().catch(() => {}); }
 }
 
+// ---------------- 14. Ajustes de juego (lote 4) ----------------
+/** Un tablero de 8x8 píxeles de arte (magenta y cian) dibujado como un sprite (posición entera de mundo, PX px de mundo por
+ *  píxel de arte, con la cámara de verdad) encima de los efectos, arriba a la izquierda de tu Pokémon. */
+const PONER_TABLERO = () => {
+  const img = document.createElement('canvas'); img.width = 8; img.height = 8;
+  const g = img.getContext('2d');
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = (x + y) % 2 ? '#ff00ff' : '#00ffff'; g.fillRect(x, y, 1, 1); }
+  window.__tablero = { x: 0, y: 0 };
+  const orig = G.FX.draw;
+  G.FX.draw = function (ctx) {
+    orig.apply(this, arguments);
+    const pl = G.Game.player, k = G.Sprites.PX, x = Math.round(pl.x) - 60, y = Math.round(pl.y) - 90;
+    ctx.drawImage(img, x, y, 8 * k, 8 * k);
+    window.__tablero = { x, y };
+  };
+};
+/** Dónde está el tablero en la pantalla (px CSS) y cuántos píxeles físicos debería medir cada píxel de arte. */
+const DONDE_TABLERO = () => {
+  const cam = G.Camera, T = window.__tablero, k = G.Sprites.PX, d = devicePixelRatio;
+  return { x: (T.x - cam.left() + cam._sx) * cam.scale, y: (T.y - cam.top() + cam._sy) * cam.scale, lado: 8 * k * cam.scale, fisicos: k * cam.scale * d,
+    calc: G.Encuadre.calcular(innerWidth, innerHeight, d), estado: G.Encuadre.estado, dpr: d };
+};
+/** Las rachas de un mismo color (magenta o cian) por filas y columnas de una captura del tablero (en la página: la
+ *  imagen se lee con un lienzo). Devuelve las longitudes interiores (sin la primera ni la última de cada línea). */
+const RACHAS = async b64 => {
+  const im = new Image();
+  await new Promise((ok, mal) => { im.onload = ok; im.onerror = mal; im.src = 'data:image/png;base64,' + b64; });
+  const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+  const c = cv.getContext('2d', { willReadFrequently: true }); c.drawImage(im, 0, 0);
+  const d = c.getImageData(0, 0, cv.width, cv.height).data, W = cv.width, H = cv.height;
+  const clase = i => { const r = d[i], g = d[i + 1], b = d[i + 2]; if (r > 170 && g < 90 && b > 170) return 1; if (r < 90 && g > 170 && b > 170) return 2; return 0; };
+  const rachas = [];
+  const linea = (n, at) => {
+    let cur = -1, len = 0;
+    const L = [];
+    for (let i = 0; i < n; i++) { const k = at(i); if (k === cur) len++; else { if (cur > 0) L.push(len); cur = k; len = 1; } }
+    if (cur > 0) L.push(len);
+    rachas.push(...L.slice(1, -1));
+  };
+  for (const f of [0.3, 0.5, 0.7]) { const y = Math.floor(H * f); linea(W, x => clase((y * W + x) * 4)); }
+  for (const f of [0.3, 0.5, 0.7]) { const x = Math.floor(W * f); linea(H, y => clase((y * W + x) * 4)); }
+  return { W, H, rachas };
+};
+const MEDIR_GOLPE = () => new Promise(res => {
+  const pl = G.Game.player;
+  pl.hurt = function () {};
+  const b = new G.Enemy({ dex: 983, hp: 50, spd: 0, dmg: 0, xp: 0, behavior: 'melee' }, pl.x + 70, pl.y + 10, { hp: 1, spd: 1, dmg: 1 }, true);
+  b.spd = 0; G.EnemyMgr.add(b);
+  const m = [];
+  let n = 0;
+  const paso = () => { m.push([performance.now(), G.Game.st.time]); if (++n < 50) requestAnimationFrame(paso); else res(m); };
+  requestAnimationFrame(() => { m.push([performance.now(), G.Game.st.time]); b.hp = 0; b.die(); requestAnimationFrame(paso); });
+});
+/** El centro del lienzo del juego justo después de pintar el iris, en el primer fotograma de la arena y en el de la vuelta. */
+const VIGILAR_TIRON = () => {
+  const orig = G.Transicion.dibujar;
+  let antes = G.Rift.inArena;
+  window.__tiron = { entrada: null, vuelta: null, cerrando: false };
+  G.Transicion.dibujar = function (ctx) {
+    orig.apply(this, arguments);
+    const ahora = G.Rift.inArena, cv = ctx.canvas;
+    const px = () => Array.from(ctx.getImageData(cv.width >> 1, cv.height >> 1, 1, 1).data.slice(0, 3));
+    if (ahora && !antes && !window.__tiron.entrada) window.__tiron.entrada = px();
+    if (!ahora && antes && !window.__tiron.vuelta) window.__tiron.vuelta = px();
+    if (G.Transicion.fase === 'cerrando') window.__tiron.cerrando = true;
+    antes = ahora;
+  };
+};
+
+async function pruebaJuego(browser) {
+  // Píxel nítido: las columnas de un mismo píxel de arte miden lo mismo en píxeles físicos.
+  for (const v of [{ w: 1440, h: 900, dpr: 1 }, { w: 844, h: 390, dpr: 3, tactil: true }, { w: 844, h: 390, dpr: 2.625, tactil: true }]) {
+    const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: píxel nítido: se entra a jugar`, false); await P.ctx.close(); continue; }
+    const res = {};
+    for (const nitido of [true, false]) {
+      await page.evaluate(n => { G.Settings.set('pixelNitido', n); dispatchEvent(new Event('resize')); if (G.Game.state === 'ui') G.Flow.play(); }, nitido);
+      await page.evaluate(PONER_TABLERO);
+      await sleep(1200);
+      await page.evaluate(() => { G.Game.togglePause(); G.UI.hideAll(); });   // quieto: la cámara ya no se mueve
+      await sleep(200);
+      const t = await page.evaluate(DONDE_TABLERO);
+      const shot = await page.screenshot({ clip: { x: t.x + 2, y: t.y + 2, width: t.lado - 4, height: t.lado - 4 } });
+      const m = await page.evaluate(RACHAS, shot.toString('base64'));
+      const n = Math.round(t.fisicos), iguales = m.rachas.length > 10 && m.rachas.every(x => x === m.rachas[0]);
+      res[nitido ? 'nitido' : 'upstream'] = { fisicos: +t.fisicos.toFixed(3), rachas: [...new Set(m.rachas)], n, iguales, dentro: m.rachas.length, img: [m.W, m.H] };
+      if (nitido) await captura(page, `pixel-nitido-${nv}`);
+      await page.evaluate(() => { G.Game.togglePause(); });
+    }
+    report.medidas['pixel-' + nv] = res;
+    const N = res.nitido;
+    check(`${nv}: píxel nítido: cada píxel de arte mide ${N.fisicos} px físicos y todas las columnas y filas de un tablero dibujado como un sprite miden lo mismo (rachas: ${N.rachas.join(', ')}); sin el ajuste, como upstream, ${res.upstream.fisicos} px (rachas: ${res.upstream.rachas.join(', ')})`,
+      N.iguales && Number.isInteger(N.fisicos) && N.rachas[0] === N.fisicos, res);
+    check(`${nv}: consola sin errores ni avisos (píxel nítido)`, !P.consola.length && !P.fuera.length, { consola: P.consola.slice(0, 5), fuera: P.fuera.slice(0, 5) });
+    await P.ctx.close();
+  }
+
+  // Encuadre, iris, golpe final y Ajustes en un móvil en horizontal (Dex) y en escritorio.
+  for (const v of [VP.movil, VP.pc]) {
+    const P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: lote 4: se entra a jugar`, false); await P.ctx.close(); continue; }
+    // Ajustes > Gráficos: «Píxel nítido», al final de la sección Pantalla, activado.
+    const aj = await page.evaluate(() => {
+      G.Estilo.set('dex'); G.SettingsUI.open('gfx');
+      const filas = [...document.querySelectorAll('#set-body h3.set-h, #set-body .set-row')].map(e => (e.matches('h3') ? '# ' : '') + (e.querySelector('b') || e).textContent.trim());
+      const b = document.querySelector('[data-pixel]');
+      const r = { filas, boton: b && b.textContent };
+      b.click();
+      r.trasClic = G.Encuadre.nitido();
+      document.querySelector('[data-pixel]').click();
+      r.otraVez = G.Encuadre.nitido();
+      G.SettingsUI.close();
+      return r;
+    });
+    const iP = aj.filas.indexOf('# Pantalla'), iPx = aj.filas.indexOf('Píxel nítido');
+    check(`${nv}: Ajustes > Gráficos > Pantalla: «Píxel nítido» (Sí por defecto) al final de la sección, y el botón lo cambia`,
+      iP >= 0 && iPx > iP && aj.filas.slice(iP + 1).every((f, i) => i <= iPx - iP - 1 || f.startsWith('# ')) && aj.boton === 'Sí' && aj.trasClic === false && aj.otraVez === true, aj);
+    await page.evaluate(() => { G.Flow.play(); });
+    await sleep(1600);
+    // Encuadre (sólo en compacto): tu Pokémon en el centro de la zona libre.
+    const enc = await page.evaluate(() => {
+      const B = G.HudDex.bandas(), cam = G.Camera, pl = G.Game.player;
+      return { variante: B.variante, pl: [(pl.x - cam.left()) * cam.scale, (pl.y - cam.top()) * cam.scale], zona: [B.zona.x + B.zona.w / 2, B.zona.y + B.zona.h / 2], centro: [innerWidth / 2, innerHeight / 2] };
+    });
+    report.medidas['encuadre-' + nv] = enc;
+    const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    check(enc.variante === 'compacto' ? `${nv}: encuadre: tu Pokémon en el centro de la zona libre del HUD compacto (a ${d(enc.pl, enc.zona).toFixed(1)} px, ±4)` : `${nv}: encuadre: con el HUD de escritorio, tu Pokémon en el centro de la pantalla`,
+      enc.variante === 'compacto' ? d(enc.pl, enc.zona) <= 4 : d(enc.pl, enc.centro) <= 2, enc);
+    // Golpe final: un jefe cae en solitario.
+    const m = await page.evaluate(MEDIR_GOLPE);
+    const per = m.slice(1).map((x, i) => x[0] - m[i][0]).sort((a, b) => a - b)[Math.floor(m.length / 2)];
+    let i0 = 0;
+    while (i0 + 1 < m.length && m[i0 + 1][1] > m[i0][1]) i0++;           // el último fotograma que avanzó antes de quedarse quieto
+    let i1 = i0 + 1;
+    while (i1 < m.length && m[i1][1] === m[i0][1]) i1++;                // el primero que vuelve a avanzar
+    const quieto = i1 < m.length ? m[i1][0] - m[i0][0] - per : null;
+    report.medidas['golpe-final-' + nv] = { quieto, periodo: per };
+    check(`${nv}: golpe final: al caer un jefe en solitario el juego se queda quieto ${quieto && quieto.toFixed(0)} ms (140 ± 17, medido con el reloj de la partida)`, quieto !== null && Math.abs(quieto - 140) <= 17, { quieto, per, muestras: m.slice(0, 20) });
+    if (v === VP.movil) {
+      // Iris: el fotograma del tirón al entrar en la arena, negro; a mitad de la apertura (más lenta, sólo aquí), el fogonazo
+      // dentro del círculo y negro fuera; y la vuelta (también en negro, tras cerrarse).
+      await page.evaluate(VIGILAR_TIRON);
+      // La apertura, más lenta sólo aquí (1,2 s en vez de 280 ms) para pillarla a medias con el fogonazo (0,9 s) aún encima.
+      await page.evaluate(() => { G.Transicion.T.abrir = 1.2; G.Rift.debugArena('fire'); });
+      await sleep(300);
+      const mitad = await page.evaluate(() => ({ fase: G.Transicion.fase, a: G.Transicion.apertura(performance.now() / 1000) }));
+      await captura(page, 'iris-mitad-dex-' + nv);
+      const px = await page.evaluate(() => { const cv = document.getElementById('game'), c = cv.getContext('2d'); const p = (x, y) => Array.from(c.getImageData(x, y, 1, 1).data.slice(0, 3)); return { esquina: p(2, 2), centro: p(cv.width >> 1, (cv.height >> 1) - 10) }; });
+      await page.evaluate(() => { G.Transicion.T.abrir = 0.28; });
+      await sleep(600);
+      // Se vence al legendario y la espera de la vuelta se acorta (sólo en la prueba).
+      // (Sin su experiencia: las cartas de subir de nivel pararían la vuelta.)
+      await page.evaluate(() => { const e = G.EnemyMgr.all().find(x => x.legend && !x.dead); if (e) { e.xp = 0; e.hp = 0; e.die(); } });
+      await sleep(400);
+      await page.evaluate(() => { if (G.Rift.arena) G.Rift.arena.endT = Math.min(G.Rift.arena.endT, 0.9); });
+      const traza = [];
+      // Si sale un diálogo (cambiar de objeto: el jefe de antes dejó uno), se elige el primero, como haría el jugador.
+      for (let i = 0; i < 40 && await page.evaluate(() => G.Rift.inArena); i++) {
+        traza.push(await page.evaluate(() => {
+          if (G.Game.state === 'levelup') G.RunUI.pick(0);
+          else if (G.UI.isOpen('scr-item')) document.querySelector('#item-cards .card').click();
+          return [G.Game.state, G.Rift.arena && G.Rift.arena.phase, G.Rift.arena && +G.Rift.arena.endT.toFixed(2), G.Transicion.fase];
+        }));
+        await sleep(100);
+      }
+      report.medidas['iris-traza'] = traza;
+      await sleep(300);
+      const tiron = await page.evaluate(() => Object.assign({ fuera: !G.Rift.inArena }, window.__tiron));
+      const negro = c => c && Math.max(Math.abs(c[0] - 5), Math.abs(c[1] - 14), Math.abs(c[2] - 18)) <= 3;
+      report.medidas['iris-' + nv] = { mitad, px, tiron };
+      check(`${nv}: iris: el fotograma del tirón al entrar en la arena es negro (${tiron.entrada}); a mitad de la apertura (${mitad.a.toFixed(2)}) negro fuera del círculo y el mundo con el fogonazo dentro; al volver, se cierra antes y el fotograma de la vuelta también es negro (${tiron.vuelta})`,
+        negro(tiron.entrada) && mitad.fase === 'abriendo' && mitad.a > 0.2 && mitad.a < 0.8 && negro(px.esquina) && !negro(px.centro) && tiron.fuera && tiron.cerrando && negro(tiron.vuelta), { tiron, mitad, px });
+    }
+    check(`${nv}: consola sin errores ni avisos (lote 4)`, !P.consola.length && !P.fuera.length, { consola: P.consola.slice(0, 5), fuera: P.fuera.slice(0, 5) });
+    await P.ctx.close();
+  }
+}
+
+// ---------------- 15. Pantalla dividida estilo Nintendo DS (lote 5) ----------------
+/** Lo que se mide de la pantalla dividida en este momento. */
+const MEDIR_DIVIDIDA = () => {
+  const R = G.Dividida.activa(), cv = document.getElementById('game').getBoundingClientRect(), md = document.getElementById('mandos');
+  const pm = md && md.style.display !== 'none' ? md.getBoundingClientRect() : null;
+  const B = G.HudDex.bandas(), P = B.piezas, L = G.Dividida.panel;
+  const piezas = [];
+  for (const k of Object.keys(P)) { const v = P[k]; (Array.isArray(v) ? v : [v]).forEach((x, i) => { if (x && x.w && x.h) piezas.push({ n: k + (Array.isArray(v) ? i : ''), x: x.x, y: x.y, w: x.w, h: x.h }); }); }
+  const r = o => o && { x: Math.round(o.x), y: Math.round(o.y), w: Math.round(o.width), h: Math.round(o.height) };
+  return { R, juego: r(cv), panel: r(pm), piezas, botones: G.Dividida.botonesPantalla(), stick: L && L.stick, horizontal: L && L.horizontal, hudDex: G.Estilo.hudDex(),
+    pagina: document.documentElement.scrollWidth - innerWidth, segs: G.Dividida.segmentos(), postura: G.Dividida.postura(), estado: G.Game.state, t: G.Game.st.time };
+};
+/** ¿Está todo donde debe? Devuelve la lista de problemas. */
+function revisarDividida(m, mg) {
+  const mal = [];
+  if (!m.R) return ['sin dividir'];
+  const J = m.R.juego, K = m.R.controles;
+  const igual = (a, b) => a && b && Math.abs(a.x - b.x) <= 1 && Math.abs(a.y - b.y) <= 1 && Math.abs(a.w - b.w) <= 1 && Math.abs(a.h - b.h) <= 1;
+  if (!igual(m.juego, J)) mal.push(`el lienzo del juego (${JSON.stringify(m.juego)}) no es el rectángulo de juego`);
+  if (!igual(m.panel, K)) mal.push(`el panel (${JSON.stringify(m.panel)}) no es el rectángulo de los mandos`);
+  if (m.pagina > 0) mal.push('desplazamiento horizontal');
+  if (!m.hudDex) mal.push('no va el HUD Dex');
+  for (const p of m.piezas) {
+    if (['ficha', 'pausa', 'objeto', 'vinculo'].includes(p.n) || /^ranuras/.test(p.n)) mal.push(`el HUD repite ${p.n}`);
+    // Lejos de la división: en el lienzo del juego (px del lienzo), nada a menos de mg del borde que da al panel.
+    const lado = K.lado;
+    if (lado === 'abajo' && p.y + p.h > J.h - mg + 0.5) mal.push(`${p.n} junto a la división`);
+    if (lado === 'derecha' && p.x + p.w > J.w - mg + 0.5) mal.push(`${p.n} junto a la división`);
+    if (lado === 'izquierda' && p.x < mg - 0.5) mal.push(`${p.n} junto a la división`);
+  }
+  for (const b of m.botones) {
+    if (b.x < K.x - 0.5 || b.y < K.y - 0.5 || b.x + b.w > K.x + K.w + 0.5 || b.y + b.h > K.y + K.h + 0.5) mal.push(`${b.que} fuera del panel`);
+    if (b.w < 44 || b.h < 44) mal.push(`${b.que} de menos de 44 px`);
+    const pg = m.R.pliegue;
+    if (pg) { const a = pg.pos - pg.ancho / 2 - mg + 0.5, z = pg.pos + pg.ancho / 2 + mg - 0.5; if (pg.eje === 'x' ? b.x < z && b.x + b.w > a : b.y < z && b.y + b.h > a) mal.push(`${b.que} sobre el pliegue`); }
+    if (K.lado === 'abajo' && b.y < K.y + mg - 0.5) mal.push(`${b.que} junto a la división`);
+  }
+  return mal;
+}
+async function preparar(page) {
+  await page.evaluate(() => {
+    const pl = G.Game.player;
+    for (const id of Object.keys(G.Moves.BY_ID).filter(id => !pl.hasMove(id) && G.Moves.BY_ID[id].kind !== 'buff').slice(0, Math.max(0, 4 - pl.slots.length))) pl.addMove(id);
+    pl.setActive(0); pl.item = Object.keys(G.Items.BY)[0]; pl.hurt = function () {};
+  });
+}
+/** Arrastrar con el dedo (CDP: pointer events de tipo touch) de (x0, y0) a (x1, y1) y mantenerlo `ms`. */
+async function arrastrar(cdp, x0, y0, x1, y1, ms = 600) {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y: y0, id: 1 }] });
+  for (let i = 1; i <= 5; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (x1 - x0) * i / 5, y: y0 + (y1 - y0) * i / 5, id: 1 }] }); await sleep(16); }
+  await sleep(ms);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+async function capturaCdp(cdp, nombre) {
+  if (!CAPTURAS) return null;
+  const r = await cdp.send('Page.captureScreenshot', { format: 'png' });
+  const f = nombre + '.png';
+  fs.writeFileSync(path.join(OUT, f), Buffer.from(r.data, 'base64'));
+  report.capturas.push(f);
+  return f;
+}
+
+async function pruebaDividida(browser) {
+  const MG = 16;
+  const casos = [
+    { n: 'interior-vertical', v: { w: 724, h: 784, dpr: 3, tactil: true }, modo: 'abajo', esperado: { juego: [0, 0, 724, 392], pliegue: 'x' } },
+    { n: 'interior-horizontal', v: { w: 784, h: 724, dpr: 3, tactil: true }, modo: 'abajo', esperado: { juego: [0, 0, 784, 362] }, cambio: true },
+    { n: 'barra-724x700', v: { w: 724, h: 700, dpr: 3, tactil: true, pantalla: [724, 784] }, modo: 'abajo', esperado: { juego: [0, 0, 724, 350], pliegue: 'x' } },
+    { n: 'mesa-784x362', v: { w: 784, h: 724, dpr: 3, tactil: true }, modo: 'auto', plegar: { orientation: 'horizontal', offset: 362, maskLength: 0 }, esperado: { juego: [0, 0, 784, 362], controlesY: 362 } },
+    { n: 'mesa-mascara', v: { w: 784, h: 724, dpr: 3, tactil: true }, modo: 'abajo', plegar: { orientation: 'horizontal', offset: 352, maskLength: 20 }, esperado: { juego: [0, 0, 784, 352], controlesY: 372 } },
+    { n: 'libro-a-un-lado', v: { w: 724, h: 784, dpr: 3, tactil: true }, modo: 'lado', lado: 'derecha', plegar: { orientation: 'vertical', offset: 362, maskLength: 0 }, esperado: { juego: [0, 0, 362, 784] } },
+    { n: 'escritorio-abajo', v: VP.pc, modo: 'abajo', esperado: { juego: [0, 0, 1440, 450] }, raton: true },
+    { n: 'escritorio-izquierda', v: VP.pc, modo: 'lado', lado: 'izquierda', estilo: 'clasico', esperado: { juego: [720, 0, 720, 900] }, raton: true }
+  ];
+  for (const k of casos) {
+    const P = await nuevo(browser, k.v), { page } = P, nv = `dividida ${k.n} ${nombreVp(k.v)}`;
+    if (!await entrar(P)) { check(`${nv}: se entra a jugar`, false); await P.ctx.close(); continue; }
+    const cdp = await P.ctx.newCDPSession(page);
+    const metricas = (postura, rasgo) => cdp.send('Emulation.setDeviceMetricsOverride', Object.assign({ width: k.v.w, height: k.v.h, deviceScaleFactor: k.v.dpr || 1, mobile: !!k.v.tactil,
+      devicePosture: { type: postura } }, rasgo ? { displayFeature: rasgo } : {}));
+    if (k.plegar) { await metricas('folded', k.plegar); await sleep(200); }
+    // El ajuste, por la interfaz de Ajustes > Controles (en el menú).
+    const ui = await page.evaluate(([modo, lado, estilo]) => {
+      G.Estilo.set(estilo || 'dex');
+      G.SettingsUI.open('ctl');
+      const chips = [...document.querySelectorAll('[data-k="dividida"]')].map(b => b.textContent);
+      const b = document.querySelector(`[data-k="dividida"][data-v="${modo}"]`); b.click();
+      const l = lado && document.querySelector(`[data-k="divididaLado"][data-v="${lado}"]`); if (l) l.click();
+      const nota = document.getElementById('set-dividida-nota');
+      const r = { chips, modo: G.Dividida.modo(), lado: G.Dividida.lado(), nota: nota && nota.textContent };
+      G.SettingsUI.close();
+      return r;
+    }, [k.modo, k.lado, k.estilo]);
+    await page.evaluate(() => G.Flow.play());
+    await sleep(900);
+    if (k.plegar) { await metricas('folded', k.plegar); await sleep(300); }   // Playwright puede reaplicar sus métricas
+    await preparar(page);
+    await sleep(700);
+    const m = await page.evaluate(MEDIR_DIVIDIDA);
+    report.medidas[nv] = m;
+    const J = m.R && m.R.juego, e = k.esperado;
+    const mal = revisarDividida(m, MG);
+    const juegoOk = J && J.x === e.juego[0] && J.y === e.juego[1] && J.w === e.juego[2] && J.h === e.juego[3] && (!e.controlesY || m.R.controles.y === e.controlesY) && (!e.pliegue || (m.R.pliegue && m.R.pliegue.eje === e.pliegue));
+    check(`${nv}: Ajustes > Controles (${ui.chips.join(' · ')}) → «${k.modo}»${k.estilo ? ' en Clásico' : ''}${k.plegar ? `, plegado (${k.plegar.orientation}, máscara ${k.plegar.maskLength})` : ''}: juego ${J ? `${J.w}x${J.h} en ${J.x},${J.y}` : '—'}${m.R && m.R.fuente === 'bisagra' ? ' (en la bisagra)' : ''}, el HUD Dex sin ficha ni ranuras y nada a menos de ${MG} px de la división ni sobre el pliegue; botones del panel de 44 px o más`,
+      ui.chips.length === 4 && ui.modo === k.modo && juegoOk && !mal.length, { ui, R: m.R, mal: mal.slice(0, 6), juego: m.juego, panel: m.panel });
+    // Tocar el ataque 2 (dedo o ratón) y mover el joystick del panel.
+    const b2 = m.botones.find(b => b.que === 'ataque2');
+    if (k.raton) await page.mouse.click(b2.x + b2.w / 2, b2.y + b2.h / 2); else await page.touchscreen.tap(b2.x + b2.w / 2, b2.y + b2.h / 2);
+    await sleep(150);
+    const activo = await page.evaluate(() => G.Game.player.active);
+    const S = m.stick, K = m.R.controles, cx = K.x + S.cx, cy = K.y + S.cy;
+    const x0 = await page.evaluate(() => G.Game.player.x);
+    if (k.raton) { await page.mouse.move(cx, cy); await page.mouse.down(); await page.mouse.move(cx + S.r, cy, { steps: 5 }); await sleep(600); await page.mouse.up(); }
+    else await arrastrar(cdp, cx, cy, cx + S.r, cy);
+    const x1 = await page.evaluate(() => G.Game.player.x);
+    let teclado = null;
+    if (k.raton) {
+      await page.keyboard.down('KeyA'); await sleep(500); await page.keyboard.up('KeyA');
+      teclado = (await page.evaluate(() => G.Game.player.x)) - x1;
+    }
+    check(`${nv}: ${k.raton ? 'con el ratón' : 'con el dedo'}, el ataque 2 del panel se elige y el joystick del panel mueve a tu Pokémon a la derecha (${Math.round(x1 - x0)} px de mundo)${k.raton ? `; el teclado sigue (A: ${Math.round(teclado)})` : ''}`,
+      activo === 1 && x1 - x0 > 40 && (!k.raton || teclado < -40), { activo, dx: x1 - x0, teclado });
+    if (k.plegar) await capturaCdp(cdp, `dividida-${k.n}-${k.estilo || 'dex'}-${nombreVp(k.v)}`);
+    else await captura(page, `dividida-${k.n}-${k.estilo || 'dex'}-${nombreVp(k.v)}`);
+    if (k.plegar && k.modo === 'auto') {
+      // Desplegar en plena partida: pantalla entera sin reiniciar; replegar: otra vez dividida.
+      const t0 = m.t;
+      await metricas('continuous', null); await sleep(400);
+      const plano = await page.evaluate(MEDIR_DIVIDIDA);
+      await metricas('folded', k.plegar); await sleep(400);
+      const otra = await page.evaluate(MEDIR_DIVIDIDA);
+      await capturaCdp(cdp, `dividida-${k.n}-replegado-dex-${nombreVp(k.v)}`);
+      check(`${nv}: automática: al desplegar en plena partida, la pantalla entera (${plano.juego.w}x${plano.juego.h}, sin el panel) sin reiniciar; al volver a plegar, dividida otra vez en la bisagra`,
+        !plano.R && !plano.panel && plano.juego.w === 784 && plano.juego.h === 724 && plano.t >= t0 && otra.R && otra.R.juego.h === 362 && otra.t >= plano.t, { plano: { R: plano.R, juego: plano.juego, t: plano.t }, otra: { R: otra.R, t: otra.t }, t0 });
+    }
+    if (k.cambio) {
+      // Cambiar el modo en plena partida (desde la pausa): recoloca sin reiniciar.
+      const antes = await page.evaluate(() => ({ t: G.Game.st.time, kills: G.Game.player.kills, id: (window.__pl = G.Game.player, 1) }));
+      await page.evaluate(() => { G.Game.togglePause(); document.getElementById('btn-pause-settings').click(); G.SettingsUI.open('ctl'); document.querySelector('[data-k="dividida"][data-v="lado"]').click(); G.SettingsUI.close(); G.Game.togglePause(); });
+      await sleep(500);
+      const tras = await page.evaluate(MEDIR_DIVIDIDA);
+      const mismo = await page.evaluate(() => window.__pl === G.Game.player);
+      await page.evaluate(() => { G.Game.togglePause(); document.getElementById('btn-pause-settings').click(); G.SettingsUI.open('ctl'); document.querySelector('[data-k="dividida"][data-v="no"]').click(); G.SettingsUI.close(); G.Game.togglePause(); });
+      await sleep(500);
+      const sin = await page.evaluate(MEDIR_DIVIDIDA);
+      check(`${nv}: cambiar el modo en plena partida desde la pausa recoloca sin reiniciar (a un lado: juego ${tras.R && tras.R.juego.w}x${tras.R && tras.R.juego.h}; desactivada: la pantalla entera, sin el panel), con la misma partida`,
+        mismo && tras.R && tras.R.juego.w === 392 && tras.R.juego.h === 724 && !revisarDividida(tras, MG).length && !sin.R && !sin.panel && sin.juego.w === 784 && sin.juego.h === 724 && sin.t >= antes.t,
+        { tras: tras.R, mal: revisarDividida(tras, MG), sin: { R: sin.R, juego: sin.juego }, mismo });
+    }
+    // Volver al menú: la pantalla entera otra vez.
+    await page.evaluate(() => { G.UI.hideAll(); G.Game.quit(); G.Flow.goMenu(); });
+    await sleep(400);
+    const menu = await page.evaluate(MEDIR_DIVIDIDA);
+    check(`${nv}: en el menú, la pantalla entera (sin panel) y el HUD de su estilo; consola sin errores ni avisos`,
+      !menu.R && !menu.panel && menu.juego.w === k.v.w && menu.juego.h === k.v.h && !P.consola.length && !P.fuera.length, { menu: { R: menu.R, juego: menu.juego, panel: menu.panel }, consola: P.consola.slice(0, 5), fuera: P.fuera.slice(0, 5) });
+    await P.ctx.close();
+  }
+}
+
 // ---------------- hoja de contactos ----------------
 function hojaDeContactos() {
   const pares = {};
@@ -2050,6 +2403,9 @@ function hojaDeContactos() {
 
     // 13. Entornos del Gremio, clima de dos tonos y horneado escalonado (lote 3).
     if (OTRAS || SOLO_ENTORNOS) await pruebaEntornos(browser);
+
+    // 14. Ajustes de juego (lote 4): píxel nítido, encuadre, golpe final e iris. 15. Pantalla dividida (lote 5).
+    if (OTRAS || SOLO_JUEGO) { await pruebaJuego(browser); await pruebaDividida(browser); }
 
     // 8. Sin internet: con el service worker y en Clásico, se cargan las fuentes en reposo; luego, sin red, a Dex.
     if (OTRAS) {

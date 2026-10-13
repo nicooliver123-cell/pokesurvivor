@@ -34,10 +34,17 @@ botón de arriba a la derecha para pausar. En vertical te pide girar el móvil.
 estilo Dex, el HUD se aparta del pliegue de la pantalla para que, a medio
 plegar, ninguna ranura ni el reloj queden encima.
 
+**Pantalla dividida** (opcional, en Ajustes > Controles): el juego en una mitad
+y los mandos en la otra, como en una consola de dos pantallas, con un joystick
+grande, los cuatro ataques, el objeto, la pausa y tus PS. Arriba y abajo, a un
+lado, o sola al plegar el móvil a medias como un portátil (si el navegador lo
+sabe). En un plegable, la división cae en la bisagra.
+
 Se puede **instalar como app** («Añadir a pantalla de inicio» o el botón de
 instalar del navegador). En **Ajustes** están el sonido, los gráficos (con el
 **estilo**: Dex, con menús de Rotom-Dex y letra redondeada, o Clásico, en pixel
-art), los controles, la cuenta y el aviso legal.
+art; y el **píxel nítido**, para que cada píxel del dibujo mida lo mismo en tu
+pantalla), los controles, la cuenta y el aviso legal.
 
 En una partida hay **jefes**, **grietas** con un legendario en una arena aparte
 (siempre se abre una antes de los 2 minutos, con el legendario más débil, para

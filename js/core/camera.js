@@ -19,11 +19,13 @@ G.Camera = {
   resize(cssW, cssH, dpr = 1) {
     this.dpr = dpr;
     this.scale = Math.min(cssW / this.VIEW_W, cssH / this.MIN_VIEW_H);
+    if (G.Encuadre) this.scale = G.Encuadre.escala(this.scale, cssW, cssH, dpr);   // MOD nico: píxel nítido (js/ui/encuadre.js)
     this.w = cssW / this.scale;
     this.h = cssH / this.scale;
   },
 
   follow(tx, ty, dt) {
+    if (G.Encuadre) { const o = G.Encuadre.desplazamiento(dt); tx += o[0]; ty += o[1]; }   // MOD nico: tu Pokémon en el centro de la zona libre del HUD Dex compacto (js/ui/encuadre.js)
     this.x = G.U.damp(this.x, tx, 9, dt);
     this.y = G.U.damp(this.y, ty, 9, dt);
     if (this.shake > 0) {
@@ -32,6 +34,7 @@ G.Camera = {
       this._sx = G.U.rand(-a, a);
       this._sy = G.U.rand(-a, a);
     } else { this._sx = this._sy = 0; }
+    if (G.GolpeFinal) G.GolpeFinal.sacudida(this, dt);   // MOD nico: sacudida amortiguada del golpe final (js/ui/golpe-final.js)
   },
 
   kick(amount) {
