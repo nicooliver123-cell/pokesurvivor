@@ -157,5 +157,8 @@ G.I18n.add({
   'Se divide al plegar el móvil a medias con la bisagra en horizontal, como un portátil (juego arriba, mandos abajo); abierto del todo, pantalla entera. Ahora: plegado, pero el navegador no dice dónde está la bisagra: no se divide.':
     'It splits when you half-fold the phone with the hinge horizontal, like a laptop (game on top, controls below); fully open, full screen. Now: folded, but the browser doesn\'t say where the hinge is: it doesn\'t split.',
   'En un plegable, la división cae en la bisagra si el navegador la conoce; si no, en la mitad exacta.':
-    'On a foldable, the split falls on the hinge if the browser knows where it is; otherwise, exactly in the middle.'
+    'On a foldable, the split falls on the hinge if the browser knows where it is; otherwise, exactly in the middle.',
+  // «Elige a tu compañero» sin el test de personalidad (js/ui/elegir-companero.js) y la nota de Ajustes > Cuenta sin la personalidad.
+  'Al azar': 'Random', 'Elegir a {x}': 'Choose {x}', 'Elige uno o déjalo al azar.': 'Pick one or leave it to chance.', 'Iniciales': 'Starters',
+  'Tu apodo, tus misiones de hoy y tu inicial no cambian.': 'Your nickname, today\'s missions and your starter don\'t change.'
 });

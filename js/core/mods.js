@@ -276,6 +276,14 @@ G.MODS = {
   divididaEscalaMin: 0.6,
   divididaEncogeMax: 0.25,
 
+  /* ---- Sin el test de personalidad (petición de Nico del 13-10-2026: «quita las preguntas del principio») ----
+   * true: una partida sin compañero (cuenta nueva o invitado) no pasa por las 8 preguntas de js/ui/test.js: va
+   *   directa a «Elige a tu compañero» (js/ui/elegir-companero.js), con los 29 iniciales de js/data/starters.js,
+   *   cada uno con su sprite, su nombre y su tipo, «Al azar» y «Elegir a X». Al confirmar se guarda como hacía el
+   *   test (inicial, compañero y el Pokémon en la colección), con la personalidad en null.
+   * false: como upstream (el test, su resultado y «Elegir otro»). test.js no se toca en ningún caso. */
+  sinTest: true,
+
   /** game.js, checkOrientation(): ¿pide girar una pantalla de w×h px CSS (táctil)? */
   pedirGiro(w, h) {
     if (!(w > 0) || !(h > 0) || !(h > w)) return false;

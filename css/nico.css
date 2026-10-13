@@ -225,6 +225,63 @@ html.pantalla-dividida.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: c
   #scr-lobby .box > .row:has(#lobby-start) { position: sticky; bottom: 0; z-index: 1; }
 }
 
+/* ---------- «Elige a tu compañero» sin el test de personalidad (G.MODS.sinTest, js/ui/elegir-companero.js) ----------
+ * La pantalla de iniciales de upstream con la clase sin-test: título, rejilla y nuestra fila (Al azar, lo elegido y
+ * «Elegir a X»); la fila de upstream («Volver», su texto y «Elegir»), escondida. La rejilla la reparte el JS (columnas
+ * en --ec-cols, el lienzo de cada sprite y cómo van los tipos) con los altos de línea de aquí (--ec-nombre, --ec-tipo
+ * y --ec-tipo2, dos líneas de píldoras). En una pantalla baja, letra un punto menor, menos hueco, y el título y
+ * nuestra fila comparten la línea de arriba: el alto queda para la rejilla. Sin la clase (el «Elegir otro» del
+ * test), la pantalla de upstream tal cual. */
+#scr-starters.sin-test { padding: 12px max(12px, env(safe-area-inset-right)) 12px max(12px, env(safe-area-inset-left)); }
+#scr-starters.sin-test > .box { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "titulo" "sub" "rejilla" "pie";
+  width: min(1040px, 100%); max-height: 100%; }
+#scr-starters.sin-test > .box > h2 { grid-area: titulo; margin: 0 0 2px; }
+#scr-starters.sin-test > .box > .sub { grid-area: sub; margin: 0 0 8px; }
+#scr-starters.sin-test > .box > .row { display: none; }
+#scr-starters:not(.sin-test) .ec-pie { display: none; }
+#scr-starters.sin-test #starter-grid { --ec-nombre: 16px; --ec-tipo: 15px; --ec-tipo2: 31px;
+  grid-area: rejilla; grid-template-columns: repeat(var(--ec-cols, 6), minmax(0, 1fr)); gap: 5px;
+  max-height: none; overflow: visible; padding: 3px; align-content: start; }
+#scr-starters.sin-test #starter-grid.ec-desplaza { overflow-x: hidden; overflow-y: auto; }
+#scr-starters.sin-test #starter-grid.ec-midiendo { grid-template-columns: minmax(0, 1fr); }
+#scr-starters .ec-celda { appearance: none; font: inherit; color: inherit; margin: 0; min-width: 0; width: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px; padding: 3px 2px; }
+#scr-starters .ec-celda canvas { display: block; flex: none; margin: 0; }
+#scr-starters .ec-celda b { display: block; flex: none; max-width: 100%; height: var(--ec-nombre); font-size: 13px; line-height: var(--ec-nombre); }
+#scr-starters .ec-tipos { display: flex; justify-content: center; max-width: 100%; min-height: var(--ec-tipo); }
+#scr-starters .ec-txt { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px 2px; }
+#scr-starters .ec-tipos .type { margin: 0; padding: 1px 5px; font-size: 11px; line-height: 13px; border-radius: 4px; white-space: nowrap; }
+#scr-starters .ec-emb { display: none; gap: 2px; }
+#scr-starters .ec-emb img { display: block; width: 14px; height: 14px; }
+#starter-grid.ec-emblema .ec-txt { display: none; }
+#starter-grid.ec-emblema .ec-emb { display: flex; }
+#starter-grid.ec-texto2 .ec-tipos { min-height: var(--ec-tipo2); align-items: flex-start; }
+#starter-grid.ec-texto .ec-txt { flex-wrap: nowrap; }
+#starter-grid.ec-midiendo .ec-celda b, #starter-grid.ec-midiendo .ec-txt, #starter-grid.ec-midiendo .ec-emb { display: inline-flex; flex-wrap: nowrap;
+  width: max-content; max-width: none; }
+#scr-starters .ec-celda:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.ec-pie { grid-area: pie; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 10px; }
+.ec-pie .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+#ec-info { flex: 1 1 160px; min-width: 0; color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ec-info .type { font-size: 11px; padding: 1px 6px; }
+#ec-info .ec-mov { white-space: nowrap; }
+#ec-info .ec-mov img { vertical-align: -3px; }
+@media (max-height: 519.98px) {
+  #scr-starters.sin-test > .box { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "titulo pie" "rejilla rejilla"; }
+  #scr-starters.sin-test > .box > h2 { align-self: center; margin: 0 12px 6px 0; }
+  #scr-starters.sin-test > .box > .sub { display: none; }
+  /* Diez columnas en un móvil (tres filas: los Pokémon más grandes): celdas sin relleno a los lados, con borde de 1 px
+     (la elegida, con el oro por dentro), 3 px entre ellas y el nombre en 10 px (Pixelify es ancha: «Charmander» en 11
+     no cabe en una décima de 784; con Dex, 11); y la caja fuera de la muesca. */
+  #scr-starters.sin-test { padding: 6px max(10px, env(safe-area-inset-right)) 6px max(10px, env(safe-area-inset-left)); }
+  #scr-starters.sin-test #starter-grid { --ec-nombre: 14px; --ec-tipo: 14px; --ec-tipo2: 29px; gap: 3px; }
+  #scr-starters .ec-celda { padding: 2px 0; border-width: 1px; }
+  #scr-starters .ec-celda.on { box-shadow: inset 0 0 0 1px var(--gold); }
+  #scr-starters .ec-celda b { font-size: 10px; }
+  #scr-starters .ec-tipos .type { padding: 1px 4px; font-size: 10px; line-height: 12px; }
+  .ec-pie { margin: 0 0 6px; flex-wrap: nowrap; }
+}
+
 /* =====================================================================
  * 2. ESTILO DEX («Dex de Expedición»): sólo con html.estilo-dex
  * ===================================================================== */
@@ -409,6 +466,12 @@ html.estilo-dex .cell.on { border: 2px solid var(--color-oro); background: rgba(
 html.estilo-dex .cell.locked:hover { border-color: rgba(59, 100, 112, .8); background: rgba(2, 8, 11, .25); }
 html.estilo-dex .cell .no { color: var(--color-tinta-2); font-size: 11px; font-weight: 500; }
 html.estilo-dex .cell b { font-weight: 800; }
+/* «Elige a tu compañero» sin el test: la elegida con el oro en dos px sin mover nada (el borde sigue en 1) y el anillo de foco del Dex. */
+html.estilo-dex #scr-starters .ec-celda.on { border-width: 1px; box-shadow: inset 0 0 0 1px var(--color-oro); }
+html.estilo-dex #scr-starters .ec-celda:focus-visible { outline: var(--focus-anillo); outline-offset: var(--focus-separacion); }
+html.estilo-dex #scr-starters .ec-tipos .type { border-radius: var(--radius-0); }
+html.estilo-dex #ec-info { color: var(--color-tinta-2); font-size: var(--fs-1); }
+@media (max-height: 519.98px) { html.estilo-dex #scr-starters .ec-celda b { font-size: 11px; } }
 html.estilo-dex .stat .bar, html.estilo-dex .mission .bar, html.estilo-dex .ach .bar { background: var(--color-carril); }
 html.estilo-dex .stat .bar i { background: var(--color-pantalla); }
 html.estilo-dex .mission .bar i, html.estilo-dex .ach .bar i { background: var(--color-oro); }

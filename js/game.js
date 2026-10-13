@@ -819,6 +819,7 @@ G.Flow = {
   toLogin() { G.Audio.music('village'); G.LoginUI.open(); },
   afterLogin() {
     G.Audio.music('village');
+    if (!G.DB.save.partner && G.ElegirCompanero && G.ElegirCompanero.activo()) return G.ElegirCompanero.abrir();   // MOD nico: sin el test de personalidad (G.MODS.sinTest, js/ui/elegir-companero.js)
     if (!G.DB.save.partner) G.TestUI.start();
     else this.goMenu();
   },

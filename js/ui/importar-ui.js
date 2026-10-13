@@ -92,7 +92,8 @@ G.ImportarUI = (() => {
     const notas = [];
     if (C.yaImportada) notas.push('Ya habías traído esta partida: sólo se suma lo que tenga de nuevo. De Pokémonedas y tickets, lo que tenga de más desde la última vez; tu compañero, tu perfil y el pity de los banners no cambian.');
     if (!C.algo) notas.push('No hay nada nuevo que traer.');
-    notas.push('Tu apodo, tus misiones de hoy, tu personalidad y tu inicial no cambian.');
+    // Sin el test (G.MODS.sinTest) la personalidad no existe para el jugador: la nota no la nombra.
+    notas.push(G.MODS && G.MODS.sinTest ? 'Tu apodo, tus misiones de hoy y tu inicial no cambian.' : 'Tu apodo, tus misiones de hoy, tu personalidad y tu inicial no cambian.');
     for (const a of analisis.avisos) notas.push(a);
     h += notas.map(t => `<p class="note">${esc(t)}</p>`).join('')
       + `<div class="row wrap" style="gap:8px;margin-top:10px">
