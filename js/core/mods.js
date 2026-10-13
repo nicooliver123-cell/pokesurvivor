@@ -182,6 +182,36 @@ G.MODS = {
    * uno juega con el suyo. 'clasico' mientras se implementa la identidad (pasará a 'dex' al cerrarla). */
   estiloPorDefecto: 'clasico',
 
+  /* ---- Entornos del Gremio y horneado escalonado (lote 3 de la identidad; js/world/entorno.js y horno.js) ----
+   * Horneado escalonado del suelo, en los DOS estilos (es rendimiento: el chunk horneado no cambia). Upstream hornea cada
+   * trozo de suelo la primera vez que se ve y, al cambiar de bioma (cada 4 min; en el fondo de los menús, cada 30 s),
+   * todos los visibles en el mismo fotograma: un tirón de 20-45 ms. Ahora, como mucho UN trozo por fotograma (y sólo si
+   * en ese fotograma no se ha horneado otro); si uno cuesta más que hornoMsFotograma (un móvil lento), uno cada
+   * ceil(coste / hornoMsFotograma) fotogramas. Y hornoAnticipoS segundos antes de cada cambio de bioma se precalientan
+   * los visibles y un anillo con la paleta siguiente, uno cada 2 fotogramas: al cambiar, 0 trozos horneados. */
+  hornoMsFotograma: 4,
+  hornoAnticipoS: 3,
+
+  /* Halos de luz en el suelo (Dex, Calidad alta) bajo los disparos ENEMIGOS, en el rojo de peligro. false (por defecto,
+   * decisión de Nico): sólo los de tus disparos, con el color de su tipo; el rojo de «esto te hace daño» ya lo pone el
+   * contorno de la tanda 1 (contornoDisparos). */
+  halosDisparosHostiles: false,
+
+  /* Lo que pinta el entorno Dex sobre el suelo según Ajustes > Gráficos > Calidad (0 Baja, 1 Media, 2 Alta; «Auto»
+   * empieza en Alta, o en Media en un táctil, y baja sola si va a tirones). La gradación del suelo NO depende de esto:
+   * va horneada (cambiar de Calidad obligaría a rehornear).
+   *   farol         sombra amplia del suelo alrededor de tu Pokémon (nunca tiñe un sprite);
+   *   halos         luces pixeladas sobre el suelo: 'grieta', 'jefe' (color de su tipo) y 'disparos' (los tuyos, hasta 24);
+   *   motas         polen, polvo o brasas del bioma (factor sobre su número; 0 = ninguna);
+   *   clima         densidad de la lluvia, la nieve, la arena y el sol (1 = la de la guía);
+   *   salpicaduras  de la lluvia, sobre el suelo y de un píxel de arte.
+   * Con Clásico no se pinta nada de esto. */
+  calidadEntorno: [
+    { farol: false, halos: [], motas: 0, clima: 0.5, salpicaduras: false },
+    { farol: true, halos: ['grieta'], motas: 0.7, clima: 1, salpicaduras: true },
+    { farol: true, halos: ['grieta', 'jefe', 'disparos'], motas: 1, clima: 1, salpicaduras: true }
+  ],
+
   /* ---- Pantallas: móviles en vertical y plegables ----
    * «Gira el móvil» (tapa la partida y la pausa) sólo en una pantalla PEQUEÑA y claramente EN VERTICAL:
    * ancho/alto por debajo de giroAspectoMax Y el lado corto por debajo de giroLadoMax px CSS. Upstream

@@ -224,6 +224,7 @@ G.Tiles = (() => {
         else if (kind === 'liquid') paintLiquid(P, C, ox, oy, tx, ty, at);
       }
     }
+    if (G.Entorno) G.Entorno.gradar(P, cx, cy, n, at, bi);   // MOD nico: gradación del Gremio, sólo el suelo y sólo con Dex (js/world/entorno.js)
     return P.canvas();
   }
 
