@@ -364,7 +364,7 @@ html.estilo-dex .boot-in h1 { font-family: var(--font-logo); text-shadow: 3px 3p
    detrás de la suya (el exterior del plegable en vertical, 360x807). */
 html.estilo-dex #rotate { background: rgb(5, 14, 18); }
 
-/* ---------- logo: el del original (título pixel con su sombra y «Mundo Misterioso»), decisión de Nico ---------- */
+/* ---------- logotipos (menú, inicio de sesión y Acerca de): el nombre en pixel con su sombra y el lema, decisión de Nico ---------- */
 html.estilo-dex .logo .t1, html.estilo-dex .logo .t2, html.estilo-dex .about-logo { font-family: var(--font-logo); }
 html.estilo-dex .logo .t1 { text-shadow: 3px 3px 0 #a55f00, 6px 6px 0 #071318; }
 html.estilo-dex .logo .t2 { text-shadow: 2px 2px 0 #071318; }

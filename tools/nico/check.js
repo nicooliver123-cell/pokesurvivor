@@ -146,7 +146,8 @@ if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestr
 // correo. Sólo LICENSE conserva el aviso MIT, que es obligatorio. Los binarios (imágenes, fuentes, sonido) no se miran.
 {
   let pub = null;
-  try { pub = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\0').filter(Boolean); }
+  // El índice y también los ficheros nuevos sin añadir (no ignorados): uno creado a mano no se escapa hasta el commit.
+  try { pub = [...new Set([['ls-files'], ['ls-files', '--others', '--exclude-standard']].flatMap(a => execFileSync('git', [...a, '-z'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\0').filter(Boolean)))]; }
   catch (e) { pub = ['.'].flatMap(d => walk(d)).map(f => f.replace(/^\.\//, '')).filter(f => !/^(\.git|tools\/nico\/(node_modules|out)|tools\/cache)\//.test(f)); }
   const BIN = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf|mp3|ogg|wav|zip|gz)$/i;
   const malos = [];
@@ -156,11 +157,26 @@ if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestr
   }
   if (malos.length) bad(`lo publicado nombra el proyecto base (${malos.length}): ${malos.slice(0, 12).join('; ')}${malos.length > 12 ? '…' : ''}`);
   else ok(`${pub.length} ficheros publicados sin el nombre, el dominio, el Firebase, la apiKey, el autor ni el correo del proyecto base (salvo el aviso MIT de LICENSE)`);
-  // Y LICENSE conserva el aviso MIT tal cual (la única excepción).
-  const lic = rd('LICENSE');
-  if (/^MIT License$/m.test(lic) && /^Copyright \(c\) 2026 /m.test(lic) && RE_AUTOR.test(lic) && /The above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software\./.test(lic.replace(/\r/g, '')))
-    ok('LICENSE conserva el aviso MIT del proyecto base, con su copyright');
-  else bad('LICENSE: falta el aviso MIT con su copyright (es obligatorio conservarlo)');
+  // Y LICENSE conserva el aviso MIT tal cual (la única excepción): el bloque entero, de «MIT License» a «SOFTWARE.»
+  // (copyright, permiso, condición y exención de garantía), sin CR, tiene la huella del de upstream. Si upstream lo
+  // cambia (por ejemplo, el año), se copia su bloque literal y se pone aquí la huella nueva.
+  const FIN_MIT = 'OTHER DEALINGS IN THE\nSOFTWARE.';
+  const lic = rd('LICENSE').replace(/\r/g, ''), iMit = lic.indexOf('MIT License\n'), fMit = lic.indexOf(FIN_MIT);
+  const bloqueMit = iMit >= 0 && fMit > iMit ? lic.slice(iMit, fMit + FIN_MIT.length) : '';
+  const HUELLA_MIT = 'a61999a8cb8613b5c638c292d7cad1ea23c815b4';
+  if (bloqueMit && RE_AUTOR.test(bloqueMit) && crypto.createHash('sha1').update(bloqueMit).digest('hex') === HUELLA_MIT)
+    ok('LICENSE conserva el aviso MIT del proyecto base entero y literal (copyright, permiso, condición y exención de garantía)');
+  else bad('LICENSE: el aviso MIT no está entero y literal (de «MIT License» a «SOFTWARE.»: es obligatorio conservarlo tal cual)');
+  // «Mundo Misterioso» (el subtítulo del proyecto base) no vuelve a la interfaz: ni en las páginas, ni en el manifiesto,
+  // ni en las hojas de estilo fuera de sus comentarios, ni en el paquete (terser quita los comentarios: lo que quede en
+  // js/app.min.js es texto o claves). Sigue donde describe el origen de los sprites (CREDITS.md y comentarios).
+  const RE_MM = /Mundo Misterioso|Mystery Dungeon/i, mm = [];
+  for (const f of pub.filter(f => /\.(html|webmanifest|css)$/.test(f) || f === 'js/app.min.js').filter(ex)) {
+    const txt = /\.css$/.test(f) ? rd(f).replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' ')) : rd(f);
+    txt.split('\n').forEach((l, i) => { if (RE_MM.test(l)) mm.push(`${f}:${i + 1}`); });
+  }
+  if (mm.length) bad(`«Mundo Misterioso» vuelve a la interfaz (el subtítulo o una clave del proyecto base): ${mm.slice(0, 8).join(', ')}`);
+  else ok('«Mundo Misterioso» fuera de la interfaz (páginas, manifiesto, estilos y paquete; queda sólo donde describe los sprites)');
 }
 const GONE = ['CNAME', 'robots.txt', 'sitemap.xml', 'en', 'guia', 'pokedex', 'legendarios', 'shinies', 'tipos', 'movimientos',
   'objetos', 'logros', 'novedades', 'apoyar', 'functions', 'tools/activar_dominio.sh', '.github/FUNDING.yml',
@@ -168,9 +184,20 @@ const GONE = ['CNAME', 'robots.txt', 'sitemap.xml', 'en', 'guia', 'pokedex', 'le
   // icono anterior (los iconos de PokéSwarm salen de tools/nico/iconos.py).
   'docs', 'GDD.md', 'cloudflare', 'tools/make_seo_pages.py', 'tools/export_data.js', 'assets/og-image.jpg', 'tools/make_icons.py',
   'js/data/funding.js', 'js/ui/support-ui.js'];
+// Y los iconos del proyecto base (assets/icons/icon-*): los de PokéSwarm son swarm-* y favicon.ico.
+if (ex('assets/icons')) GONE.push(...fs.readdirSync(path.join(ROOT, 'assets/icons')).filter(f => /^icon-/.test(f)).map(f => 'assets/icons/' + f));
 const back = GONE.filter(ex);
 if (back.length) bad(`han vuelto (seguramente por un merge de upstream): ${back.join(', ')}. Quitar con: git rm -r ${back.join(' ')}`);
-else ok('sin CNAME, robots.txt, sitemap.xml, en/, páginas SEO, functions/, docs/, GDD.md, cloudflare/, donaciones ni el generador del icono anterior');
+else ok('sin CNAME, robots.txt, sitemap.xml, en/, páginas SEO, functions/, docs/, GDD.md, cloudflare/, donaciones, el generador del icono anterior ni sus iconos (assets/icons/icon-*)');
+// Cada icono que citan las páginas y el manifiesto existe (un merge mal resuelto dejaría la PWA o la pestaña sin icono).
+{
+  const citados = new Set();
+  for (const f of ['index.html', 'dev.html', '404.html', 'contacto/index.html', 'manifest.webmanifest'].filter(ex))
+    for (const m of rd(f).matchAll(/(?:assets\/icons\/[\w.-]+|favicon\.ico)(?=["')\s?#])/g)) citados.add(m[0]);
+  const faltan = [...citados].filter(f => !ex(f));
+  if (!citados.size || faltan.length) bad(`iconos citados que no existen: ${faltan.join(', ') || '(no se encontró ninguno citado)'}`);
+  else ok(`los ${citados.size} iconos que citan las páginas y el manifiesto existen (${[...citados].sort().join(', ')})`);
+}
 if (/(href|src)="\//.test(rd('404.html'))) bad('404.html vuelve a tener rutas absolutas (no sirve en una subruta de GitHub Pages): ¿se ejecutó make_seo_pages.py?');
 else ok('404.html sin rutas absolutas (vale en subruta)');
 if (/"default"\s*:\s*"demo-ps"/.test(rd('.firebaserc'))) ok('.firebaserc apunta a demo-ps'); else bad('.firebaserc no apunta a demo-ps');

@@ -196,7 +196,8 @@ G.I18n.add({
   'Tickets del gacha': 'Gacha tickets', 'Nivel máximo': 'Max level',
 
   // ---------------- inicio de sesión y test ----------------
-  'Mundo Misterioso': 'Mystery Dungeon', 'Entrar': 'Log in', 'Crear cuenta': 'Sign up', 'Nombre': 'Name', 'Contraseña': 'Password',
+  // MOD nico: sin las claves del nombre y el subtítulo anteriores, las donaciones y las criptomonedas (ver CLAUDE.md).
+  'Entrar': 'Log in', 'Crear cuenta': 'Sign up', 'Nombre': 'Name', 'Contraseña': 'Password',
   'Entrar con Google': 'Sign in with Google', 'Jugar como invitado': 'Play as guest', '3-16 letras, números o _': '3-16 letters, numbers or _',
   'Sobrevive a las hordas con tu compañero Pokémon · gratis, en PC y móvil': 'Survive the hordes with your partner Pokémon · free, on PC and mobile',
   'Juego de supervivencia con Pokémon, gratis en el navegador y en el móvil.': 'A Pokémon survival game, free in your browser and on mobile.',
