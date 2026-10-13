@@ -434,10 +434,10 @@ G.HudDex = (() => {
       P.jefe = { x: Math.round(centro - jw / 2), y: jy, w: jw, h: u(E.jefe.h) };
     }
     if (c.aviso) {
-      const A = E.aviso, grieta = c.aviso.tipo === 'grieta', pista = c.aviso.tipo === 'pista';
+      const A = E.aviso, grieta = c.aviso.tipo === 'grieta' || !!c.aviso.sub, pista = c.aviso.tipo === 'pista';   // grieta: dos líneas
       const tope = Math.min(u(A.anchoMax), Math.max(u(160), pasillo)), extra = (pista ? 0 : u(A.lengueta)) + 2 * u(A.padding);
       // Si el texto no cabe (la pista de controles a 1024 de ancho), su versión más corta.
-      const tw = grieta ? Math.max(medir(c.aviso.texto, 800, u(A.grieta.titulo)), medir(c.aviso.sub || '', 500, u(A.grieta.sub)))
+      const tw = grieta ? Math.max(medir(c.aviso.titulo || c.aviso.texto, 800, u(A.grieta.titulo)), medir(c.aviso.sub || '', 500, u(A.grieta.sub)))
         : anchoAviso(c.aviso, false, pista ? 500 : 800, pista ? u(13) : u(A.tam), tope - extra, medir);
       const aw = Math.min(tope, Math.ceil(tw + extra));
       const ay = (c.jefe ? jy + u(E.jefe.h) : P.contador.y + P.contador.h) + u(A.separacion);
@@ -516,12 +516,17 @@ G.HudDex = (() => {
       'WASD moverse  ·  1-4, Q, E o clic: cambiar ataque  ·  Esc pausa', 'WASD  ·  1-4 / Q / E  ·  Esc pausa'];
     const PISTA_TACTIL = ['Arrastra el dedo para moverte  ·  toca un ataque para cambiarlo',
       'Arrastra para moverte  ·  toca un ataque para cambiarlo', 'Arrastra  ·  toca un ataque'];
-    let vis = null, cola = [], visto = null, grietaVista = null, tPrevio = -1;
+    let vis = null, cola = [], visto = null, grietaVista = null, tPrevio = -1, zonaInicial = false;
     function clasificar(texto, secs) {
       const a = { tipo: 'resto', texto, origen: texto, dur: secs, persistente: secs >= 30, icono: 'rayo' };
       let m;
       if ((m = /^— (.+) —$/.exec(texto))) { a.tipo = 'zona'; a.texto = m[1]; a.icono = 'lente'; }
-      else if (texto === 'Has entrado en la grieta…') { a.tipo = 'zona'; a.texto = G.World.biomeName(); a.icono = 'lente'; }
+      else if (texto === 'Has entrado en la grieta…') {
+        a.tipo = 'zona'; a.texto = G.World.biomeName(); a.icono = 'lente';
+        // En escritorio, en dos líneas: el nombre de la arena y «Grieta de tipo Fuego» (lote 4); en compacto, una.
+        const tp = G.Rift && G.Rift.arena && G.Rift.arena.type;
+        if (tp && G.U.TYPE_NAME && G.U.TYPE_NAME[tp]) { a.titulo = String(a.texto).replace(/^Grieta · /, ''); a.sub = 'Grieta de tipo ' + G.U.TYPE_NAME[tp]; }
+      }
       else if (/salvaje apareció!$/.test(texto)) a.tipo = 'jefe';
       else {
         const K = (G.Weather && G.Weather.KINDS) || {};
@@ -537,11 +542,16 @@ G.HudDex = (() => {
       cola.splice(i, 0, a);
       if (cola.length > ESPERA) cola.length = ESPERA;
     }
-    function reiniciar() { vis = null; cola = []; visto = null; grietaVista = null; }
+    function reiniciar() { vis = null; cola = []; visto = null; grietaVista = null; zonaInicial = false; }
     /** Una vez por fotograma. t en segundos (performance.now). */
     function actualizar(t, st, tactil) {
       if (st.time < tPrevio - 1) reiniciar();                 // partida nueva
       tPrevio = st.time;
+      // Rótulo de zona al empezar la partida (lote 4): el bioma, antes de la pista de controles.
+      if (!zonaInicial && st.time < 2 && G.World && G.World.biomeName) {
+        zonaInicial = true;
+        meter({ tipo: 'zona', texto: String(G.World.biomeName()), origen: '', dur: 2.4, persistente: false, icono: 'lente' }, t);
+      }
       const ban = G.Spawner.banner();
       if (ban && ban.text && (!visto || ban.text !== visto.text || ban.t > visto.t + 0.05)) meter(clasificar(ban.text, ban.t), t);
       visto = ban ? { text: ban.text, t: ban.t } : null;
@@ -916,9 +926,10 @@ G.HudDex = (() => {
     }
     const cxT = x0 + (Rc.x + Rc.w - x0) / 2, maxT = Rc.x + Rc.w - x0 - (comp ? u(10) : u(E.padding));
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    if (grieta && !comp) {
-      letra(ctx, 800, u(E.grieta.titulo)); ctx.fillStyle = C.grietaTitulo; ctx.fillText(recortar(ctx, a.texto, maxT), cxT, Rc.y + u(22));
-      letra(ctx, 500, u(E.grieta.sub)); ctx.fillStyle = C.grietaTexto; ctx.fillText(recortar(ctx, a.sub, maxT), cxT, Rc.y + u(41));
+    if ((grieta || a.sub) && !comp) {
+      // Dos líneas: la grieta abierta y, en el rótulo de una arena, su nombre y «Grieta de tipo …» (lote 4).
+      letra(ctx, 800, u(E.grieta.titulo)); ctx.fillStyle = grieta ? C.grietaTitulo : C.tinta; ctx.fillText(recortar(ctx, a.titulo || a.texto, maxT), cxT, Rc.y + u(22));
+      letra(ctx, 500, u(E.grieta.sub)); ctx.fillStyle = grieta ? C.grietaTexto : C.tinta2; ctx.fillText(recortar(ctx, a.sub, maxT), cxT, Rc.y + u(41));
     } else {
       const tam = comp ? u(12) : pista ? u(13) : u(E.tam), peso = pista ? 500 : 800;
       // El primer texto que cabe entero (la pista tiene versiones más cortas); junto al pliegue, también con la letra un

@@ -113,6 +113,7 @@ G.SettingsUI = (() => {
            </div>`;
     }
     if (G.Estilo) G.Estilo.ajustes(box, tab);   // MOD nico: «Estilo» (primera de Gráficos), créditos y controles (js/ui/estilo.js)
+    if (G.Encuadre) G.Encuadre.ajustes(box, tab);   // MOD nico: «Píxel nítido», al final de Gráficos > Pantalla (js/ui/encuadre.js)
     wire(box);
   }
 

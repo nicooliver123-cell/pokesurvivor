@@ -167,6 +167,7 @@
         if (this.shiny) { G.FX.burst(this.x, cy, '#ffe9a0', 30, 220); G.FX.ring(this.x, this.y, this.r, this.r * 7, '#9ae6ff', 0.7, 5); }
         return;
       }
+      if (G.GolpeFinal) G.GolpeFinal.derrotado(this);   // MOD nico: golpe final al derrotar a un jefe o legendario en solitario (js/ui/golpe-final.js)
       if (this.boss) {
         G.Camera.kick(0.9);
         for (let i = 0; i < 10; i++) G.Pickups.drop('coin', this.x + G.U.rand(-40, 40), this.y + G.U.rand(-30, 30), 5);

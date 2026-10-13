@@ -194,6 +194,39 @@ G.MODS = {
   giroAspectoMax: 0.8,
   giroLadoMax: 600,
 
+  /* ---- Lote 4 de la identidad: ajustes de juego (js/ui/encuadre.js, transicion.js y golpe-final.js) ----
+   * Píxel nítido (Ajustes > Gráficos > Pantalla; en los DOS estilos): cada píxel del dibujo ocupa un número
+   * ENTERO de píxeles de tu pantalla. Resolución interna del lienzo: con un devicePixelRatio de hasta 1,5, el de
+   * la pantalla; con más, dpr / ceil(dpr / 1,5) (2 -> 1, 2,625 -> 1,3125, 3 -> 1,5): el navegador lo amplía por
+   * un entero y nunca se pintan más píxeles que en upstream. El píxel de arte se redondea al entero más cercano
+   * (empate hacia arriba), salvo si así se dejara de ver más de pixelNitidoPerdidaMax del mundo (a lo ancho y a
+   * lo alto): entonces hacia abajo, y se ve algo MÁS de mundo. 1440x900 pasa de 3,75 a 4 px (6,25 % menos);
+   * 844x390 a dpr 3, de 5,57 a 4 (con 6 se perdería un 7,1 %).
+   *   pixelNitidoPorDefecto: lo que ve quien no lo ha tocado en Ajustes (lo elegido gana). false = upstream. */
+  pixelNitidoPorDefecto: true,
+  pixelNitidoPerdidaMax: 0.07,
+
+  /* Encuadre (sólo con el HUD Dex en su variante compacta: móvil en horizontal, plegable abierto, pantalla
+   * dividida): la cámara se corre para que tu Pokémon quede en el centro de la zona libre, sin las filas de
+   * arriba ni la columna de los ataques, suavizado en unos 400 ms. 0 en los menús y con el HUD de escritorio.
+   * Sólo mueve la cámara de tu pantalla: no viaja por la red. false = siempre en el centro, como upstream. */
+  encuadreMovil: true,
+
+  /* Transiciones (sólo con Dex): iris centrado en tu Pokémon al empezar la partida (se abre desde negro), al
+   * entrar en la arena de la grieta (negro al instante y se abre en 280 ms) y al salir (se cierra en 220 ms
+   * dentro de la espera de la vuelta, 80 ms de negro como mínimo y se abre). Nunca en el cambio de bioma ni al
+   * volver de la pausa. Con movimiento reducido o «Menos sacudidas», fundidos de 150 ms. false = sin iris. */
+  transiciones: true,
+
+  /* Golpe final (en los dos estilos, SÓLO en solitario): al derrotar a un jefe o al legendario de la grieta, el
+   * juego se queda quieto golpeFinalMs (se sigue dibujando), el derrotado sale blanco 2 fotogramas y la cámara
+   * da una sacudida amortiguada (4 px de mundo, 9 Hz, τ = 0,12 s, 0,4 s, de tu Pokémon hacia él) en vez del
+   * temblor al azar. «Menos sacudidas»: ×0,25 y sin destello; movimiento reducido: sin sacudida. En grupo, nada
+   * (congelaría a los demás), ni con tu Pokémon caído. 0 = sin congelación; golpeFinalSacudida false = el
+   * temblor de upstream. */
+  golpeFinalMs: 140,
+  golpeFinalSacudida: true,
+
   /** game.js, checkOrientation(): ¿pide girar una pantalla de w×h px CSS (táctil)? */
   pedirGiro(w, h) {
     if (!(w > 0) || !(h > 0) || !(h > w)) return false;

@@ -44,6 +44,7 @@ G.Game = (() => {
     // Resolución interna como mucho ×1,5: en pantallas ×2 dibujar el doble de
     // píxeles era de lo que más costaba, y con el pixel art no se nota.
     dpr = Math.min(1.5, window.devicePixelRatio || 1);
+    if (G.Encuadre) dpr = G.Encuadre.resolucion(cv, dpr);   // MOD nico: píxel nítido y el lienzo en el rectángulo de juego de la pantalla dividida (js/ui/encuadre.js)
     w = cv.clientWidth; h = cv.clientHeight;
     cv.width = Math.round(w * dpr);
     cv.height = Math.round(h * dpr);
@@ -514,6 +515,7 @@ G.Game = (() => {
   }
 
   function update(dt) {
+    if (G.GolpeFinal && G.GolpeFinal.congelar()) return;   // MOD nico: golpe final, el juego quieto 140 ms al caer un jefe en solitario (js/ui/golpe-final.js)
     const coop = G.Coop.active;
     if (flashT > 0) flashT -= dt;
     G.Guard.tick(dt, time, pl);
@@ -662,6 +664,7 @@ G.Game = (() => {
       ctx.fillRect(0, 0, w, h);
       ctx.restore();
     }
+    if (G.Transicion) G.Transicion.dibujar(ctx, w, h, pl);   // MOD nico: iris de las transiciones, encima de todo (js/ui/transicion.js)
   }
 
   // ---------------- fondo de los menús ----------------

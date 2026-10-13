@@ -348,7 +348,7 @@ const HOOKS = [
   ['dev.html', /src="js\/core\/mods\.js"><\/script>[^\n]*\r?\n<script defer src="js\/ui\/marca\.js"><\/script><!-- MOD nico/, 'estilo: marca.js justo después de mods.js'],
   ['dev.html', /src="js\/core\/settings\.js"><\/script>\r?\n<script defer src="js\/ui\/estilo\.js"><\/script><!-- MOD nico/, 'estilo: estilo.js justo después de settings.js (antes de cualquier lienzo)'],
   ['dev.html', /originales del proyecto\. <span>Letra del estilo Dex: M PLUS Rounded 1c \(OFL\)\.<\/span><!-- MOD nico --><\/p>/, 'estilo: el aviso legal cita la letra (OFL), sin tocar el texto de upstream'],
-  ['js/ui/settings-ui.js', /<\/div>`;\r?\n    \}\r?\n    if \(G\.Estilo\) G\.Estilo\.ajustes\(box, tab\);\s*\/\/ MOD nico[^\n]*\r?\n    wire\(box\);/, 'estilo: Ajustes pinta lo nuestro antes de wire(box) (render)'],
+  ['js/ui/settings-ui.js', /<\/div>`;\r?\n    \}\r?\n    if \(G\.Estilo\) G\.Estilo\.ajustes\(box, tab\);\s*\/\/ MOD nico[^\n]*\r?\n(    if \(G\.\w+\) G\.\w+\.ajustes\(box, tab\);\s*\/\/ MOD nico[^\n]*\r?\n)*    wire\(box\);/, 'estilo: Ajustes pinta lo nuestro antes de wire(box) (render)'],
   ['js/ui/run-ui.js', /<div class="key">\$\{i \+ 1\}<\/div>`;\r?\n      if \(G\.Estilo\) G\.Estilo\.carta\(el, c\);\s*\/\/ MOD nico/, 'estilo: cada carta de nivel (franja, icono y foco)'],
   ['js/ui/menu.js', /G\.UI\.sprite\(\$\('menu-partner'\), mon\.dex, \{ lively: true, scale: 4, hero: true, shiny \}\);\r?\n    if \(G\.Estilo\) G\.Estilo\.companero\(\$\('menu-partner'\), mon\.dex, \{ shiny \}\);\s*\/\/ MOD nico/, 'estilo: el compañero del menú, a su tamaño'],
   ['js/ui/gacha-ui.js', /c\.appendChild\(G\.UI\.spriteCanvas\(r\.dex, 132, 120, [^\n]*\r?\n      if \(G\.Estilo\) G\.Estilo\.premio\(c, r, n\);\s*\/\/ MOD nico/, 'estilo: el premio del gacha, a su tamaño'],
@@ -357,7 +357,19 @@ const HOOKS = [
   // HUD Dex (js/ui/hud-dex.js)
   ['dev.html', /src="js\/ui\/hud\.js"><\/script>\r?\n<script defer src="js\/ui\/hud-dex\.js"><\/script><!-- MOD nico/, 'HUD Dex: hud-dex.js justo después de hud.js'],
   ['js/ui/hud.js', /function draw\(ctx, w, h, pl, st\) \{\r?\n    if \(G\.Estilo && G\.Estilo\.hud\(ctx, w, h, pl, st\)\) return;\s*\/\/ MOD nico[^\n]*\r?\n    ctx\.save\(\);/, 'HUD Dex: primera línea de G.HUD.draw (con Clásico, o si falla, sigue el de upstream)'],
-  ['js/systems/events.js', /get current\(\) \{ return cur \? cur\.id : null; \},\r?\n    get estado\(\) \{ return cur \|\| lost \? \{[^\n]*\} : null; \},\s*\/\/ MOD nico/, 'HUD Dex: getter aditivo del evento en curso (events.js)']
+  ['js/systems/events.js', /get current\(\) \{ return cur \? cur\.id : null; \},\r?\n    get estado\(\) \{ return cur \|\| lost \? \{[^\n]*\} : null; \},\s*\/\/ MOD nico/, 'HUD Dex: getter aditivo del evento en curso (events.js)'],
+  // Lote 4: ajustes de juego (js/ui/encuadre.js, transicion.js y golpe-final.js)
+  ['dev.html', /src="js\/ui\/hud-dex\.js"><\/script>[^\n]*\r?\n<script defer src="js\/ui\/encuadre\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/ui\/transicion\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/ui\/golpe-final\.js"><\/script><!-- MOD nico/,
+    'lote 4: encuadre.js, transicion.js y golpe-final.js, tras hud-dex.js'],
+  ['js/game.js', /dpr = Math\.min\(1\.5, window\.devicePixelRatio \|\| 1\);\r?\n    if \(G\.Encuadre\) dpr = G\.Encuadre\.resolucion\(cv, dpr\);\s*\/\/ MOD nico[^\n]*\r?\n    w = cv\.clientWidth; h = cv\.clientHeight;/,
+    'píxel nítido: game.js resize() pide la resolución (y coloca el lienzo) antes de medirlo'],
+  ['js/core/camera.js', /this\.scale = Math\.min\(cssW \/ this\.VIEW_W, cssH \/ this\.MIN_VIEW_H\);\r?\n    if \(G\.Encuadre\) this\.scale = G\.Encuadre\.escala\(this\.scale, cssW, cssH, dpr\);\s*\/\/ MOD nico/, 'píxel nítido: camera.js resize() redondea la escala'],
+  ['js/core/camera.js', /follow\(tx, ty, dt\) \{\r?\n    if \(G\.Encuadre\) \{ const o = G\.Encuadre\.desplazamiento\(dt\); tx \+= o\[0\]; ty \+= o\[1\]; \}\s*\/\/ MOD nico/, 'encuadre: camera.js follow() corre el objetivo'],
+  ['js/core/camera.js', /\} else \{ this\._sx = this\._sy = 0; \}\r?\n    if \(G\.GolpeFinal\) G\.GolpeFinal\.sacudida\(this, dt\);\s*\/\/ MOD nico/, 'golpe final: la sacudida amortiguada, tras el temblor de upstream (follow)'],
+  ['js/game.js', /function update\(dt\) \{\r?\n    if \(G\.GolpeFinal && G\.GolpeFinal\.congelar\(\)\) return;\s*\/\/ MOD nico/, 'golpe final: primera línea de update() (el juego, quieto)'],
+  ['js/entities/enemy.js', /\r?\n        return;\r?\n      \}\r?\n      if \(G\.GolpeFinal\) G\.GolpeFinal\.derrotado\(this\);\s*\/\/ MOD nico[^\n]*\r?\n      if \(this\.boss\) \{/, 'golpe final: die(), tras descartar las copias de la red'],
+  ['js/game.js', /ctx\.fillRect\(0, 0, w, h\);\r?\n      ctx\.restore\(\);\r?\n    \}\r?\n    if \(G\.Transicion\) G\.Transicion\.dibujar\(ctx, w, h, pl\);\s*\/\/ MOD nico/, 'iris: después del fogonazo, encima de todo (render)'],
+  ['js/ui/settings-ui.js', /if \(G\.Encuadre\) G\.Encuadre\.ajustes\(box, tab\);\s*\/\/ MOD nico/, 'píxel nítido: la fila de Ajustes > Gráficos > Pantalla']
 ];
 for (const [f, re, what] of HOOKS) (re.test(rd(f)) ? ok : bad)(`${what} (${f})`);
 
@@ -3701,6 +3713,195 @@ function hudDexChecks() {
   for (const [name, , detail] of failed) bad(`HUD Dex: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 16. ajustes de juego (lote 4): píxel nítido, encuadre, iris, rótulo de zona y golpe final ----------------
+function juegoChecks() {
+  console.log('16. Ajustes de juego (lote 4): píxel nítido, encuadre, iris, rótulo de zona y golpe final');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const casi = (a, b, e = 1e-6) => Math.abs(a - b) <= e;
+  /** El juego mínimo con mods.js, marca.js, settings.js y camera.js reales y los módulos pedidos. */
+  const nuevo = ({ mods = {}, ajustes = {}, dpr = 1, ficheros = [] } = {}) => {
+    const almacen = { 'ps.settings': JSON.stringify(ajustes) }, reloj = { t: 1000 };
+    const c = { console, devicePixelRatio: dpr, performance: { now: () => reloj.t }, matchMedia: () => ({ matches: false }),
+      localStorage: { getItem: k => (k in almacen ? almacen[k] : null), setItem: (k, v) => { almacen[k] = String(v); } } };
+    c.window = c; c.G = {}; c.__reloj = reloj;
+    vm.createContext(c);
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js', 'js/core/settings.js', 'js/core/camera.js']) vm.runInContext(rd(f), c, { filename: f });
+    Object.assign(c.G.MODS, mods);
+    c.G.Sprites = { PX: 2 };
+    for (const f of ficheros) vm.runInContext(rd(f), c, { filename: f });
+    return c;
+  };
+
+  // ---- A. Píxel nítido: tabla de devicePixelRatio y pantallas ----
+  try {
+    const c = nuevo({ ficheros: ['js/ui/encuadre.js'] }), E = c.G.Encuadre;
+    const DPR = [1, 1.25, 1.5, 1.75, 2, 2.625, 3], VPS = [[1440, 900], [1920, 1080], [1366, 768], [1280, 720], [1024, 768], [844, 390], [780, 360], [807, 360],
+      [784, 724], [724, 784], [784, 362], [724, 392], [1000, 900], [900, 1000], [568, 320]];
+    const mal = [], filas = [];
+    for (const d of DPR) for (const [w, h] of VPS) {
+      const k = E.calcular(w, h, d);
+      const entero = casi(k.fisicos, Math.round(k.fisicos)) && casi(k.k, Math.round(k.k)) && casi(k.m, Math.round(k.m)) && k.m >= 1;
+      if (!entero || k.perdida > 0.07 + 1e-9 || k.dprInt > Math.min(1.5, d) + 1e-9) mal.push({ w, h, d, ...k });
+      if ([1, 2.625, 3].includes(d) && [[1440, 900], [844, 390], [784, 724], [784, 362]].some(v => v[0] === w && v[1] === h)) filas.push(`${w}x${h}@${d}: ${k.antes.toFixed(2)} -> ${+k.fisicos.toFixed(3)} px (${(k.perdida * 100).toFixed(1)} %)`);
+    }
+    t(`píxel nítido: en ${DPR.length * VPS.length} combinaciones (dpr ${DPR.join(', ')} y ${VPS.length} pantallas) el píxel de arte mide un número entero de píxeles físicos, el navegador amplía por un entero, nunca se pintan más píxeles que en upstream (resolución ≤ min(1,5, dpr)) y se deja de ver como mucho un 7 % del mundo (${filas.join('; ')})`,
+      !mal.length, mal.slice(0, 4));
+    const a = E.calcular(1440, 900, 1), b = E.calcular(844, 390, 3), d = E.calcular(1366, 768, 1), e = E.calcular(844, 390, 2.625);
+    t('píxel nítido: 1440x900 pasa de 3,75 a 4 px (6,25 % menos de mundo); 1366x768 no sube a 4 (perdería un 11 %) y baja a 3; 844x390 a dpr 3, resolución 1,5 ×2 y 4 px; a dpr 2,625, resolución 1,3125 ×2',
+      casi(a.fisicos, 4) && casi(a.perdida, 0.0625) && casi(d.fisicos, 3) && d.perdida < 0 && casi(b.fisicos, 4) && b.dprInt === 1.5 && casi(b.k, 2) && e.dprInt === 1.3125 && casi(e.k, 2), { a, b, d, e });
+    t('resolución interna: hasta 1,5 la de la pantalla; con más, dpr / ceil(dpr / 1,5): 2 -> 1, 2,625 -> 1,3125, 3 -> 1,5, 1,75 -> 0,875',
+      E.dprInterno(1) === 1 && E.dprInterno(1.25) === 1.25 && E.dprInterno(1.5) === 1.5 && E.dprInterno(2) === 1 && E.dprInterno(2.625) === 1.3125 && E.dprInterno(3) === 1.5 && E.dprInterno(1.75) === 0.875);
+  } catch (e) { t('píxel nítido (tabla)', false, String(e && e.stack || e)); }
+  try {
+    // game.js resize() con camera.js reales: el lienzo y la cámara, con y sin el ajuste.
+    const m = rd('js/game.js').match(/  function resize\(\) \{[\s\S]*?\r?\n  \}\r?\n/);
+    if (!m) throw new Error('no encuentro resize() en js/game.js');
+    const prueba = (w, h, d, ajustes) => {
+      const c = nuevo({ dpr: d, ajustes, ficheros: ['js/ui/encuadre.js'] });
+      const cv = { style: {}, get clientWidth() { return this.style.width ? Math.round(parseFloat(this.style.width)) : w; }, get clientHeight() { return this.style.height ? Math.round(parseFloat(this.style.height)) : h; } };
+      c.__cv = cv;
+      vm.runInContext('var cv = __cv, dpr = 1, w = 0, h = 0; function checkOrientation() {}\n' + m[0] + 'resize();', c, { filename: 'js/game.js (resize)' });
+      return { cam: c.G.Camera, cv };
+    };
+    const res = [];
+    for (const [w, h, d] of [[1440, 900, 1], [844, 390, 3], [844, 390, 2.625], [845, 391, 3], [784, 724, 3]]) {
+      const on = prueba(w, h, d, {}), off = prueba(w, h, d, { pixelNitido: false });
+      const fis = 2 * on.cam.scale * d, ancho = parseFloat(on.cv.style.width), k = d / on.cam.dpr;
+      res.push({ vp: `${w}x${h}@${d}`, fis, k, lienzo: on.cv.width, css: ancho, exacto: casi(on.cv.width * k, ancho * d, 1e-6),
+        apagado: off.cam.scale === Math.min(w / 768, h / 420) && off.cam.dpr === Math.min(1.5, d) && !off.cv.style.width });
+    }
+    t('game.js resize() y camera.js reales: con píxel nítido (por defecto), el píxel de arte en px físicos enteros y el lienzo con un tamaño CSS que el navegador amplía exactamente ×k (844 a 2,625: 1108 px en 844,19 CSS); apagado, como upstream (escala min(w/768, h/420) y resolución min(1,5, dpr))',
+      res.every(x => casi(x.fis, Math.round(x.fis)) && casi(x.k, Math.round(x.k)) && x.exacto && x.apagado), res);
+  } catch (e) { t('píxel nítido (game.js y camera.js)', false, String(e && e.stack || e)); }
+
+  // ---- B. Encuadre: tu Pokémon en el centro de la zona libre (HUD Dex compacto) ----
+  try {
+    const caso = ({ variante = 'compacto', dex = true, estado = 'playing', mods = {} } = {}) => {
+      const c = nuevo({ mods, ficheros: ['js/ui/encuadre.js'] }), G = c.G;
+      G.Game = { state: estado, player: {} };
+      G.Estilo = { dex, hudDex: () => dex };
+      // 844x390: dos filas arriba (74 px) y la columna de ataques a la derecha (62 px).
+      G.HudDex = { bandas: () => ({ variante, sup: 74, inf: 0, izq: 0, der: 62, juego: { x: 0, y: 0, w: 844, h: 390 }, zona: { x: 0, y: 74, w: 782, h: 316 } }) };
+      G.Camera.resize(844, 390, 1);
+      G.Camera.x = 0; G.Camera.y = 0;
+      const s = G.Camera.scale;
+      for (let i = 0; i < 24; i++) G.Camera.follow(0, 0, 1 / 60);   // 0,4 s
+      const a400 = [G.Camera.x * s, G.Camera.y * s];
+      for (let i = 0; i < 240; i++) G.Camera.follow(0, 0, 1 / 60);
+      // Tu Pokémon (en 0,0) en la pantalla: (0 − left) · escala.
+      return { s, a400, pantalla: [(0 - G.Camera.left()) * s, (0 - G.Camera.top()) * s] };
+    };
+    const comp = caso(), esc = caso({ variante: 'escritorio' }), clas = caso({ dex: false }), menu = caso({ estado: 'ui' }), sin = caso({ mods: { encuadreMovil: false } });
+    const centro = [782 / 2, 74 + 316 / 2];
+    t('encuadre: con el HUD Dex compacto (844x390, filas de 74 px arriba y columna de 62 a la derecha), tu Pokémon acaba en el centro de la zona libre (391, 232) ±1 px y a los 400 ms ya ha hecho el 80 % del camino; con el HUD de escritorio, con Clásico, en los menús o con encuadreMovil = false, en el centro de la pantalla',
+      Math.abs(comp.pantalla[0] - centro[0]) <= 1 && Math.abs(comp.pantalla[1] - centro[1]) <= 1 && comp.a400[0] >= 0.8 * 31 &&
+      [esc, clas, menu, sin].every(x => Math.abs(x.pantalla[0] - 422) <= 0.5 && Math.abs(x.pantalla[1] - 195) <= 0.5), { comp, esc: esc.pantalla, clas: clas.pantalla, menu: menu.pantalla, sin: sin.pantalla });
+  } catch (e) { t('encuadre', false, String(e && e.stack || e)); }
+
+  // ---- C. Iris: cuándo salta ----
+  try {
+    const caso = ({ dex = true, calma = false } = {}) => {
+      const c = nuevo({ ajustes: calma ? { calm: true } : {}, ficheros: ['js/ui/transicion.js'] }), G = c.G, R = c.__reloj;
+      const juego = { inArena: false, arena: null, st: { time: 0 } };
+      G.Estilo = { dex };
+      G.Game = { get st() { return juego.st; }, state: 'playing' };
+      G.Rift = { get inArena() { return juego.inArena; }, get arena() { return juego.arena; } };
+      G.Camera.resize(1440, 900, 1); G.Camera.x = 0; G.Camera.y = 0;
+      const pl = { x: 0, y: 0, bodyH: 30 }, ctx = new LienzoFalso();
+      const log = [];
+      const paso = (ms = 16, n = 1) => { for (let i = 0; i < n; i++) { R.t += ms; juego.st.time += ms / 1000; ctx.ops.length = 0; G.Transicion.dibujar(ctx, 1440, 900, pl); log.push(G.Transicion.fase); } };
+      return { G, R, juego, pl, ctx, log, paso, apertura: () => G.Transicion.apertura(R.t / 1000) };
+    };
+    const S = caso();
+    S.paso(16); const alEmpezar = { fase: S.G.Transicion.fase, a: S.apertura() };
+    S.paso(16, 20); const abierto = S.G.Transicion.fase;
+    S.juego.st.time += 240; S.paso(16, 30); const bioma = S.log.slice(-30).every(f => f === null);   // pasa un cambio de bioma (sólo el reloj)
+    S.G.Game.state = 'paused'; S.paso(16, 30); S.G.Game.state = 'playing'; S.paso(16, 10); const pausa = S.log.slice(-40).every(f => f === null);
+    S.juego.inArena = true; S.juego.arena = { phase: 'fight', endT: 0 }; S.paso(16);
+    const entrada = { fase: S.G.Transicion.fase, a: S.apertura(), negro: S.ctx.ops.some(o => o.op === 'fill' && o.x <= 0 && o.y <= 0 && o.x2 >= 1440 && o.y2 >= 900) };
+    S.paso(16, 25); const abiertaArena = S.G.Transicion.fase;
+    S.juego.arena = { phase: 'won', endT: 5 };
+    let cierre = null;
+    for (let i = 0; i < 400 && S.juego.inArena; i++) {
+      S.juego.arena.endT -= 0.016; S.paso(16);
+      if (cierre === null && S.G.Transicion.fase === 'cerrando') cierre = +S.juego.arena.endT.toFixed(3);
+      if (S.juego.arena.endT <= 0) S.juego.inArena = false;
+    }
+    S.paso(16);   // el fotograma de la vuelta
+    // Negro desde que se cerró hasta que empieza a abrirse (el fotograma de la vuelta, aún negro).
+    const iniNegro = S.log.indexOf('negro'), finNegro = S.log.indexOf('abriendo', iniNegro);
+    const vuelta = { cierre, negroMs: (finNegro - iniNegro) * 16, fase: S.G.Transicion.fase, a: S.apertura() };
+    // El invitado: vuelve ('af') antes de cerrarse: negro al instante y se abre.
+    const I = caso(); I.paso(16, 30); I.juego.inArena = true; I.juego.arena = { phase: 'fight', endT: 0 }; I.paso(16, 30); I.juego.arena = { phase: 'won', endT: 2 }; I.paso(16);
+    I.juego.inArena = false; I.paso(16); const invitado = { fase: I.G.Transicion.fase, a: I.apertura() };
+    const C = caso({ dex: false }); C.paso(16, 5); C.juego.inArena = true; C.paso(16, 5); const clasico = C.log.every(f => f === null) && !C.ctx.ops.length;
+    const M = caso({ calma: true }); M.paso(16); M.paso(16, 10); const fundido = M.G.Transicion.fase;   // 150 ms: ya abierto a los 176
+    t('iris (sólo Dex): salta al empezar (negro y se abre en 280 ms), al entrar en la arena (el fotograma del tirón, negro) y al salir (se cierra con endT ≤ 0,3 s, 80 ms o más de negro y se abre); no en el cambio de bioma ni al volver de la pausa; el invitado que vuelve antes de cerrarse, negro al instante; con Clásico, nada; con «Menos sacudidas», fundidos de 150 ms',
+      alEmpezar.fase === 'abriendo' && alEmpezar.a < 0.1 && abierto === null && bioma && pausa && entrada.fase === 'abriendo' && entrada.a < 0.1 && entrada.negro &&
+      abiertaArena === null && vuelta.cierre <= 0.3 && vuelta.cierre > 0.26 && vuelta.negroMs >= 80 && vuelta.fase === 'abriendo' && vuelta.a < 0.1 &&
+      invitado.fase === 'abriendo' && invitado.a < 0.1 && clasico && fundido === null,
+      { alEmpezar, abierto, bioma, pausa, entrada, abiertaArena, vuelta, invitado, clasico, fundido });
+  } catch (e) { t('iris', false, String(e && e.stack || e)); }
+
+  // ---- D. Golpe final: 140 ms quieto sólo en solitario con jefe o legendario ----
+  try {
+    const caso = ({ coop = false, host = false, remota = false, jefe = true, legend = false, caido = false, calma = false, reducido = false } = {}) => {
+      const c = nuevo({ ajustes: calma ? { calm: true } : {}, ficheros: ['js/ui/golpe-final.js'] }), G = c.G, R = c.__reloj;
+      if (reducido) c.matchMedia = q => ({ matches: /reduced-motion/.test(q) });
+      G.Coop = { active: coop, isHost: host };
+      G.Game = { player: { x: 0, y: 0, dead: caido } };
+      const e = { x: 30, y: 40, boss: jefe, legend, remote: remota, flash: 0 };
+      const hay = G.GolpeFinal.derrotado(e);
+      let quieto = 0, blanco = 0;
+      const t0 = R.t;
+      if (e.flash > 0) blanco++;   // el fotograma en que cae
+      while (R.t - t0 < 400) { const q = G.GolpeFinal.congelar(); if (q) quieto = R.t + 8 - t0; if (e.flash > 0) blanco++; R.t += 8; }
+      // La sacudida, tras la congelación: la cámara de verdad (follow).
+      G.Camera.resize(1440, 900, 1);
+      const sx = [];
+      for (let i = 0; i < 30; i++) { G.Camera.follow(0, 0, 1 / 60); sx.push([G.Camera._sx, G.Camera._sy]); }
+      return { hay, quieto, blanco, sx };
+    };
+    const solo = caso(), leg = caso({ jefe: false, legend: true }), normal = caso({ jefe: false }), host = caso({ coop: true, host: true }), inv = caso({ coop: true, remota: true }),
+      remota = caso({ remota: true }), caido = caso({ caido: true }), calma = caso({ calma: true }), red = caso({ reducido: true });
+    const amp = v => Math.max(...v.sx.map(p => Math.hypot(p[0], p[1])));
+    // Dirección: de tu Pokémon (0, 0) al derrotado (30, 40), es decir (0,6; 0,8).
+    const dir = solo.sx.filter(p => Math.hypot(p[0], p[1]) > 0.5).every(p => casi(p[0] * 0.8, p[1] * 0.6, 1e-6));
+    t('golpe final: sólo en solitario con un jefe o el legendario, el juego quieto 140 ms (± 8, en tiempo real), el derrotado blanco 2 fotogramas y una sacudida amortiguada (hasta 4 px de mundo, de tu Pokémon hacia él); nada con un enemigo normal, en grupo (anfitrión o invitado), con una copia de la red ni con tu Pokémon caído; «Menos sacudidas», ×0,25 y sin destello; movimiento reducido, sin sacudida',
+      solo.hay && Math.abs(solo.quieto - 140) <= 8 && solo.blanco === 2 && amp(solo) > 2 && amp(solo) <= 4 && dir && leg.hay && Math.abs(leg.quieto - 140) <= 8 &&
+      [normal, host, inv, remota, caido].every(x => !x.hay && x.quieto === 0 && x.blanco === 0 && amp(x) < 1e-9) &&
+      calma.hay && calma.blanco === 0 && amp(calma) > 0 && amp(calma) <= 1.01 && red.hay && amp(red) < 1e-9 && red.blanco === 2,
+      { solo: [solo.hay, solo.quieto, solo.blanco, amp(solo), dir], leg: [leg.hay, leg.quieto], normal: normal.hay, host: host.hay, inv: inv.hay, remota: remota.hay, caido: caido.hay,
+        calma: [calma.blanco, amp(calma)], red: [red.blanco, amp(red)] });
+  } catch (e) { t('golpe final', false, String(e && e.stack || e)); }
+
+  // ---- E. Rótulo de zona (HUD Dex): al empezar la partida y, en la arena, con su tipo ----
+  try {
+    const H = cargarHud({ w: 1440, h: 900 }), { G, juego } = H, A = G.HudDex.Avisos;
+    let tt = 10;
+    tt += 0.016; A.actualizar(tt, { time: 0.1 }, false);
+    const inicio = !!(A.visible && A.visible.tipo === 'zona' && A.visible.texto === 'Bosque Umbrío');
+    for (let i = 0; i < 400; i++) { tt += 0.016; A.actualizar(tt, { time: 0.1 + i * 0.016 }, false); }
+    const pista = !!(A.visible && A.visible.tipo === 'pista');
+    // En la arena: «Has entrado en la grieta…» con el tipo de la arena -> dos líneas en escritorio.
+    juego.bioma = 'Grieta · Volcán Ígneo';
+    G.Rift = { get rift() { return null; }, get inArena() { return true; }, get timeLeft() { return 40; }, arena: { type: 'fire' } };
+    juego.banner = { text: 'Has entrado en la grieta…', t: 2.4 };
+    let ctx = null;
+    for (let i = 0; i < 40; i++) ctx = H.pintar();   // la pista de controles sale (0,4 s) y entra el rótulo
+    const v = A.visible, B = G.HudDex.bandas(), P = B.piezas.aviso, E = G.MARCA.hud.escritorio.aviso;
+    const textos = ctx.ops.filter(o => o.op === 'texto').map(o => o.texto);
+    t('rótulo de zona (Dex): al empezar la partida, el bioma por la ranura de avisos («Bosque Umbrío») y después la pista de controles; al entrar en una arena, en escritorio, su nombre y «Grieta de tipo Fuego» en dos líneas',
+      inicio && pista && v && v.tipo === 'zona' && v.titulo === 'Volcán Ígneo' && v.sub === 'Grieta de tipo Fuego' && P && P.h === Math.round(E.grieta.h * B.escala) &&
+      textos.includes('Volcán Ígneo') && textos.includes('Grieta de tipo Fuego'), { inicio, pista, v, P, textos: textos.slice(0, 12) });
+  } catch (e) { t('rótulo de zona', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`ajustes de juego: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`ajustes de juego: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -3709,6 +3910,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { pantallasChecks(); } catch (e) { bad('no se pudo probar las pantallas: ' + (e && e.stack || e)); }
   try { identidadChecks(); } catch (e) { bad('no se pudo probar la identidad visual: ' + (e && e.stack || e)); }
   try { hudDexChecks(); } catch (e) { bad('no se pudo probar el HUD Dex: ' + (e && e.stack || e)); }
+  try { juegoChecks(); } catch (e) { bad('no se pudo probar los ajustes de juego: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });
