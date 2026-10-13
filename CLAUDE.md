@@ -1,8 +1,8 @@
 # PokéSwarm — el juego de Nico
 
-PokéSwarm es la versión propia de Nico de un fan game en HTML + JS vanilla sobre Canvas (código MIT, sprites CC BY-NC 4.0), para que Nico y un amigo jueguen en cooperativo con sus cambios. Parte de un **proyecto base**, que llega por el remoto `upstream`, y se publica desde el repositorio de Nico (remoto `origin`, https://github.com/nicooliver123-cell/pokesurvivor) en https://nicooliver123-cell.github.io/pokesurvivor/. Pendientes: [PLAN.md](PLAN.md), la única lista.
+PokéSwarm es la versión propia de Nico de un fan game en HTML + JS vanilla sobre Canvas (código MIT, sprites CC BY-NC 4.0), para que Nico y un amigo jueguen en cooperativo con sus cambios. Parte de un **proyecto base**, que llega por el remoto `upstream`, y se publica desde el repositorio de Nico (remoto `origin`, https://github.com/nicooliver123-cell/pokeswarm) en https://nicooliver123-cell.github.io/pokeswarm/. Pendientes: [PLAN.md](PLAN.md), la única lista.
 
-El repositorio y la URL conservan el nombre `pokesurvivor` (renombrarlos cambia la URL de Pages, que GitHub no redirige), igual que las claves internas: `ps.*` en localStorage, las cachés `ps-*` del service worker y el tipo `pokesurvivor-partida` de los archivos de partida. Así no se pierde ninguna partida.
+El repositorio se llama `pokeswarm` desde el 13-10-2026 (lo renombró Nico; la web está en https://nicooliver123-cell.github.io/pokeswarm/ y la antigua `/pokesurvivor/` da 404). La carpeta local sigue llamándose `pokesurvivor`, igual que las claves internas: `ps.*` en localStorage, las cachés `ps-*` del service worker y el tipo `pokesurvivor-partida` de los archivos de partida. Así no se pierde ninguna partida.
 
 Es otra web y otro Firebase, así que las cuentas son nuevas; pero el jugador puede traer su partida guardada de la web del proyecto base desde Ajustes > Cuenta (ver «Traer una partida guardada»).
 
@@ -19,7 +19,7 @@ Es otra web y otro Firebase, así que las cuentas son nuevas; pero el jugador pu
 ## Remotos y ramas
 
 - `upstream` = el repositorio del proyecto base, sólo para traer cambios (su URL está en `.git/config`, no aquí).
-- `origin` = https://github.com/nicooliver123-cell/pokesurvivor. Se trabaja en `main`.
+- `origin` = https://github.com/nicooliver123-cell/pokeswarm. Se trabaja en `main`.
 
 ## Cómo editar y construir
 

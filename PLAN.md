@@ -14,7 +14,7 @@ Las cuentas de PokéSwarm son nuevas: es otro origen (otra web) y otro backend (
    - Añadir el alias `"prod": "<id>"` en `.firebaserc` (el `default` sigue siendo `demo-ps`) y desplegar reglas e índices: `npx firebase-tools login` (login interactivo de Nico) y después `npx firebase-tools deploy --only firestore,database --project prod`.
    - Opcional: restringir la API key a `https://nicooliver123-cell.github.io/*` y a `http://localhost:*/*`.
    - Reconstruir (`node tools/build.js --privado`), pasar `tools/nico` (`npm test`) y probar el cooperativo real con el amigo, él de invitado.
-2. **Comprobar la web publicada tras cada push.** GitHub Pages sirve `main` de https://github.com/nicooliver123-cell/pokesurvivor (remoto `origin`) en https://nicooliver123-cell.github.io/pokesurvivor/ (el 13-10-2026 respondía 200 con noindex, igual que `dev.html`, y 404 en una ruta inexistente).
+2. **Comprobar la web publicada tras cada push.** GitHub Pages sirve `main` de https://github.com/nicooliver123-cell/pokeswarm (remoto `origin`) en https://nicooliver123-cell.github.io/pokeswarm/ (el 13-10-2026 respondía 200 con noindex, igual que `dev.html`, y 404 en una ruta inexistente).
    - Comprobar: `curl -s <url> | grep -i robots` da noindex, también en `dev.html`; `404.html` funciona en la subruta; y nada de lo que se publica nombra el proyecto base ni apunta a su Firebase, TURN, dominio o correo (es lo que vigila `check.js`: lo publicado es todo el repositorio, salvo el aviso MIT de `LICENSE`).
    - Comprobar que los avisos (issues) del repo están activados: el aviso legal, Ajustes y `contacto/` mandan ahí.
    - No darlo de alta en Search Console.

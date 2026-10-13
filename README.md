@@ -5,8 +5,8 @@ Pokémon, aguanta oleadas cada vez más grandes, sube de nivel, evoluciona tus
 ataques, entra en las grietas a por legendarios y caza shinies. En el navegador
 y en el móvil, solo o con amigos.
 
-> **Jugar:** https://nicooliver123-cell.github.io/pokesurvivor/
-> Fallos, sugerencias y retiradas de contenido: [avisos del repositorio](https://github.com/nicooliver123-cell/pokesurvivor/issues).
+> **Jugar:** https://nicooliver123-cell.github.io/pokeswarm/
+> Fallos, sugerencias y retiradas de contenido: [avisos del repositorio](https://github.com/nicooliver123-cell/pokeswarm/issues).
 
 Es un juego hecho por fans, **gratuito y sin ánimo de lucro**: sin anuncios ni
 compras. Pokémon no es nuestro (ver [Marca](#marca)).
