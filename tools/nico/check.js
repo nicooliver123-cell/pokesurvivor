@@ -3843,11 +3843,18 @@ function juegoChecks() {
     I.juego.inArena = false; I.paso(16); const invitado = { fase: I.G.Transicion.fase, a: I.apertura() };
     const C = caso({ dex: false }); C.paso(16, 5); C.juego.inArena = true; C.paso(16, 5); const clasico = C.log.every(f => f === null) && !C.ctx.ops.length;
     const M = caso({ calma: true }); M.paso(16); M.paso(16, 10); const fundido = M.G.Transicion.fase;   // 150 ms: ya abierto a los 176
-    t('iris (sólo Dex): salta al empezar (negro y se abre en 280 ms), al entrar en la arena (el fotograma del tirón, negro) y al salir (se cierra con endT ≤ 0,3 s, 80 ms o más de negro y se abre); no en el cambio de bioma ni al volver de la pausa; el invitado que vuelve antes de cerrarse, negro al instante; con Clásico, nada; con «Menos sacudidas», fundidos de 150 ms',
+    // Un diálogo en la arena durante la espera (cambiar de objeto: estado 'choice', la cuenta atrás se para): se abre y no
+    // vuelve a cerrarse en bucle (fallo visto en estilo-e2e: cerraba y abría cada 0,8 s detrás del diálogo).
+    const D = caso(); D.paso(16, 30); D.juego.inArena = true; D.juego.arena = { phase: 'fight', endT: 0 }; D.paso(16, 30); D.juego.arena = { phase: 'won', endT: 0.25 }; D.paso(16, 5);
+    const cerrandoAntes = D.G.Transicion.fase;
+    D.G.Game.state = 'choice'; D.paso(16, 150);
+    const tramos = D.log.slice(-150).filter((f, i, a) => f === 'cerrando' && a[i - 1] !== 'cerrando').length;
+    const dialogo = { cerrandoAntes, tramos, fin: D.G.Transicion.fase };
+    t('iris (sólo Dex): salta al empezar (negro y se abre en 280 ms), al entrar en la arena (el fotograma del tirón, negro) y al salir (se cierra con endT ≤ 0,3 s, 80 ms o más de negro y se abre); no en el cambio de bioma ni al volver de la pausa; el invitado que vuelve antes de cerrarse, negro al instante; un diálogo durante la espera lo abre y no se vuelve a cerrar en bucle; con Clásico, nada; con «Menos sacudidas», fundidos de 150 ms',
       alEmpezar.fase === 'abriendo' && alEmpezar.a < 0.1 && abierto === null && bioma && pausa && entrada.fase === 'abriendo' && entrada.a < 0.1 && entrada.negro &&
       abiertaArena === null && vuelta.cierre <= 0.3 && vuelta.cierre > 0.26 && vuelta.negroMs >= 80 && vuelta.fase === 'abriendo' && vuelta.a < 0.1 &&
-      invitado.fase === 'abriendo' && invitado.a < 0.1 && clasico && fundido === null,
-      { alEmpezar, abierto, bioma, pausa, entrada, abiertaArena, vuelta, invitado, clasico, fundido });
+      invitado.fase === 'abriendo' && invitado.a < 0.1 && clasico && fundido === null && dialogo.cerrandoAntes === 'cerrando' && dialogo.tramos === 0 && dialogo.fin === null,
+      { alEmpezar, abierto, bioma, pausa, entrada, abiertaArena, vuelta, invitado, clasico, fundido, dialogo });
   } catch (e) { t('iris', false, String(e && e.stack || e)); }
 
   // ---- D. Golpe final: 140 ms quieto sólo en solitario con jefe o legendario ----

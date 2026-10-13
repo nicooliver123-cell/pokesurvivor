@@ -27,7 +27,7 @@ G.Transicion = (() => {
   const activa = () => MODS().transiciones !== false && !!(G.Estilo && G.Estilo.dex);
 
   // fase: null | 'cerrando' | 'negro' | 'abriendo'; t0: cuándo empezó (s, performance.now)
-  let fase = null, t0 = 0, plVisto = null, arenaVista = false, tiempoVisto = 0;
+  let fase = null, t0 = 0, plVisto = null, arenaVista = false, tiempoVisto = 0, cerrado = false;   // cerrado: ya se cerró para esta vuelta
   function poner(f, t) { fase = f; t0 = t; }
 
   /** Avanza la máquina con lo que ve en el juego (una vez por fotograma; t en s). */
@@ -35,18 +35,22 @@ G.Transicion = (() => {
     const st = G.Game && G.Game.st, tiempo = st ? st.time : 0;
     const enArena = !!(G.Rift && G.Rift.inArena), arena = G.Rift && G.Rift.arena;
     // Partida nueva (otro jugador, o el reloj ha vuelto a empezar): se abre desde negro.
-    if (pl !== plVisto || tiempo < tiempoVisto - 1) { plVisto = pl; arenaVista = enArena; tiempoVisto = tiempo; poner('abriendo', t); return; }
+    if (pl !== plVisto || tiempo < tiempoVisto - 1) { plVisto = pl; arenaVista = enArena; tiempoVisto = tiempo; cerrado = false; poner('abriendo', t); return; }
     tiempoVisto = tiempo;
-    if (enArena && !arenaVista) poner('abriendo', t);                 // el tirón de la entrada, ya en negro
+    const jugando = !G.Game || G.Game.state === 'playing' || G.Game.state === 'held';
+    if (enArena && !arenaVista) { cerrado = false; poner('abriendo', t); }   // el tirón de la entrada, ya en negro
     else if (!enArena && arenaVista) {
       // Vuelta: si se estaba cerrando, negro desde ya (80 ms como mínimo); si ya estaba en negro, sigue (y se abre en
       // cuanto lleve 80 ms); si no se había empezado a cerrar (el invitado volvió antes), negro ya y se abre.
       if (fase === 'cerrando') poner('negro', t);
       else if (fase !== 'negro') poner('abriendo', t);
+      cerrado = false;
     }
     arenaVista = enArena;
-    // Cierre antes de volver: dentro de la espera de la vuelta (endT) de la arena ganada o perdida.
-    if (enArena && arena && arena.phase !== 'fight' && arena.endT <= T.cerrarAntes && !fase) poner('cerrando', t);
+    // Cierre antes de volver: dentro de la espera de la vuelta (endT) de la arena ganada o perdida, una vez y sólo
+    // jugando (si sale un diálogo, como el de cambiar de objeto, la espera se para: no se cierra detrás de él).
+    if (enArena && arena && arena.phase !== 'fight' && arena.endT <= T.cerrarAntes && !fase && !cerrado && jugando) { cerrado = true; poner('cerrando', t); }
+    if (enArena && (fase === 'cerrando' || fase === 'negro') && !jugando) poner('abriendo', t);   // un diálogo: se ve el mundo detrás
     if (fase === 'cerrando' && t - t0 >= T.cerrar) poner('negro', t);
     if (fase === 'negro') {
       // Fuera ya de la arena: tras el mínimo de negro, se abre. Dentro (el invitado espera a 'af'): tras el máximo.

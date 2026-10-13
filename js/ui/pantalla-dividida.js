@@ -322,6 +322,8 @@ G.Dividida = (() => {
     const pl = G.Game && G.Game.player, out = [];
     L.ranuras.forEach((r, i) => out.push({ r, pad: 4, fn: () => { if (pl && G.Game.state === 'playing' && pl.slots[i] && pl.active !== i) { pl.setActive(i); if (G.Audio) G.Audio.sfx('click'); } }, que: 'ataque' + (i + 1) }));
     out.push({ r: L.pausa, pad: 8, fn: () => G.Game.togglePause(), que: 'pausa' });
+    // El objeto sólo se ve como icono: al tocarlo, su nombre y qué hace (el aviso flotante, en la mitad del juego).
+    out.push({ r: L.objeto, pad: 4, que: 'objeto', fn: () => { const it = pl && pl.item && G.Items && G.Items.BY[pl.item]; if (it && G.UI && G.UI.toast) G.UI.toast(it.name + ': ' + it.desc); } });
     return out;
   }
   const dentro = (p, r, pad = 0) => p.x >= r.x - pad && p.x <= r.x + r.w + pad && p.y >= r.y - pad && p.y <= r.y + r.h + pad;
