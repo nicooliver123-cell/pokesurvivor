@@ -107,7 +107,9 @@ G.ElegirCompanero = (() => {
     $('ec-azar').onclick = azar;
     $('ec-ok').onclick = () => confirmar();
     grid.addEventListener('keydown', tecla);
-    new MutationObserver(() => { if (abierta && sec.classList.contains('hidden')) soltar(); })
+    // Se suelta al esconderse la pantalla o si otro la ha vuelto a abrir con su rejilla (el «Elegir otro» del test, en el
+    // mismo momento: el vigilante llega tarde y ya no la ve escondida).
+    new MutationObserver(() => { if (abierta && (sec.classList.contains('hidden') || !grid.querySelector('.ec-celda'))) soltar(); })
       .observe(sec, { attributes: true, attributeFilter: ['class'] });
     return true;
   }
@@ -139,6 +141,7 @@ G.ElegirCompanero = (() => {
     sec.classList.remove('sin-test');
     grid.removeAttribute('role'); grid.removeAttribute('aria-label');
     grid.style.cssText = '';
+    grid.classList.remove('ec-texto', 'ec-texto2', 'ec-emblema', 'ec-desplaza', 'ec-midiendo');
     removeEventListener('resize', alCambiar);
     if (window.visualViewport) visualViewport.removeEventListener('resize', alCambiar);
     if (document.fonts && document.fonts.removeEventListener) document.fonts.removeEventListener('loadingdone', alCambiar);
