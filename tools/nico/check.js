@@ -5036,6 +5036,21 @@ function guarderiaChecks() {
   for (const [name, , detail] of failed) bad(`guardería: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+function devMenuChecks() {
+  console.log('21. Menú de pruebas (js/ui/dev-menu.js): sólo con una huella de G.MODS.devHuellas');
+  const src = rd('js/ui/dev-menu.js'), mods = rd('js/core/mods.js');
+  const c = { console }; c.window = c; c.G = {}; vm.createContext(c); vm.runInContext(mods, c);
+  const lista = c.G.MODS.devHuellas;
+  const bien = Array.isArray(lista) && lista.every(h => /^[0-9a-f]{64}$/.test(h));
+  const sal = (/const SAL = '([^']*)'/.exec(src) || [])[1];
+  const gancho = rd('js/ui/settings-ui.js').split(/\r?\n/).some(l => /G\.DevMenu\.ajustes\(box, tab\)/.test(l) && /MOD nico/.test(l));
+  // Ningún uid en claro: los uid de Firebase son 28 caracteres alfanuméricos; en mods.js sólo huellas.
+  const uidEnClaro = /devHuellas:[^\]]*['"][A-Za-z0-9]{28}['"]/.test(mods);
+  if (bien && sal === 'pokeswarm/dev/1\\0' && gancho && !uidEnClaro && /G\.DB\.guest/.test(src) && /DevMenu/.test(rd('js/app.min.js')))
+    ok(`menú de pruebas: ${lista.length} cuenta(s) por huella SHA-256 (ningún uid en claro), nunca a invitados, con su gancho en settings-ui.js y en el paquete`);
+  else bad(`menú de pruebas: huellas ${bien ? 'bien' : 'mal formadas'}, sal ${JSON.stringify(sal)}, gancho ${gancho}, uid en claro ${uidEnClaro}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -5049,6 +5064,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { divididaChecks(); } catch (e) { bad('no se pudo probar la pantalla dividida: ' + (e && e.stack || e)); }
   try { companeroChecks(); } catch (e) { bad('no se pudo probar «Elige a tu compañero»: ' + (e && e.stack || e)); }
   try { guarderiaChecks(); } catch (e) { bad('no se pudo probar la guardería: ' + (e && e.stack || e)); }
+  try { devMenuChecks(); } catch (e) { bad('no se pudo probar el menú de pruebas: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

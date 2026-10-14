@@ -177,5 +177,8 @@ G.I18n.add({
   'La guardería está cerrada': 'The daycare is closed', 'Aún no han subido de nivel.': 'No level-ups yet.',
   'Está en la guardería': 'In the daycare', 'Es tu compañero: elige otro antes': 'It\'s your partner: pick another one first',
   'Es tu compañero: no puede quedarse en la guardería.': 'It\'s your partner: it can\'t stay in the daycare.',
+  // El menú de pruebas de Nico (js/ui/dev-menu.js).
+  'Menú de pruebas': 'Test menu', 'Sólo lo ve tu cuenta. Suma a tu partida guardada; no cuenta para el ranking.': 'Only your account sees this. It adds to your save; it doesn\'t count for the ranking.',
+  '+10 tickets': '+10 tickets', '+1 ticket ×10': '+1 ticket ×10', '+1.000 Pokémonedas': '+1,000 PokéCoins', '+10.000 Pokémonedas': '+10,000 PokéCoins',
   'Siguiente entrenamiento en {x} de juego.': 'Next training after {x} of play.', 'Esta partida no cuenta para la guardería.': 'This run doesn\'t count for the daycare.'
 });
