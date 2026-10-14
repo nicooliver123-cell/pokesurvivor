@@ -1,5 +1,5 @@
 /* ============ tools/nico/estilo-e2e.js — prueba de la identidad visual en el navegador ============
- *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud | --solo-portada | --solo-entornos | --solo-juego | --solo-companero | --solo-mapas]
+ *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud | --solo-portada | --solo-entornos | --solo-juego | --solo-companero | --solo-mapas | --solo-relieve]
  *
  * Arnés del estilo «Dex de Expedición» (lote 1: base del estilo y menús). Modo local, un jugador
  * invitado, sin emulador: abre index.html (con --dev, dev.html) en Chromium con Playwright y, en
@@ -72,7 +72,8 @@
  *      Pokémon contra el suelo (mediana de la silueta, 36 Pokémon) no empeora más de 0,05 frente a Clásico en los tres biomas
  *      ni, con lluvia, más de 0,1 frente a Clásico con lluvia (lo que la lluvia de Dex le quita a Dex, al informe). Horneado, con GPU (otro Chromium, con requestAnimationFrame y G.Tiles.paintChunk
  *      envueltos sólo en la prueba): en el fondo de los menús (el cambio de bioma de cada 30 s), de los 236 a los 244 s de
- *      partida en Dex y en Clásico y al cambiar de estilo en la pausa: ningún fotograma de más de 20 ms, como mucho 1 chunk
+ *      partida en Dex y en Clásico y al cambiar de estilo en la pausa (con el mundo Dex, 0 chunks: el mundo no cambia):
+ *      ningún fotograma de más de 20 ms, como mucho 1 chunk
  *      por fotograma (mediana ≤ 4 ms de horneado; como mucho un 15 % por encima y ninguno de más de 10 ms: un chunk no se
  *      parte) y 0 chunks en el fotograma del cambio; 844x390@3 con la CPU ×4: 1 chunk por fotograma y ningún fotograma de
  *      más de 33 ms (con su p95 en el informe). Rendimiento, minuto 8 con 80 Pokémon y lluvia: Dex frente a Clásico, Δ de
@@ -113,6 +114,12 @@
  *      terreno: ninguna casilla a la vista a q ≥ 32² (la regla del §7 de la especificación) y todo lo de fuera del círculo,
  *      su borde o el vacío (G.Mapas.codigo A_BORDE o A_VACIO y pared para G.World.kindAt). Al informe, la cota con tu
  *      Pokémon en cualquier casilla transitable. Consola sin errores.
+ *  18. Relieve, sombras y luz (--solo-relieve; js/world/relieve.js, sombras.js y luz.js), a 1440x900 y 844x390@3, en una cresta
+ *      fina con la semilla 7: tu Pokémon con los pies 6 px al norte queda en parte detrás (píxeles a la vista con y sin relieve,
+ *      sin el repintado) y un Pokémon al sur, entero; a 2 px, G.Claridad cuenta la pared y lo repinta; la luz con el píxel
+ *      nítido (sobre un suelo liso, cada píxel de arte, m×m píxeles físicos de un solo color); con «Menos sacudidas», el búfer
+ *      quieto; un aviso de zona y un disparo enemigo, iguales con y sin luz; la sombra de un árbol; sin el HUD, el lienzo igual
+ *      con Dex y con Clásico (y distinto con mundoDex = false); con la pantalla dividida, la luz en la mitad del juego.
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
@@ -139,7 +146,8 @@ const SOLO_ENTORNOS = process.argv.includes('--solo-entornos');   // sólo los e
 const SOLO_JUEGO = process.argv.includes('--solo-juego');   // sólo los ajustes de juego y la pantalla dividida (secciones 14 y 15)
 const SOLO_COMPANERO = process.argv.includes('--solo-companero');   // sólo «Elige a tu compañero» sin el test (sección 16)
 const SOLO_MAPAS = process.argv.includes('--solo-mapas');   // sólo los mapas propios (sección 17)
-const OTRAS = !SOLO_HUD && !SOLO_PORTADA && !SOLO_ENTORNOS && !SOLO_JUEGO && !SOLO_COMPANERO && !SOLO_MAPAS;      // todas las secciones
+const SOLO_RELIEVE = process.argv.includes('--solo-relieve');   // sólo el relieve, las sombras y la luz (sección 18)
+const OTRAS = !SOLO_HUD && !SOLO_PORTADA && !SOLO_ENTORNOS && !SOLO_JUEGO && !SOLO_COMPANERO && !SOLO_MAPAS && !SOLO_RELIEVE;      // todas las secciones
 const ESTILOS = ['clasico', 'dex'];
 
 /** Avisos de la consola que son del entorno de la prueba, no del juego. */
@@ -1791,15 +1799,16 @@ async function pruebaEntornos(browser) {
         report.medidas[`horno-partida-${est}-${nv}`] = { r, enCambio };
         check(`${nv} (GPU), ${est === 'dex' ? 'Dex' : 'Clásico'}: de los 236 a los 244 s de partida (cambio de bioma a los 240): ningún fotograma pasa de 20 ms (máximo ${r.max} ms, p95 ${r.p95}), ${horneadoTxt(r)} y 0 chunks en el fotograma del cambio (${r.cambio && r.cambio.hornos})`,
           r.n > 200 && r.mas20 === 0 && horneadoOk(r) && r.cambio && r.cambio.hornos === 0, { r, enCambio });
-        // Cambiar de estilo en la pausa: el suelo se rehornea de uno en uno.
+        // Cambiar de estilo en la pausa: con el mundo Dex (G.MODS.mundoDex, desde el 14-10-2026), el mundo no cambia y no se
+        // rehornea nada (antes, con Clásico = upstream, se rehorneaba de uno en uno).
         if (est === 'dex') {
           await page.evaluate(() => G.Game.togglePause());
           await apuntar(page);
           for (const e of ['clasico', 'dex']) { await estilo(page, e); await sleep(1500); }
           const rs = await page.evaluate(RESUMEN_PERF, {});
           report.medidas['horno-estilo-pausa-' + nv] = rs;
-          check(`${nv} (GPU): cambiar de estilo en la pausa (a Clásico y otra vez a Dex, 3 s): ningún fotograma pasa de 20 ms (máximo ${rs.max} ms), ${horneadoTxt(rs)}`,
-            rs.n > 60 && rs.mas20 === 0 && horneadoOk(rs) && rs.hornos >= 8, rs);
+          check(`${nv} (GPU): cambiar de estilo en la pausa (a Clásico y otra vez a Dex, 3 s): el mundo es el mismo (mundoDex), así que no se rehornea nada (${rs.hornos} chunks) y ningún fotograma pasa de 20 ms (máximo ${rs.max} ms)`,
+            rs.n > 60 && rs.mas20 === 0 && rs.hornos === 0, rs);
           await page.evaluate(() => G.Game.togglePause());
         }
         await page.evaluate(() => G.Game.quit());
@@ -2748,6 +2757,280 @@ async function pruebaMapas(browser) {
   console.log(`[INFO] mapas propios (sección 17): ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 }
 
+// ---------------- 18. Relieve, sombras y luz (2.5D falsa) ----------------
+/** Prepara una escena quieta en una cresta fina (1 a 3 casillas de grueso, suelo encima y debajo) con la semilla `semilla`:
+ *  sin oleadas ni ataques, tu Pokémon invulnerable, sin efectos; devuelve el sitio y deja la cámara encima. */
+const RELIEVE_ESCENA = semilla => {
+  const W = G.World, TS = W.TS, pl = G.Game.player, k = (tx, ty) => W.kindAt(tx * TS + 16, ty * TS + 16);
+  for (const x of document.querySelectorAll('.ach-pop, .toast')) x.remove();
+  pl.hurt = function () {}; G.Spawner.update = () => {}; G.Combat.tick = () => {};
+  G.EnemyMgr.clear(); G.Projectiles.clear(); G.FX.clear(); G.Hazards.clear(); G.Weather.clear();
+  W.reset(semilla); W.setBiome(0, true);
+  // Grueso de la cresta, con dos filas de suelo debajo (lo de delante no queda detrás de otra pared).
+  const grueso = (tx, ty) => { let d = 0; while (d < 8 && k(tx, ty + d) === 'wall') d++; return k(tx, ty + d) === 'floor' && k(tx, ty + d + 1) === 'floor' ? d : 99; };
+  let s = null;
+  for (let r = 6; r < 200 && !s; r++) for (let a = 0; a < 6.283 && !s; a += 0.05) {
+    const tx = Math.round(Math.cos(a) * r), ty = Math.round(Math.sin(a) * r);
+    let ok = true; const g = [];
+    for (let i = -2; i <= 2 && ok; i++) {
+      for (let j = 1; j <= 3 && ok; j++) if (k(tx + i, ty - j) !== 'floor') ok = false;
+      const d = ok ? grueso(tx + i, ty) : 99;
+      if (d < 1 || d > 3) ok = false; else g.push(d);
+    }
+    if (ok) s = { tx, ty, g };
+  }
+  if (!s) return null;
+  pl.x = s.tx * TS + 16; pl.y = s.ty * TS - 6;
+  G.Camera.x = pl.x; G.Camera.y = pl.y;
+  return s;
+};
+/** El lienzo del juego (#game) con todo quieto: performance.now() congelado durante unos fotogramas (las animaciones que
+ *  usan el reloj, como la hierba o los brillos del agua, no se mueven) y, en la pausa, nada avanza. Devuelve sus píxeles. */
+const RELIEVE_FOTO = async () => {
+  const cv = document.getElementById('game'), cx = cv.getContext('2d'), now = performance.now.bind(performance), t0 = now();
+  performance.now = () => t0;
+  try {
+    for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+    return Array.from(cx.getImageData(0, 0, cv.width, cv.height).data);
+  } finally { performance.now = now; }
+};
+
+async function pruebaRelieve(browser) {
+  const t0 = Date.now(), SEMILLA = 7;
+  for (const clave of ['pc', 'movil']) {
+    const v = VP[clave], P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: relieve: se entra a jugar`, false); await P.ctx.close(); continue; }
+    await page.evaluate(() => { G.Settings.set('quality', 'high'); G.Estilo.set('dex'); G.Flow.play(); });
+    await sleep(1200);
+    const s = await page.evaluate(RELIEVE_ESCENA, SEMILLA);
+    check(`${nv}: relieve: hay una cresta fina cerca del principio con la semilla ${SEMILLA}`, !!s, s);
+    if (!s) { await P.ctx.close(); continue; }
+    await page.evaluate(HORNEADO);
+    await page.evaluate(() => { if (G.Game.state === 'playing') G.Game.togglePause(); G.UI.hideAll(); });
+
+    // 1. Oclusión, con tu Pokémon pegado a la cresta desde el norte tanto como deja la colisión de world.js (los pies, a su
+    //    radio del borde): con el relieve de por defecto queda en parte detrás (sin el repintado de Claridad: jugadorVisible =
+    //    false) y un Pokémon con los pies al sur de la cresta, entero delante. Se mira por máscara: los píxeles del sprite
+    //    (los que cambian al quitarlo, sin relieve) que siguen iguales con el relieve.
+    const oc = await page.evaluate(async () => {
+      const pl = G.Game.player, TS = G.World.TS, cam = G.Camera, H = G.MODS.relieveAltura;
+      // La fila de la cresta: la primera pared bajo tu Pokémon (el juego en marcha lo ha podido apartar de ella).
+      let ty = Math.floor(pl.y / TS);
+      for (let n = 0; n < 4 && !G.World.isWall(pl.x, ty * TS + 1); n++) ty++;
+      let d = 0; while (G.World.isWall(pl.x, (ty + d) * TS + 1)) d++;
+      pl.y = ty * TS - pl.r - 0.1;
+      const e = new G.Enemy({ dex: 1, hp: 9999, spd: 0, dmg: 0, xp: 0, behavior: 'melee' }, pl.x + 70, (ty + d) * TS + 20, { hp: 1, spd: 1, dmg: 1 }, false);
+      e.spd = 0; G.EnemyMgr.add(e);
+      const cv = document.getElementById('game'), W = cv.width, k = cam.scale * cam.dpr;
+      // Tras cambiar la altura, el relieve se rehornea (uno o dos chunks por fotograma): 16 fotogramas.
+      const foto = async (n = 3) => { for (let i = 0; i < n; i++) await new Promise(r => requestAnimationFrame(r)); return cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data.slice(); };
+      const difiere = (a, b, o) => Math.abs(a[o] - b[o]) + Math.abs(a[o + 1] - b[o + 1]) + Math.abs(a[o + 2] - b[o + 2]) > 40;
+      const medir = async quien => {
+        const dib = quien.draw;
+        G.MODS.relieveAltura = 0;
+        const A0 = await foto(16); quien.draw = () => {}; const B0 = await foto(); quien.draw = dib;
+        G.MODS.relieveAltura = H;
+        const A = await foto(16);
+        const sx = (quien.x - cam.left()) * k, sy = (quien.y - cam.top()) * k, half = 40 * k;
+        let n = 0, iguales = 0, abajo = 0, abajoIg = 0;
+        for (let y = Math.max(0, Math.floor(sy - 90 * k)); y < Math.min(cv.height, sy + 8 * k); y++) for (let x = Math.max(0, Math.floor(sx - half)); x < Math.min(W, sx + half); x++) {
+          const o = (y * W + x) * 4;
+          if (!difiere(A0, B0, o)) continue;                 // no es del sprite
+          const ig = !difiere(A, A0, o), baja = y > sy - 12 * k;
+          n++; if (ig) iguales++;
+          if (baja) { abajo++; if (ig) abajoIg++; }
+        }
+        return { n, iguales, abajo, abajoIg };
+      };
+      G.MODS.jugadorVisible = false;
+      const anim = pl.anim.update; pl.anim.update = () => {};      // en la pausa, upstream sigue animando a tu Pokémon (a ×0,25)
+      const res = { H, radio: pl.r, hueco: +(ty * TS - pl.y).toFixed(1), pl: await medir(pl), e: await medir(e) };
+      pl.anim.update = anim;
+      G.MODS.jugadorVisible = true;
+      // G.Claridad cuenta la pared: con el relieve, la cresta tapa el 20 % o más de tu Pokémon y lo repinta; sin él, no.
+      const esc = G.Claridad.escenaOrdenada;
+      const tapa = async alt => {
+        G.MODS.relieveAltura = alt; let items = null;
+        for (let i = 0; i < 16; i++) await new Promise(r => requestAnimationFrame(r));
+        G.Claridad.escenaOrdenada = it => { items = it.slice(); esc(it); };
+        for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+        G.Claridad.escenaOrdenada = esc;
+        return items ? G.Claridad.tapado(pl, items) : null;
+      };
+      res.tapado = await tapa(H); res.tapadoSin = await tapa(0);
+      G.MODS.relieveAltura = H;
+      e.dead = true; e.fade = 0;
+      return res;
+    });
+    report.medidas['relieve-oclusion-' + nv] = oc;
+    check(`${nv}: relieve (${oc.H} px): tu Pokémon pegado a la cresta desde el norte (los pies a ${oc.hueco} px, su radio) queda en parte detrás (siguen a la vista ${oc.pl.iguales} de ${oc.pl.n} píxeles; de los de abajo, ${oc.pl.abajoIg} de ${oc.pl.abajo}) y un Pokémon al sur de la cresta, entero delante (${oc.e.iguales} de ${oc.e.n})`,
+      oc.pl.n > 100 && oc.pl.iguales < oc.pl.n * 0.9 && oc.pl.iguales > oc.pl.n * 0.4 && oc.pl.abajoIg < oc.pl.abajo * 0.2 && oc.e.n > 100 && oc.e.iguales >= oc.e.n * 0.98, oc);
+    check(`${nv}: relieve: pegado a la cresta, G.Claridad cuenta la pared y lo repinta (${oc.tapado}); sin relieve, nada lo tapa (${oc.tapadoSin})`, oc.tapado === true && oc.tapadoSin === false, oc);
+
+    // 2. La luz con el píxel nítido: con el suelo de un color liso (para ver sólo la luz) y sin sprites, en una zona con tres
+    //    bolas de fuego tuyas (escondidas), cada píxel de arte mide m×m píxeles físicos enteros y es uniforme.
+    const px = await page.evaluate(async () => {
+      const pl = G.Game.player, cam = G.Camera, cv = document.getElementById('game'), W = cv.width;
+      const deshacer = [], tapar = (o, k2, f) => { const prev = o[k2]; o[k2] = f; deshacer.push(() => { o[k2] = prev; }); };
+      tapar(G.World, 'drawGround', (ctx, c) => { ctx.fillStyle = '#7f8f6f'; ctx.fillRect(c.left() - 64, c.top() - 64, c.w + 128, c.h + 128); });
+      for (const [o, k2] of [[G.World, 'drawLiquid'], [G.World, 'visibleProps'], [G.Projectiles, 'draw'], [G.HUD, 'draw'], [G.EnemyMgr, 'drawables'], [pl, 'draw']]) tapar(o, k2, k2 === 'visibleProps' || k2 === 'drawables' ? () => [] : () => {});
+      tapar(G.MODS, 'relieveAltura', 0); tapar(G.MODS, 'sombras', false);
+      if (G.Entorno) tapar(G.Entorno, 'suelo', (c, cm) => { if (G.Horno) G.Horno.tick(cm); });
+      tapar(G.World, 'drawVignette', () => {});
+      for (const [dx, dy] of [[-90, -20], [60, 30], [10, -70]]) G.Projectiles.spawn({ x: pl.x + dx, y: pl.y + dy, vx: 0, vy: 0, dmg: 0, r: 7, life: 9999, vis: G.VFX.forType('fire'), friendly: true });
+      const now = performance.now.bind(performance), t0 = now(); performance.now = () => t0;
+      try {
+        for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+        const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+        const m = Math.round(cam.scale * cam.dpr * G.Sprites.PX), entero = Math.abs(cam.scale * cam.dpr * G.Sprites.PX - m) < 1e-6;
+        // La zona: un cuadrado alrededor de tu Pokémon (donde alumbran las tres), lejos del HUD.
+        const cx0 = Math.round((pl.x - cam.left()) * cam.scale * cam.dpr), cy0 = Math.round((pl.y - cam.top()) * cam.scale * cam.dpr), R = Math.round(110 * cam.scale * cam.dpr);
+        const x0 = Math.max(0, cx0 - R), y0 = Math.max(0, cy0 - R), x1 = Math.min(W, cx0 + R), y1 = Math.min(cv.height, cy0 + R);
+        let mejor = null, colores = new Set();
+        for (let fy = 0; fy < m; fy++) for (let fx = 0; fx < m; fx++) {
+          let bloques = 0, malos = 0;
+          for (let by = y0 + fy; by + m <= y1; by += m) for (let bx = x0 + fx; bx + m <= x1; bx += m) {
+            bloques++;
+            const o0 = (by * W + bx) * 4;
+            let igual = true;
+            for (let y = 0; y < m && igual; y++) for (let x = 0; x < m; x++) { const o = ((by + y) * W + bx + x) * 4; if (d[o] !== d[o0] || d[o + 1] !== d[o0 + 1] || d[o + 2] !== d[o0 + 2]) { igual = false; break; } }
+            if (!igual) malos++;
+          }
+          if (!mejor || malos < mejor.malos) mejor = { fx, fy, bloques, malos };
+        }
+        for (let y = y0; y < y1; y += 3) for (let x = x0; x < x1; x += 3) { const o = (y * W + x) * 4; colores.add(d[o] + ',' + d[o + 1] + ',' + d[o + 2]); }
+        return { m, entero, ...mejor, colores: colores.size };
+      } finally { performance.now = now; G.Projectiles.clear(); for (const u of deshacer.reverse()) u(); }
+    });
+    report.medidas['relieve-luz-pixel-' + nv] = px;
+    check(`${nv}: luz con el píxel nítido: cada píxel de arte mide ${px.m}×${px.m} píxeles físicos y, con la luz de tres bolas de fuego sobre un suelo liso, ${px.bloques - px.malos} de ${px.bloques} bloques son de un solo color (≥ 99,5 %; ${px.colores} tonos distintos: la luz se ve)`,
+      px.entero && px.bloques > 200 && px.malos <= px.bloques * 0.005 && px.colores >= 6, px);
+
+    // 3. «Menos sacudidas y destellos»: el búfer de luz no cambia entre dos fotogramas (con eléctricos, que parpadean, y la grieta).
+    const calma = await page.evaluate(async () => {
+      const pl = G.Game.player;
+      for (const [dx, tipo] of [[-60, 'electric'], [60, 'fire']]) G.Projectiles.spawn({ x: pl.x + dx, y: pl.y, vx: 0, vy: 0, dmg: 0, r: 7, life: 9999, vis: G.VFX.forType(tipo), friendly: true });
+      const foto = async () => { for (let i = 0; i < 2; i++) await new Promise(r => requestAnimationFrame(r)); const c = G.Luz.lienzo; return Array.from(c.getContext('2d').getImageData(0, 0, c.width, c.height).data); };
+      const igual = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+      G.Settings.set('calm', true);
+      const a = await foto(); await new Promise(r => setTimeout(r, 400)); const b = await foto();
+      G.Settings.set('calm', false);
+      const c = await foto(); await new Promise(r => setTimeout(r, 400)); const d = await foto();
+      G.Projectiles.clear();
+      return { quieta: igual(a, b), cambiaSin: !igual(c, d) };
+    });
+    check(`${nv}: luz con «Menos sacudidas y destellos»: el búfer es el mismo en dos fotogramas a 400 ms (${calma.quieta}); sin él, los eléctricos parpadean (${calma.cambiaSin})`, calma.quieta && calma.cambiaSin, calma);
+
+    // 4. Avisos del suelo y disparos enemigos: sus píxeles, iguales con y sin la luz; el suelo de alrededor, más oscuro con ella.
+    const av = await page.evaluate(async () => {
+      const pl = G.Game.player, cam = G.Camera, cv = document.getElementById('game'), W = cv.width, k = cam.scale * cam.dpr;
+      const hx = pl.x - 160, hy = pl.y + 40, ex = pl.x + 150, ey = pl.y + 30;
+      G.Hazards.add({ kind: 'zone', x: hx, y: hy, r: 40, delay: 9999, dmg: 0, type: 'poison', color: '#c04bff', t: 9999 * 0.8 }, true);
+      G.Projectiles.spawn({ x: ex, y: ey, vx: 0, vy: 0, dmg: 0, r: 8, life: 9999, vis: G.VFX.forType('water'), friendly: false });
+      const now = performance.now.bind(performance), t0 = now(); performance.now = () => t0;
+      const foto = async () => { for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r)); return cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data.slice(); };
+      try {
+        G.MODS.luz = true; const con = await foto();
+        G.MODS.luz = false; const sin = await foto();
+        G.MODS.luz = true;
+        const zona = (x, y, rx, ry) => { let iguales = 0, n = 0; const sx = (x - cam.left()) * k, sy = (y - cam.top()) * k;
+          for (let py = Math.floor(sy - ry * k); py < sy + ry * k; py++) for (let px2 = Math.floor(sx - rx * k); px2 < sx + rx * k; px2++) {
+            if (((px2 - sx) / (rx * k)) ** 2 + ((py - sy) / (ry * k)) ** 2 > 1 || px2 < 0 || py < 0 || px2 >= W || py >= cv.height) continue;
+            const o = (py * W + px2) * 4; n++; if (con[o] === sin[o] && con[o + 1] === sin[o + 1] && con[o + 2] === sin[o + 2]) iguales++; }
+          return { n, iguales }; };
+        const aviso = zona(hx, hy, 30, 22), disparo = zona(ex, ey - G.LIFT, 6, 6), suelo = zona(pl.x - 230, pl.y + 70, 24, 10);
+        return { aviso, disparo, suelo };
+      } finally { performance.now = now; G.Hazards.clear(); G.Projectiles.clear(); }
+    });
+    report.medidas['relieve-avisos-' + nv] = av;
+    check(`${nv}: luz: dentro de un aviso de zona (${av.aviso.iguales} de ${av.aviso.n} píxeles) y en un disparo enemigo (${av.disparo.iguales} de ${av.disparo.n}), los mismos píxeles con y sin la luz; en el suelo de lejos, más oscuro (iguales: ${av.suelo.iguales} de ${av.suelo.n})`,
+      av.aviso.n > 100 && av.aviso.iguales >= av.aviso.n * 0.99 && av.disparo.n > 20 && av.disparo.iguales >= av.disparo.n * 0.99 && av.suelo.iguales <= av.suelo.n * 0.05, av);
+
+    // 5. Sombra de los objetos: al sureste del árbol más cercano, el suelo más oscuro con las sombras que sin ellas.
+    const so = await page.evaluate(async () => {
+      const pl = G.Game.player, cam = G.Camera, cv = document.getElementById('game'), W = cv.width, k = cam.scale * cam.dpr, PX = G.Sprites.PX;
+      const arbol = G.World.visibleProps(cam).filter(p => p.type === 'tree' && cam.sees(p.x, p.y, -60)).sort((a, b) => Math.hypot(a.x - pl.x, a.y - pl.y) - Math.hypot(b.x - pl.x, b.y - pl.y))[0];
+      if (!arbol) return null;
+      const img = G.Tiles.propSprite(G.World.biome, 'tree', 0), h = img.height;
+      // Un punto del suelo en la sombra: lo que proyecta la mitad del árbol (z = h/2): (x + z·0,55, pie + z·0,3), a la derecha del tronco.
+      const z = h * 0.5, sx = arbol.x + (z * 0.55 + 3) * PX, sy = arbol.y + z * 0.3 * PX;
+      const now = performance.now.bind(performance), t0 = now(); performance.now = () => t0;
+      const foto = async () => { for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r)); return cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data.slice(); };
+      try {
+        G.MODS.sombras = true; const con = await foto(); G.MODS.sombras = false; const sin = await foto(); G.MODS.sombras = true;
+        const px2 = Math.round((sx - cam.left()) * k), py = Math.round((sy - cam.top()) * k), o = (py * W + px2) * 4;
+        const l = (d) => d[o] * 0.299 + d[o + 1] * 0.587 + d[o + 2] * 0.114;
+        return { con: Math.round(l(con)), sin: Math.round(l(sin)), arbol: [Math.round(arbol.x), Math.round(arbol.y)] };
+      } finally { performance.now = now; }
+    });
+    check(`${nv}: sombras: al sureste de un árbol, el suelo más oscuro con las sombras (${so && so.con}) que sin ellas (${so && so.sin})`, so && so.con < so.sin - 5, so);
+
+    if (clave === 'pc') {
+      // 6. El estilo sólo cambia la interfaz: sin el HUD, el lienzo del juego es el mismo con Dex y con Clásico.
+      const st = await page.evaluate(async () => {
+        const pl = G.Game.player;
+        for (const [dx, tipo] of [[-70, 'fire'], [80, 'electric']]) G.Projectiles.spawn({ x: pl.x + dx, y: pl.y - 30, vx: 0, vy: 0, dmg: 0, r: 7, life: 9999, vis: G.VFX.forType(tipo), friendly: true });
+        const hud = G.HUD.draw; G.HUD.draw = () => {};
+        const anim = pl.anim.update; pl.anim.update = () => {};      // en la pausa, upstream sigue animando a tu Pokémon (a ×0,25)
+        G.Settings.set('calm', true);
+        const cv = document.getElementById('game'), now = performance.now.bind(performance), t0 = now(); performance.now = () => t0;
+        const foto = async () => { for (let i = 0; i < 4; i++) await new Promise(r => requestAnimationFrame(r)); return cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data.slice(); };
+        try {
+          G.Estilo.set('dex'); const a = await foto();
+          G.Estilo.set('clasico'); const b = await foto();
+          G.Estilo.set('dex');
+          let dif = 0, caja = null;
+          for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) {
+            dif++; const x = (i / 4) % cv.width, y = Math.floor(i / 4 / cv.width);
+            caja = caja ? [Math.min(caja[0], x), Math.min(caja[1], y), Math.max(caja[2], x), Math.max(caja[3], y)] : [x, y, x, y];
+          }
+          G.MODS.mundoDex = false; G.Estilo.set('clasico');
+          if (G.Horno) G.Horno.rehornear();
+          for (let i = 0; i < 300 && G.Horno && G.Horno.conViejas; i++) await new Promise(r => requestAnimationFrame(r));
+          const c = await foto();
+          G.MODS.mundoDex = true; G.Estilo.set('dex'); if (G.Horno) G.Horno.rehornear();
+          let difViejo = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== c[i] || a[i + 1] !== c[i + 1] || a[i + 2] !== c[i + 2]) difViejo++;
+          return { dif, caja, difViejo, n: a.length / 4 };
+        } finally { performance.now = now; G.HUD.draw = hud; pl.anim.update = anim; G.Settings.set('calm', false); G.Projectiles.clear(); }
+      });
+      report.medidas['relieve-estilo-' + nv] = st;
+      check(`${nv}: el estilo sólo cambia la interfaz: sin el HUD, el lienzo del juego es el mismo con Dex y con Clásico (${st.dif} de ${st.n} píxeles distintos); con mundoDex = false, el de Clásico era otro (${st.difViejo})`,
+        st.dif === 0 && st.difViejo > st.n * 0.2, st);
+    }
+
+    if (clave === 'movil') {
+      // 7. Con la pantalla dividida («abajo»), la luz se pinta en la mitad del juego (su lienzo) y la de los mandos no cambia.
+      const dv = await page.evaluate(async () => {
+        G.Settings.set('dividida', 'abajo');
+        window.dispatchEvent(new Event('resize'));
+        for (let i = 0; i < 20; i++) await new Promise(r => requestAnimationFrame(r));
+        const cv = document.getElementById('game'), cam = G.Camera, buf = G.Luz.lienzo;
+        const pintadas = []; const p0 = G.Luz.pintar; G.Luz.pintar = function (ctx, c) { pintadas.push([c.w, c.h]); return p0.apply(this, arguments); };
+        for (let i = 0; i < 3; i++) await new Promise(r => requestAnimationFrame(r));
+        G.Luz.pintar = p0;
+        const res = { juego: [cv.width, cv.height], camara: [Math.round(cam.w), Math.round(cam.h)], buf: buf && [buf.width, buf.height], pintadas: pintadas.length,
+          bufEsperado: [Math.ceil(cam.w / G.Sprites.PX) + 2, Math.ceil(cam.h / G.Sprites.PX) + 2], dividida: !!(G.Dividida && G.Dividida.activa) || document.documentElement.classList.contains('pantalla-dividida') };
+        G.Settings.set('dividida', 'no');
+        window.dispatchEvent(new Event('resize'));
+        for (let i = 0; i < 10; i++) await new Promise(r => requestAnimationFrame(r));
+        return res;
+      });
+      report.medidas['relieve-dividida-' + nv] = dv;
+      check(`${nv}: luz con la pantalla dividida («abajo»): se pinta cada fotograma (${dv.pintadas}) con la cámara de la mitad del juego (${dv.camara}) y el búfer de su tamaño (${dv.buf} = ${dv.bufEsperado})`,
+        dv.dividida && dv.pintadas >= 2 && dv.buf && dv.buf[0] === dv.bufEsperado[0] && dv.buf[1] === dv.bufEsperado[1], dv);
+    }
+
+    await captura(page, `relieve-cresta-dex-${nv}`);
+    await page.evaluate(() => G.Estilo.set('clasico'));
+    await sleep(150);
+    await captura(page, `relieve-cresta-clasico-${nv}`);
+    check(`${nv}: relieve, sombras y luz: consola sin errores ni avisos y nada pedido fuera de 127.0.0.1`, !P.consola.length && !P.fuera.length, { consola: P.consola.slice(0, 5), fuera: P.fuera.slice(0, 5) });
+    await P.ctx.close();
+  }
+  report.medidas['relieve-segundos'] = Math.round((Date.now() - t0) / 1000);
+  console.log(`[INFO] relieve, sombras y luz (sección 18): ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+}
+
 // ---------------- hoja de contactos ----------------
 function hojaDeContactos() {
   const pares = {};
@@ -3026,6 +3309,10 @@ function hojaDeContactos() {
 
     // 17. Mapas propios: capturas de los biomas, las 18 arenas y el fondo del menú, y nada de terreno normal en la arena.
     if (OTRAS || SOLO_MAPAS) await pruebaMapas(browser);
+
+    // 18. Relieve, sombras y luz (2.5D falsa): oclusión, Claridad, píxel nítido, «Menos sacudidas», avisos y disparos
+    //     enemigos sin oscurecer, sombras, el estilo sólo en la interfaz y la pantalla dividida.
+    if (OTRAS || SOLO_RELIEVE) await pruebaRelieve(browser);
 
     // 8. Sin internet: con el service worker y en Clásico, se cargan las fuentes en reposo; luego, sin red, a Dex.
     if (OTRAS) {

@@ -113,6 +113,11 @@
  *      la ficha (refresh() real de gacha-ui.js), el inglés, los ganchos, el paquete y CREDITS.md; sus hojas (de PixelLab, montadas por
  *      tools/nico/multiverso/montar.py) con el tamaño, el radio y la escala de un Pokémon normal.
  * Sale con código 1 si algo falla.
+ *  26. Relieve, sombras y luz (2.5D falsa; js/world/relieve.js, sombras.js y luz.js con el mundo real): el lienzo del relieve
+ *      (tramos = paredes, techo subido y cara de 8 + H, el resto transparente), el orden en la escena (norte detrás, sur
+ *      delante, lo que vuela encima), su caja para Claridad, el dibujo y el fundido de bioma, la caché; la luz (sólo con
+ *      Calidad Alta y con el mundo Dex, sus fuentes, sin parpadeo con «Menos sacudidas», el búfer en la rejilla del mundo y
+ *      multiplicado, los avisos a 1, el brillo encima); y las sombras de las paredes (hacia el sureste, sólo en el suelo).
  */
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm'), crypto = require('crypto'), os = require('os');
@@ -458,7 +463,7 @@ const HOOKS = [
   // Claridad en partida (js/entities/claridad.js)
   ['dev.html', /src="js\/entities\/player\.js"><\/script>\r?\n<script defer src="js\/entities\/claridad\.js"><\/script><!-- MOD nico/, 'claridad: claridad.js se carga justo después de player.js'],
   ['js/game.js', /items\.sort\(\(a, b\) => a\.y - b\.y\);\r?\n\s*if \(G\.Claridad\) G\.Claridad\.escenaOrdenada\(items\);\s*\/\/ MOD nico/, 'claridad: drawScene pasa la escena ordenada (qué tapa a cada jugador)'],
-  ['js/game.js', /drawScene\(G\.Camera, [^\n]*\r?\n\s*if \(G\.Claridad\) G\.Claridad\.encima\(ctx\);\s*\/\/ MOD nico[^\n]*\r?\n\s*G\.Projectiles\.draw\(ctx\);/, 'claridad: tu Pokémon tapado, encima de la escena y debajo de disparos y efectos'],
+  ['js/game.js', /drawScene\(G\.Camera, [^\n]*\r?\n\s*if \(G\.Claridad\) G\.Claridad\.encima\(ctx\);\s*\/\/ MOD nico[^\n]*\r?\n(\s*if \(G\.Luz\) G\.Luz\.pintar\(ctx, G\.Camera\);\s*\/\/ MOD nico[^\n]*\r?\n)?\s*G\.Projectiles\.draw\(ctx\);/, 'claridad: tu Pokémon tapado, encima de la escena y debajo de disparos y efectos (entre los dos, como mucho el búfer de luz)'],
   ['js/game.js', /G\.FX\.draw\(ctx\);\r?\n\s*if \(G\.Claridad\) G\.Claridad\.chevron\(ctx\);\s*\/\/ MOD nico/, 'claridad: el chevrón, después de los números'],
   ['js/game.js', /if \(G\.Claridad\) G\.Claridad\.vineta\(ctx, w, h, pl\);\s*\/\/ MOD nico[^\n]*\r?\n\s*G\.HUD\.draw\(ctx, w, h, pl, st\);/, 'claridad: el borde rojo, antes del HUD'],
   ['js/entities/fx.js', /function dmgText\(x, y, value, color = '#ffffff', big = false\) \{\r?\n\s*if \(arguments\[5\] && G\.Claridad && G\.Claridad\.sumar\(arguments\[5\], value, color, big, arguments\[6\]\)\) return;\s*\/\/ MOD nico/, 'claridad: dmgText suma los golpes de cada enemigo'],
@@ -471,6 +476,15 @@ const HOOKS = [
   ['js/entities/player.js', /G\.Camera\.kick\(0\.28\);\r?\n\s*if \(G\.Claridad\) G\.Claridad\.golpe\(this, d\);\s*\/\/ MOD nico/, 'claridad: el golpe recibido, para el borde rojo'],
   ['js/entities/projectile.js', /if \(!p\.friendly && G\.Claridad && G\.Claridad\.disparoHostil\(ctx, shape, v\.pal, p\.x, p\.y - L, angle, a, p\.r >= 8 \? 1\.5 : 1, Math\.floor\(p\.t \* 12\)\)\) continue;\s*\/\/ MOD nico/,
     'claridad: los disparos enemigos, con su contorno rojo'],
+  ['js/entities/claridad.js', /if \(it\.prop\) q = rectProp\(it\.prop\);\r?\n\s*else if \(it\.ent && it\.ent\.caja\) q = it\.ent\.caja;/, 'claridad: una pared con altura tapa con su rectángulo (js/world/relieve.js)'],
+  // Relieve y búfer de luz (PROTOTIPO, js/world/relieve.js y luz.js)
+  ['dev.html', /src="js\/world\/horno\.js"><\/script>[^\n]*\r?\n<script defer src="js\/world\/relieve\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/luz\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/sombras\.js"><\/script><!-- MOD nico/, 'relieve, luz y sombras: relieve.js, luz.js y sombras.js se cargan tras horno.js'],
+  ['js/systems/combat.js', /get campos\(\) \{ return fields; \} \};\s*\/\/ MOD nico/, 'luz: combat.js da los campos de tus ataques (getter aditivo)'],
+  ['js/world/entorno.js', /if \(G\.Sombras\) G\.Sombras\.paredes\(P, cx, cy, n, at, g\.sombra\);/, 'sombras: gradar() hornea la sombra de las paredes'],
+  ['js/world/entorno.js', /if \(G\.Sombras\) G\.Sombras\.objetos\(ctx, cam\);/, 'sombras: la capa del suelo pinta la sombra de los objetos'],
+  ['js/game.js', /if \(G\.Relieve\) G\.Relieve\.escena\(items, cam\);\s*\/\/ MOD nico[^\n]*\r?\n\s*items\.sort\(\(a, b\) => a\.y - b\.y\);/, 'relieve: las paredes con altura entran en la escena antes de ordenarla'],
+  ['js/game.js', /G\.Claridad\.encima\(ctx\);[^\n]*\r?\n\s*if \(G\.Luz\) G\.Luz\.pintar\(ctx, G\.Camera\);\s*\/\/ MOD nico[^\n]*\r?\n\s*G\.Projectiles\.draw\(ctx\);/, 'luz: el búfer de luz, después de la escena y antes de los disparos (nunca oscurece un disparo enemigo)'],
+  ['js/world/world.js', /fundido\(\) \{ return fade \? \{ from: fade\.from, k: fadeK\(\) \} : null; \},\s*\/\/ MOD nico/, 'relieve: world.js da el fundido de bioma'],
   // Arreglos de upstream
   ['js/game.js', /G\.World\.setBiome\(G\.MODS && G\.MODS\.biomaNormal \? G\.MODS\.biomaNormal\(b\) : b\);\s*\/\/ MOD nico/, 'biomas: desde el minuto 12, el mapa sigue en sus biomas normales'],
   ['js/game.js', /if \(state !== 'playing' && flashT > 0 && G\.MODS && G\.MODS\.destelloSinCongelar\) flashT -= dt;\s*\/\/ MOD nico/, 'fogonazo de la grieta: se apaga también al elegir fusión'],
@@ -3985,14 +3999,17 @@ function entornoChecks() {
   /** El mundo real (tiles.js y world.js; `upstream`: sin las líneas «MOD nico») con entorno.js y horno.js si se piden, un reloj
    *  de mentira y un estilo de mentira con la interfaz de G.Estilo (actual, dex, on). paintChunk apunta cada horneado (y lo
    *  alarga `lento` ms en el reloj) y marca el lienzo con su bioma, su estilo y su chunk. `mapas`: los mapas propios entre
-   *  tiles.js y world.js con G.MODS.mapasPropios = mapas (como el juego, true; con false, el mundo del proyecto base). */
-  function mundo({ estilo = 'dex', entorno = true, horno = true, upstream = false, lento = 0, mapas = true } = {}) {
+   *  tiles.js y world.js con G.MODS.mapasPropios = mapas (como el juego, true; con false, el mundo del proyecto base).
+   *  `mundoDex` es G.MODS.mundoDex: aquí, false por omisión (los casos A-F son los del lote 3, con Clásico = el mundo de
+   *  upstream, la red de seguridad frente a upstream); el G mira el del juego (true: el mundo Dex con los dos estilos). */
+  function mundo({ estilo = 'dex', entorno = true, horno = true, upstream = false, lento = 0, mapas = true, mundoDex = false } = {}) {
     const reloj = { t: 1000 };
     const c = { console, performance: { now: () => reloj.t }, document: { createElement: lienzoFalso } };
     vm.createContext(c);
     c.window = c; c.G = {};
     for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js']) vm.runInContext(rd(f), c, { filename: f });
     const G = c.G, oyentes = [];
+    G.MODS.mundoDex = mundoDex;
     G.Estilo = { actual: estilo, get dex() { return this.actual === 'dex'; }, on(fn) { oyentes.push(fn); }, set(v) { this.actual = v; oyentes.forEach(fn => fn(v)); } };
     G.Settings = { fx: 2, get: () => false };
     G.Sprites = { PX: 2 };
@@ -4047,7 +4064,7 @@ function entornoChecks() {
     const arenas = BD.slice(3).every((b, i) => eq(b, BU[3 + i]));
     D.Estilo.set('clasico');
     const vuelta = [0, 1, 2].every(i => D.Entorno.CAMPOS.every(k => eq(BD[i][k], BU[i][k])) && eq(BD[i], BU[i])) && BD.length === BU.length;
-    t('sin los mapas propios, con Clásico las paletas vuelven a las de upstream (copia ORIG, campo a campo) y las arenas de la grieta no se tocan nunca', arenas && vuelta && D.Entorno.aplicada === 'clasico');
+    t('sin los mapas propios, con Clásico las paletas vuelven a las de upstream (copia ORIG, campo a campo) y las arenas de la grieta no se tocan nunca (con mundoDex = false)', arenas && vuelta && D.Entorno.aplicada === 'clasico');
     // Con los mapas propios (como el juego): G.MARCA.biomas sólo lleva { nombre, _g }, así que Dex no recolorea nada; la
     // gradación, el farol y las motas siguen (aplicada 'dex').
     const MD = mundo().G, MC = mundo({ estilo: 'clasico' }).G, BM = MD.Tiles.BIOMES, DAT = MD.MapasDatos.BIOMAS;
@@ -4056,7 +4073,7 @@ function entornoChecks() {
       deDatos && !MD.Entorno.CAMPOS.length && eq(BM, MC.Tiles.BIOMES) && MD.Entorno.aplicada === 'dex', { CAMPOS: MD.Entorno.CAMPOS, aplicada: MD.Entorno.aplicada });
     const antes = JSON.stringify(BM);
     MD.Estilo.set('clasico');
-    t('con los mapas propios, pasar a Clásico no cambia ningún color (ni de los biomas ni de las arenas)', JSON.stringify(BM) === antes && MD.Entorno.aplicada === 'clasico');
+    t('con los mapas propios, pasar a Clásico (con mundoDex = false) no cambia ningún color (ni de los biomas ni de las arenas)', JSON.stringify(BM) === antes && MD.Entorno.aplicada === 'clasico');
   } catch (e) { t('paletas', false, String(e && e.stack || e)); }
 
   // ---- B. Con Clásico, el chunk es byte a byte el de upstream (también tras ir y volver de Dex); sin los mapas propios ----
@@ -4071,7 +4088,7 @@ function entornoChecks() {
       U.G.World.drawGround(a, cam); C.G.World.drawGround(b, cam);
       a.imgs.forEach((im, i) => { casos++; if (!iguales(bytes(im[0]), bytes(b.imgs[i] && b.imgs[i][0]))) mal.push({ bi, x, y, i }); });
     }
-    t(`sin los mapas propios (mapasPropios = false, con sus 4 ficheros cargados) y con Clásico, cada chunk horneado es byte a byte el de upstream (${casos} chunks: bosque, cueva, volcán y una arena, con paredes y charcos, después de pasar por Dex)`, casos >= 24 && !mal.length, mal.slice(0, 4));
+    t(`sin los mapas propios (mapasPropios = false, con sus 4 ficheros cargados), con mundoDex = false y con Clásico, cada chunk horneado es byte a byte el de upstream (${casos} chunks: bosque, cueva, volcán y una arena, con paredes y charcos, después de pasar por Dex)`, casos >= 24 && !mal.length, mal.slice(0, 4));
   } catch (e) { t('Clásico = upstream', false, String(e && e.stack || e)); }
 
   // ---- C. Gradación: sólo el suelo, determinista y sin trazos ----
@@ -4159,7 +4176,7 @@ function entornoChecks() {
     G.Estilo.set('clasico');
     const buf = new Uint32Array(256 * 256).fill(0xff336699);
     G.Entorno.gradar({ w: 256, h: 256, get: (x, y) => buf[y * 256 + x], set(x, y, v) { buf[y * 256 + x] = v; } }, cand[0][0], cand[0][1], 16, at, 0);
-    t('con Clásico, gradar() no toca ningún píxel', buf.every(v => v === 0xff336699));
+    t('con Clásico, gradar() no toca ningún píxel (con mundoDex = false)', buf.every(v => v === 0xff336699));
   } catch (e) { t('gradación', false, String(e && e.stack || e)); }
 
   // ---- D. Horno ----
@@ -4233,7 +4250,7 @@ function entornoChecks() {
     asentar(M, cam, 40);
     G.Estilo.set('clasico');
     const n3 = G.Horno.precalentado;
-    t(`una grieta, otro mundo (reset con otra semilla) o un cambio de estilo descartan lo precalentado (${n0} → ${n1}, ${n2} y ${n3 && n3.n})`, n0 >= 6 && n1 <= 1 && n2 <= 1 && !n3, { n0, n1, n2, n3 });
+    t(`una grieta, otro mundo (reset con otra semilla) o un cambio de estilo (con mundoDex = false) descartan lo precalentado (${n0} → ${n1}, ${n2} y ${n3 && n3.n})`, n0 >= 6 && n1 <= 1 && n2 <= 1 && !n3, { n0, n1, n2, n3 });
   } catch (e) { t('invalidación del precalentado', false, String(e && e.stack || e)); }
   try {
     // D4. Cambio de estilo (en la pausa): 0 horneados de golpe; el suelo se rehornea de uno en uno desde tu Pokémon.
@@ -4246,7 +4263,7 @@ function entornoChecks() {
     for (let i = 0; i < 30; i++) { const f = fotograma(M, cam, 0); ns.push(f.n); hechos.push(...f.hechos); }
     const vis = visibles(cam), mio = Math.floor(-700 / 512) + ',' + Math.floor(900 / 512);
     const finales = vis.map(k => { const [cx, cy] = k.split(',').map(Number); return G.World.chunkImage(cx, cy).__estilo; });
-    t(`al cambiar de estilo (en la pausa): ningún horneado de golpe, como mucho 1 por fotograma (${ns.slice(0, vis.length + 1).join(',')}), el de tu Pokémon primero (${hechos[0]}) y, en ${vis.length + 1} fotogramas, todo lo visible en Clásico`,
+    t(`al cambiar de estilo (en la pausa, con mundoDex = false): ningún horneado de golpe, como mucho 1 por fotograma (${ns.slice(0, vis.length + 1).join(',')}), el de tu Pokémon primero (${hechos[0]}) y, en ${vis.length + 1} fotogramas, todo lo visible en Clásico`,
       Math.max(...ns) <= 1 && hechos[0] === mio && finales.every(e => e === 'clasico') && !G.Horno.conViejas, { ns: ns.slice(0, 12), hechos: hechos.slice(0, 4), finales });
     // Y si justo después empieza otra partida (otro mundo) o se abre una arena, nada de las imágenes viejas.
     G.World.reset(SEMILLA); G.World.setBiome(0, true); asentar(M, cam);
@@ -4333,7 +4350,7 @@ function entornoChecks() {
     // Con Clásico, nada en la capa del suelo (el horno sigue).
     G.Estilo.set('clasico');
     const cc = pinta(2);
-    t('con Clásico, la capa del suelo no pinta nada (farol, halos, motas ni salpicaduras)', !cc.ops.length && !cc.grads.length);
+    t('con Clásico, la capa del suelo no pinta nada (farol, halos, motas ni salpicaduras) (con mundoDex = false)', !cc.ops.length && !cc.grads.length);
   } catch (e) { t('Calidad', false, String(e && e.stack || e)); }
 
   // ---- F. Viñeta cálida y clima de dos tonos ----
@@ -4345,7 +4362,7 @@ function entornoChecks() {
     const vw = ctxFalso(); G.World.drawVignette(vw, W, Hh);
     G.Estilo.set('clasico');
     const vc = ctxFalso(), noHizo = G.Entorno.vineta(vc, W, Hh); G.World.drawVignette(vc, W, Hh);
-    t('drawVignette (world.js): con Dex, la cálida; con Clásico, vineta() devuelve false y sale la negra de upstream (0,5, desde el 34 %)',
+    t('drawVignette (world.js): con Dex, la cálida; con Clásico, vineta() devuelve false y sale la negra de upstream (0,5, desde el 34 %) (con mundoDex = false)',
       vw.grads.length === 1 && vw.grads[0].args[2] === Hh * 0.46 && !noHizo && vc.grads.length === 1 && vc.grads[0].args[2] === Hh * 0.34 && vc.grads[0].stops[1][1] === 'rgba(0,0,0,.5)');
     G.Estilo.set('dex');
     // El clima, con weather.js real.
@@ -4378,8 +4395,51 @@ function entornoChecks() {
       JSON.stringify(escritorio) === '["4x4"]' && JSON.stringify(movil) === '["2x2"]' && JSON.stringify(sinCamara) === '["2x2"]', { escritorio, movil, sinCamara });
     G.Estilo.set('clasico');
     const cu = clima(3);
-    t(`con Clásico, el clima de upstream (70 gotas de 4 trazos y su tinte: ${cu.rects} rectángulos)`, cu.rects === 1 + 70 * 4, cu.rects);
+    t(`con mundoDex = false y Clásico, el clima de upstream (70 gotas de 4 trazos y su tinte: ${cu.rects} rectángulos)`, cu.rects === 1 + 70 * 4, cu.rects);
   } catch (e) { t('viñeta y clima', false, String(e && e.stack || e)); }
+
+  // ---- G. El mundo Dex con los dos estilos (G.MODS.mundoDex, como el juego desde el 14-10-2026: el estilo sólo cambia la interfaz) ----
+  try {
+    const D = mundo({ mundoDex: true, estilo: 'dex' }), C = mundo({ mundoDex: true, estilo: 'clasico' }), U = mundo({ upstream: true, entorno: false, horno: false });
+    const BD = JSON.stringify(D.G.Tiles.BIOMES);
+    t('con mundoDex, Clásico lleva las mismas paletas que Dex (aplicada «dex» en los dos) y pasar de uno a otro no cambia ningún color',
+      JSON.stringify(C.G.Tiles.BIOMES) === BD && C.G.Entorno.aplicada === 'dex' && (D.G.Estilo.set('clasico'), JSON.stringify(D.G.Tiles.BIOMES) === BD && D.G.Entorno.aplicada === 'dex'));
+    D.G.Estilo.set('dex');
+    // Sin los mapas propios, también las paletas del Gremio con Clásico.
+    const SD = mundo({ mundoDex: true, mapas: false }), SC = mundo({ mundoDex: true, mapas: false, estilo: 'clasico' });
+    t('con mundoDex y sin los mapas propios, Clásico lleva las paletas del Gremio, como Dex', JSON.stringify(SD.G.Tiles.BIOMES) === JSON.stringify(SC.G.Tiles.BIOMES) && SC.G.Entorno.aplicada === 'dex');
+    // Los chunks horneados: byte a byte iguales con Dex y con Clásico, y graduados (distintos de los de upstream sin entorno.js).
+    let casos = 0, distintosUp = 0;
+    const mal = [];
+    for (const bi of [0, 1, 2]) for (const [x, y] of [[0, 0], [2600, -1800]]) {
+      for (const M of [D, C, U]) { M.G.World.reset(SEMILLA); M.G.World.setBiome(bi, true); }
+      const cam = camara(x, y), a = ctxFalso(), b = ctxFalso(), u = ctxFalso();
+      D.G.World.drawGround(a, cam); C.G.World.drawGround(b, cam);
+      a.imgs.forEach((im, i) => { casos++; if (!iguales(bytes(im[0]), bytes(b.imgs[i] && b.imgs[i][0]))) mal.push({ bi, x, y, i }); });
+      const M2 = mundo({ mundoDex: true, entorno: false, horno: false }); M2.G.World.reset(SEMILLA); M2.G.World.setBiome(bi, true); M2.G.World.drawGround(u, cam);
+      a.imgs.forEach((im, i) => { if (!iguales(bytes(im[0]), bytes(u.imgs[i] && u.imgs[i][0]))) distintosUp++; });
+    }
+    t(`con mundoDex, cada chunk horneado es el mismo con Dex y con Clásico (${casos} chunks de los 3 biomas) y lleva la gradación (${distintosUp} distintos del mismo pintor sin entorno.js)`, casos >= 12 && !mal.length && distintosUp === casos, mal.slice(0, 4));
+    // La capa del suelo, la viñeta cálida y el clima de dos tonos, también con Clásico.
+    const cam = camara(0, 0), cs = ctxFalso();
+    C.G.Entorno.suelo(cs, cam, 1);
+    const vc = ctxFalso(), vin = C.G.Entorno.vineta(vc, 1280, 720);
+    C.G.Spawner = { say() {} }; C.G.Audio = { sfx() {} }; C.G.Coop = { active: false, isHost: false }; C.G.EnemyMgr = { all: () => [] };
+    vm.runInContext('Math.random = () => 0.5;', C.c);
+    vm.runInContext(rd('js/systems/weather.js'), C.c, { filename: 'js/systems/weather.js' });
+    C.G.Weather.reset(); C.G.Weather.force('rain', 70); C.G.Weather.update(3, 0, null);
+    const cw = ctxFalso(); C.G.Weather.draw(cw, 1280, 720, 0);
+    t(`con mundoDex y Clásico: la capa del suelo pinta (el farol: ${cs.grads.length} degradado), la viñeta es la cálida y la lluvia, la de dos tonos (#1d4a78 y #e6f2ff)`,
+      cs.grads.length >= 1 && vin && vc.grads.length === 1 && vc.grads[0].stops[1][1] === 'rgba(24,12,5,0.26)' && cw.estilos.includes('#1d4a78') && cw.estilos.includes('#e6f2ff'), { farol: cs.grads.length, vin, estilos: cw.estilos.slice(0, 4) });
+    // Cambiar de estilo no rehornea nada (el mundo no cambia): 0 chunks en los fotogramas siguientes.
+    const H = mundo({ mundoDex: true }), camH = camara(300, 200);
+    H.G.World.reset(SEMILLA); H.G.World.setBiome(0, true);
+    for (let i = 0; i < 40; i++) fotograma(H, camH);
+    H.G.Estilo.set('clasico');
+    const ns = [];
+    for (let i = 0; i < 8; i++) ns.push(fotograma(H, camH).n);
+    t(`con mundoDex, cambiar de estilo no rehornea ni descarta nada (${ns.join(',')} chunks en los 8 fotogramas siguientes)`, ns.every(n => n === 0), ns);
+  } catch (e) { t('mundo Dex con los dos estilos', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`entornos del Gremio: ${r.length} casos bien`);
@@ -4474,10 +4534,12 @@ function juegoChecks() {
 
   // ---- C. Iris: cuándo salta ----
   try {
-    const caso = ({ dex = true, calma = false } = {}) => {
+    // `mundo` es G.MODS.mundoDex: false en los casos de siempre (el iris, sólo con el estilo Dex); con true (el juego), también con Clásico.
+    const caso = ({ dex = true, calma = false, mundo = false } = {}) => {
       const c = nuevo({ ajustes: calma ? { calm: true } : {}, ficheros: ['js/ui/transicion.js'] }), G = c.G, R = c.__reloj;
       const juego = { inArena: false, arena: null, st: { time: 0 } };
       G.Estilo = { dex };
+      G.MODS.mundoDex = mundo;
       G.Game = { get st() { return juego.st; }, state: 'playing' };
       G.Rift = { get inArena() { return juego.inArena; }, get arena() { return juego.arena; } };
       G.Camera.resize(1440, 900, 1); G.Camera.x = 0; G.Camera.y = 0;
@@ -4509,6 +4571,7 @@ function juegoChecks() {
     const I = caso(); I.paso(16, 30); I.juego.inArena = true; I.juego.arena = { phase: 'fight', endT: 0 }; I.paso(16, 30); I.juego.arena = { phase: 'won', endT: 2 }; I.paso(16);
     I.juego.inArena = false; I.paso(16); const invitado = { fase: I.G.Transicion.fase, a: I.apertura() };
     const C = caso({ dex: false }); C.paso(16, 5); C.juego.inArena = true; C.paso(16, 5); const clasico = C.log.every(f => f === null) && !C.ctx.ops.length;
+    const CM = caso({ dex: false, mundo: true }); CM.paso(16, 5); const clasicoMundo = CM.log[0] === 'abriendo';
     const M = caso({ calma: true }); M.paso(16); M.paso(16, 10); const fundido = M.G.Transicion.fase;   // 150 ms: ya abierto a los 176
     // Un diálogo en la arena durante la espera (cambiar de objeto: estado 'choice', la cuenta atrás se para): se abre y no
     // vuelve a cerrarse en bucle (fallo visto en estilo-e2e: cerraba y abría cada 0,8 s detrás del diálogo).
@@ -4517,11 +4580,11 @@ function juegoChecks() {
     D.G.Game.state = 'choice'; D.paso(16, 150);
     const tramos = D.log.slice(-150).filter((f, i, a) => f === 'cerrando' && a[i - 1] !== 'cerrando').length;
     const dialogo = { cerrandoAntes, tramos, fin: D.G.Transicion.fase };
-    t('iris (sólo Dex): salta al empezar (negro y se abre en 280 ms), al entrar en la arena (el fotograma del tirón, negro) y al salir (se cierra con endT ≤ 0,3 s, 80 ms o más de negro y se abre); no en el cambio de bioma ni al volver de la pausa; el invitado que vuelve antes de cerrarse, negro al instante; un diálogo durante la espera lo abre y no se vuelve a cerrar en bucle; con Clásico, nada; con «Menos sacudidas», fundidos de 150 ms',
+    t('iris (sólo Dex): salta al empezar (negro y se abre en 280 ms), al entrar en la arena (el fotograma del tirón, negro) y al salir (se cierra con endT ≤ 0,3 s, 80 ms o más de negro y se abre); no en el cambio de bioma ni al volver de la pausa; el invitado que vuelve antes de cerrarse, negro al instante; un diálogo durante la espera lo abre y no se vuelve a cerrar en bucle; con Clásico, nada si mundoDex = false y lo mismo que con Dex con mundoDex (el juego); con «Menos sacudidas», fundidos de 150 ms',
       alEmpezar.fase === 'abriendo' && alEmpezar.a < 0.1 && abierto === null && bioma && pausa && entrada.fase === 'abriendo' && entrada.a < 0.1 && entrada.negro &&
       abiertaArena === null && vuelta.cierre <= 0.3 && vuelta.cierre > 0.26 && vuelta.negroMs >= 80 && vuelta.fase === 'abriendo' && vuelta.a < 0.1 &&
-      invitado.fase === 'abriendo' && invitado.a < 0.1 && clasico && fundido === null && dialogo.cerrandoAntes === 'cerrando' && dialogo.tramos === 0 && dialogo.fin === null,
-      { alEmpezar, abierto, bioma, pausa, entrada, abiertaArena, vuelta, invitado, clasico, fundido, dialogo });
+      invitado.fase === 'abriendo' && invitado.a < 0.1 && clasico && clasicoMundo && fundido === null && dialogo.cerrandoAntes === 'cerrando' && dialogo.tramos === 0 && dialogo.fin === null,
+      { alEmpezar, abierto, bioma, pausa, entrada, abiertaArena, vuelta, invitado, clasico, clasicoMundo, fundido, dialogo });
   } catch (e) { t('iris', false, String(e && e.stack || e)); }
 
   // ---- D. Golpe final: 140 ms quieto sólo en solitario con jefe o legendario ----
@@ -5898,12 +5961,17 @@ function mapasChecks() {
       if (!P || typeof P.suelo !== 'function') mascara = false;
       else for (let p = 0; p < 256 * 256 && mascara; p++) if (P.suelo(p & 255, p >> 8) !== (clases[p] === 'suelo' || clases[p] === 'recorte')) mascara = false;
     }
+    // Con el mundo Dex (G.MODS.mundoDex, el juego), Clásico gradúa igual que Dex; con mundoDex = false, nada.
+    const conDex = cand.map(([cx, cy]) => conSin(cx, cy, 0)[0]);
     EG.Estilo.set('clasico');
+    const mundoIgual = cand.every(([cx, cy], i) => iguales(conSin(cx, cy, 0)[0], conDex[i]));
+    EG.MODS.mundoDex = false;
     const clasico = cand.every(([cx, cy]) => { const [con, sin] = conSin(cx, cy, 0); return iguales(con, sin); });
+    EG.MODS.mundoDex = true;
     const pct = c => Math.round(100 * c[1] / Math.max(1, c[0]));
-    t(`gradación de entorno.js sobre el pintor nuevo, por píxel con su máscara de suelo (Pix.suelo, ${mascara ? 'igual a la esperada' : 'DISTINTA de la esperada'}): con Dex, el ${pct(cuenta.suelo)} % del suelo (> 60), el ${pct(cuenta.recPared)} % y el ${pct(cuenta.recLiq)} % de los ${cuenta.recPared[0]} y ${cuenta.recLiq[0]} píxeles de los recortes de las esquinas de paredes y ríos (> 90), y ${cuenta.triangulo[1]} de los ${cuenta.triangulo[0]} de los triángulos de río y ${cuenta.otro[1]} de los ${cuenta.otro[0]} del resto de paredes y ríos (0), en ${cand.length} chunks con paredes y río y los 3 biomas; con Clásico, ninguno`,
+    t(`gradación de entorno.js sobre el pintor nuevo, por píxel con su máscara de suelo (Pix.suelo, ${mascara ? 'igual a la esperada' : 'DISTINTA de la esperada'}): con Dex, el ${pct(cuenta.suelo)} % del suelo (> 60), el ${pct(cuenta.recPared)} % y el ${pct(cuenta.recLiq)} % de los ${cuenta.recPared[0]} y ${cuenta.recLiq[0]} píxeles de los recortes de las esquinas de paredes y ríos (> 90), y ${cuenta.triangulo[1]} de los ${cuenta.triangulo[0]} de los triángulos de río y ${cuenta.otro[1]} de los ${cuenta.otro[0]} del resto de paredes y ríos (0), en ${cand.length} chunks con paredes y río y los 3 biomas; con Clásico, los mismos que con Dex (mundoDex) y, con mundoDex = false, ninguno`,
       cand.length === 3 && mascara && cuenta.suelo[1] / cuenta.suelo[0] > 0.6 && cuenta.recPared[0] > 0 && cuenta.recPared[1] / cuenta.recPared[0] > 0.9 &&
-      cuenta.recLiq[0] > 0 && cuenta.recLiq[1] / cuenta.recLiq[0] > 0.9 && cuenta.triangulo[0] > 0 && !cuenta.triangulo[1] && !cuenta.otro[1] && clasico, { cand, cuenta, mascara, clasico });
+      cuenta.recLiq[0] > 0 && cuenta.recLiq[1] / cuenta.recLiq[0] > 0.9 && cuenta.triangulo[0] > 0 && !cuenta.triangulo[1] && !cuenta.otro[1] && clasico && mundoIgual, { cand, cuenta, mascara, clasico, mundoIgual });
   } catch (e) { t('pintor', false, String(e && e.stack || e)); }
 
   // ---- L. Sprites de los objetos ----
@@ -6393,6 +6461,219 @@ function multiversoChecks() {
   for (const [name, , detail] of failed) bad(`multiverso: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 26. Relieve, sombras y luz (2.5D falsa, aprobada por Nico el 14-10-2026) ----------------
+function relieveChecks() {
+  console.log('26. Relieve, sombras y luz (js/world/relieve.js, sombras.js y luz.js con tiles.js, mapas*.js, world.js y entorno.js reales)');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  /** Un contexto 2D de mentira que apunta cada llamada con el modo de mezcla, el alfa, el color y el suavizado de ese momento. */
+  const ctx2d = cv => {
+    const o = { ops: [], globalAlpha: 1, globalCompositeOperation: 'source-over', imageSmoothingEnabled: true, fillStyle: '#000',
+      createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }), putImageData(img) { if (cv) cv._img = img; } };
+    return new Proxy(o, {
+      get(x, k) { if (k in x) return x[k]; return (...a) => { x.ops.push([k, a, x.globalCompositeOperation, x.globalAlpha, x.fillStyle, x.imageSmoothingEnabled]); }; },
+      set(x, k, v) { x[k] = v; return true; }
+    });
+  };
+  const lienzo = () => { const cv = { width: 0, height: 0, _img: null }; const c = ctx2d(cv); cv.getContext = () => c; return cv; };
+  const camara = (x, y, w = 768, h = 432) => ({ x, y, w, h, scale: 1, left() { return this.x - this.w / 2; }, top() { return this.y - this.h / 2; },
+    sees(px, py, pad = 60) { return px > this.left() - pad && px < this.left() + this.w + pad && py > this.top() - pad && py < this.top() + this.h + pad; } });
+  const SEM = 1234, PX = 2, T = 16, TS = 32;
+  /** El mundo real (mapas propios) con entorno.js, horno.js, relieve.js, luz.js y sombras.js; estilo y Calidad de mentira. */
+  function mundo({ estilo = 'dex', mundoDex = true } = {}) {
+    const reloj = { t: 1000 };
+    const c = { console, performance: { now: () => reloj.t }, document: { createElement: lienzo }, matchMedia: () => ({ matches: false }) };
+    vm.createContext(c);
+    c.window = c; c.G = {};
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js']) vm.runInContext(rd(f), c, { filename: f });
+    const G = c.G;
+    G.MODS.mundoDex = mundoDex;
+    G.Estilo = { actual: estilo, get dex() { return this.actual === 'dex'; }, on() {} };
+    G.Settings = { fx: 2, get: () => false };
+    G.Sprites = { PX };
+    G.Game = { state: 'playing', st: { time: 10 }, player: { x: 0, y: 0 } };
+    G.Rift = { inArena: false, rift: null };
+    G.Hazards = { all: [] }; G.Projectiles = { all: () => [] }; G.Combat = { campos: [] };
+    vm.runInContext(rd('js/world/tiles.js'), c, { filename: 'js/world/tiles.js' });
+    cargarMapas(c, true);
+    for (const f of ['js/world/world.js', 'js/world/entorno.js', 'js/world/horno.js', 'js/world/relieve.js', 'js/world/luz.js', 'js/world/sombras.js'])
+      vm.runInContext(rd(f), c, { filename: f });
+    G.World.reset(SEM); G.World.setBiome(0, true);
+    return { G, c, reloj };
+  }
+  /** Una casilla de pared cerca del principio con suelo al norte (dos casillas) y al sur: la cresta. */
+  function sitio(G) {
+    const kind = (tx, ty) => G.World.kindAt(tx * TS + 16, ty * TS + 16);
+    for (let cy = -2; cy <= 2; cy++) for (let cx = -2; cx <= 2; cx++) {
+      for (let j = 2; j < 15; j++) for (let i = 1; i < 15; i++) {
+        const tx = cx * 16 + i, ty = cy * 16 + j;
+        if (kind(tx, ty) === 'wall' && kind(tx, ty - 1) === 'floor' && kind(tx, ty + 1) === 'floor' && kind(tx, ty - 2) === 'floor') return { cx, cy, tx, ty, kind };
+      }
+    }
+    return null;
+  }
+  /** Varios fotogramas de escena (el relieve hornea uno o dos lienzos por fotograma): la última lista, ordenada. */
+  function escena(G, cam, extra = [], n = 14) {
+    let items = [];
+    for (let k = 0; k < n; k++) { items = extra.map(e => ({ y: e.y, ent: e })); G.Relieve.escena(items, cam); }
+    items.sort((a, b) => a.y - b.y);
+    return items;
+  }
+
+  // ---- A. El lienzo del relieve: los tramos son las paredes del chunk; techo subido y cara de 8 + H; el resto, transparente ----
+  try {
+    const M = mundo(), G = M.G, S = sitio(G);
+    t('hay una cresta (pared con suelo al norte y al sur) cerca del principio con la semilla 1234', !!S, S);
+    const H = 8, R = G.Mapas.pintarRelieve(S.cx, S.cy, 16, 0, SEM, H), d = R.cv && R.cv._img && R.cv._img.data;
+    const k = (i, j) => S.kind(S.cx * 16 + i, S.cy * 16 + j);
+    let malTramo = 0, paredes = 0, malCara = 0;
+    const cubre = new Map();
+    for (const tr of R.tramos) for (let i = tr.i0; i <= tr.i1; i++) {
+      cubre.set(i + ',' + tr.j, (cubre.get(i + ',' + tr.j) || 0) + 1);
+      if (tr.cara !== (k(i, tr.j + 1) !== 'wall')) malCara++;
+    }
+    for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) { const w = k(i, j) === 'wall'; if (w) paredes++; if ((cubre.get(i + ',' + j) || 0) !== (w ? 1 : 0)) malTramo++; }
+    t(`relieve: los tramos cubren cada pared del chunk una vez y nada más (${paredes} paredes en ${R.tramos.length} tramos) y llevan cara donde al sur no hay pared`, paredes > 0 && !malTramo && !malCara, { malTramo, malCara });
+    // En la columna del centro de cada pared, opacos el techo (16 filas) y, con cara, 8 + H más; debajo, transparente.
+    const W = 16 * T, alfa = (x, y) => d[(y * W + x) * 4 + 3];
+    let malCol = 0, casos = 0;
+    for (const tr of R.tramos) for (let i = tr.i0; i <= tr.i1; i++) {
+      const x = i * T + 8, y0 = tr.j * T, alto = T + (tr.cara ? H : 0);
+      casos++;
+      for (let y = y0; y < y0 + alto; y++) if (alfa(x, y) !== 255) { malCol++; break; }
+      if (tr.cara && tr.j + 2 < 16 && k(i, tr.j + 2) !== 'wall') for (let y = y0 + alto; y < (tr.j + 2) * T; y++) if (alfa(x, y) !== 0) { malCol++; break; }
+    }
+    // Lo que no es pared, transparente: cada píxel opaco cae en el rectángulo de algún tramo.
+    let fuera = 0;
+    const dentro = (x, y) => R.tramos.some(tr => x >= tr.i0 * T && x < (tr.i1 + 1) * T && y >= tr.j * T && y < tr.j * T + T + (tr.cara ? H : 0));
+    for (let y = 0; y < 16 * T + H; y++) for (let x = 0; x < W; x++) if (alfa(x, y) && !dentro(x, y)) fuera++;
+    t(`relieve: el techo sube ${H} px y la cara mide 8 + ${H} (${casos} columnas de pared, ${malCol} mal); fuera de los tramos, todo transparente (${fuera} píxeles opacos fuera)`,
+      casos > 0 && !malCol && !fuera, { malCol, fuera });
+    t('relieve: el lienzo mide 16·16 de ancho y 16·16 + H de alto (H px por encima del chunk)', R.cv.width === 256 && R.cv.height === 256 + H, [R.cv.width, R.cv.height]);
+  } catch (e) { t('lienzo del relieve', false, String(e && e.stack || e)); }
+
+  // ---- B. La escena: lo del norte de la cresta, detrás; lo del sur, delante; lo que vuela por encima, encima ----
+  try {
+    const M = mundo(), G = M.G, S = sitio(G), x = S.tx * TS + 16, y0 = S.ty * TS;
+    const cam = camara(x, y0);
+    const norte = { x, y: y0 - 6, n: 'norte' }, sur = { x, y: y0 + TS + 6, n: 'sur' }, vuela = { x, y: y0 + 16, n: 'vuela' };
+    const items = escena(G, cam, [norte, sur, vuela]);
+    const tramo = items.find(it => it.ent.relieve && it.ent.caja[0] <= x && it.ent.caja[2] > x && it.y === y0);
+    const i = e => items.findIndex(it => it.ent === e), it = tramo ? items.indexOf(tramo) : -1;
+    const c = tramo && tramo.ent.caja;
+    t(`escena: el tramo de la cresta (orden ${tramo && tramo.y} = su borde norte) va después de lo que tiene los pies 6 px al norte y antes de lo de debajo; lo que vuela sobre ella, después de su último tramo`,
+      !!tramo && i(norte) < it && it < i(sur) && i(vuela) > it, { tramo: tramo && tramo.y, orden: items.map(q => q.ent.n || (q.ent.relieve ? 'pared@' + q.y : '?')).slice(0, 40) });
+    const Hm = G.Relieve.altura() * PX;
+    t(`escena: la caja del tramo (la que cuenta G.Claridad) va de H·${PX} = ${Hm} px por encima de la casilla (el techo subido) a su pie con la cara (${c && c[1] - y0} y ${c && c[3] - y0})`,
+      !!c && Hm > 0 && c[1] === y0 - Hm && c[3] === y0 + TS, c);
+    // Sin relieve (altura 0) o con mundoDex = false y Clásico, nada; con mundoDex, también con Clásico.
+    const H0 = G.MODS.relieveAltura;
+    G.MODS.relieveAltura = 0;
+    const sin = escena(G, cam, [norte], 2).filter(q => q.ent.relieve).length;
+    G.MODS.relieveAltura = H0;
+    const MC = mundo({ estilo: 'clasico', mundoDex: false }), MCD = mundo({ estilo: 'clasico' });
+    const cla = escena(MC.G, cam, [], 4).filter(q => q.ent.relieve).length, claD = escena(MCD.G, cam, [], 14).filter(q => q.ent.relieve).length;
+    t(`escena: sin tramos con relieveAltura = 0 (${sin}) y con mundoDex = false y Clásico (${cla}); con mundoDex, también con Clásico (${claD})`, !sin && !cla && claD > 0);
+  } catch (e) { t('escena del relieve', false, String(e && e.stack || e)); }
+
+  // ---- C. Dibujo: un drawImage del trozo del lienzo; en el fundido de bioma, el viejo debajo y el nuevo con su alfa ----
+  try {
+    const M = mundo(), G = M.G, S = sitio(G), x = S.tx * TS + 16, y0 = S.ty * TS, cam = camara(x, y0);
+    let items = escena(G, cam);
+    const tr = items.find(it => it.ent.relieve), c1 = ctx2d();
+    tr.ent.draw(c1);
+    const d1 = c1.ops.filter(o => o[0] === 'drawImage');
+    t('dibujo: cada tramo, un drawImage de su trozo del lienzo a su caja', d1.length === 1 && d1[0][1].length === 9 && d1[0][1][5] === tr.ent.caja[0] && d1[0][1][6] === tr.ent.caja[1], d1[0] && d1[0][1].slice(1));
+    G.World.setBiome(1);                       // con fundido
+    G.World.update(0.5, cam);
+    items = escena(G, cam);
+    const tr2 = items.find(it => it.ent.relieve && it.ent.caja[0] === tr.ent.caja[0] && it.y === tr.y), c2 = ctx2d();
+    tr2.ent.draw(c2);
+    const d2 = c2.ops.filter(o => o[0] === 'drawImage'), fu = G.World.fundido();
+    t(`dibujo: en el fundido de bioma, el relieve viejo debajo (alfa 1) y el nuevo encima con el del fundido (${fu && fu.k.toFixed(2)})`,
+      !!fu && d2.length === 2 && d2[0][3] === 1 && Math.abs(d2[1][3] - fu.k) < 1e-9 && d2[0][1][0] !== d2[1][1][0], d2.map(o => o[3]));
+    const antes = G.Relieve.cache.geo;
+    G.World.reset(SEM + 1); G.Relieve.escena([], cam);
+    t(`caché: con otro mundo se olvidan los tramos (${antes} → ${G.Relieve.cache.geo})`, antes > 0 && G.Relieve.cache.geo <= 2);
+  } catch (e) { t('dibujo del relieve', false, String(e && e.stack || e)); }
+
+  // ---- D. Luz ----
+  try {
+    const M = mundo(), G = M.G, cam = camara(0, 0);
+    const act = [];
+    for (const fx of [2, 1, 0]) { G.Settings.fx = fx; act.push(G.Luz.activo()); }
+    G.Settings.fx = 2; G.MODS.luz = false; act.push(G.Luz.activo()); G.MODS.luz = true;
+    const MC = mundo({ estilo: 'clasico', mundoDex: false }), MD = mundo({ estilo: 'dex', mundoDex: false }), MK = mundo({ estilo: 'clasico' });
+    t(`luz: sólo con Calidad Alta (Alta, Media, Baja: ${act.slice(0, 3)}), nada con luz = false (${act[3]}); va con el mundo Dex: con mundoDex = false, sólo con Dex (${MD.G.Luz.activo()}; Clásico, ${MC.G.Luz.activo()}) y con mundoDex, también con Clásico (${MK.G.Luz.activo()})`,
+      act.join() === 'true,false,false,false' && MD.G.Luz.activo() && !MC.G.Luz.activo() && MK.G.Luz.activo());
+    const vis = p => ({ pal: p });
+    G.Projectiles.all = () => [{ x: 10, y: 10, r: 6, friendly: true, vis: vis('fire') }, { x: 40, y: 10, r: 6, friendly: true, vis: vis('electric') },
+      { x: 70, y: 10, r: 6, friendly: true, vis: vis('water') }, { x: 100, y: 10, r: 6, friendly: false, vis: vis('fire') }];
+    G.Combat.campos = [{ kind: 'patch', x: 0, y: 60, r: 40, t: 1, life: 3, m: { type: 'fire' } }, { kind: 'mine', x: 30, y: 60, t: 1, life: 5, m: { type: 'water' } }];
+    G.Rift.rift = { x: 120, y: 80, t: 2, ttl: 9 };
+    const L = G.Luz.luces(cam, 1, false), cols = L.map(l => l.col);
+    t(`luz: alumbran tus disparos de fuego y eléctricos (no los de agua ni los de un enemigo), tus campos de fuego y la grieta (${L.length} luces: ${cols.join(', ')})`,
+      L.length === 4 && cols[0] === '#ffae3a' && cols[1] === '#fff06a' && cols.includes('#B48AFF'), cols);
+    const a1 = G.Luz.luces(cam, 1, true).map(l => l.a), a2 = G.Luz.luces(cam, 1.37, true).map(l => l.a);
+    t('luz: con «Menos sacudidas y destellos» (reducido), ninguna parpadea ni late: el mismo alfa en dos momentos', JSON.stringify(a1) === JSON.stringify(a2), { a1, a2 });
+    // El ácido de la Vega Sulfúrea: una luz por casilla visible, sólo en el búfer.
+    G.Projectiles.all = () => []; G.Combat.campos = []; G.Rift.rift = null;
+    G.World.setBiome(2, true);
+    let liq = null;
+    for (let r2 = 0; r2 < 40 && !liq; r2 += 2) for (let a = 0; a < 6.28 && !liq; a += 0.5) {
+      const Lq = G.Luz.luces(camara(Math.cos(a) * r2 * TS, Math.sin(a) * r2 * TS), 1, false);
+      if (Lq.length >= 6) liq = { n: Lq.length, solo: Lq.every(l => l.solo), col: Lq[0].col };
+    }
+    t(`luz: en la Vega Sulfúrea, el ácido alumbra (una luz por casilla visible, sólo en el búfer: ${liq && liq.n}, ${liq && liq.col})`, !!liq && liq.solo && liq.col === '#a8f060', liq);
+    G.World.setBiome(0, true);
+    // pintar(): el búfer alineado con la rejilla del mundo y multiplicado; los avisos, a 1 en el búfer; el brillo, encima.
+    G.Projectiles.all = () => [{ x: 0, y: 0, r: 6, friendly: true, vis: vis('fire') }];
+    G.Hazards.all = [{ kind: 'zone', x: 100, y: 50, r: 44, hit: false }, { kind: 'beam', x: -100, y: 0, angle: 0.3, len: 120, w: 20, hit: false }, { kind: 'zone', x: 0, y: 0, r: 30, hit: true }];
+    const c3 = camara(3.7, 1.3, 777, 431), main = ctx2d();
+    G.Luz.pintar(main, c3);
+    const mult = main.ops.find(o => o[0] === 'drawImage' && o[2] === 'multiply'), Wb = Math.ceil(777 / PX) + 2, Hb = Math.ceil(431 / PX) + 2;
+    const ox = mult && mult[1][5], oy = mult && mult[1][6];
+    t(`luz: el búfer mide ceil(vista / ${PX}) + 2 píxeles de arte (${mult && mult[1][3]}×${mult && mult[1][4]}), empieza en la rejilla del mundo (${ox}, ${oy}: múltiplos de ${PX}) y se multiplica ×${PX} sin suavizar`,
+      !!mult && mult[1][3] === Wb && mult[1][4] === Hb && ox % PX === 0 && oy % PX === 0 && mult[1][7] === Wb * PX && mult[1][8] === Hb * PX && mult[5] === false, mult && mult[1].slice(1));
+    const brillo = main.ops.filter(o => o[0] === 'drawImage' && o[2] === 'lighter');
+    t(`luz: después, el brillo de cada luz con 'lighter' en la rejilla (${brillo.length}, alfa ${brillo[0] && brillo[0][3].toFixed(3)} ≈ 0,62 × 0,28) y sólo un drawImage con 'multiply'`,
+      brillo.length === 1 && Math.abs(brillo[0][3] - 0.62 * 0.28) < 0.05 && brillo[0][1][1] % PX === 0 && main.ops.filter(o => o[2] === 'multiply' && o[0] === 'drawImage').length === 1, brillo.map(o => o[1].slice(1)));
+    const bo = mult[1][0].getContext().ops;
+    const iAmb = bo.findIndex(o => o[0] === 'fillRect' && o[2] === 'source-over'), iLuz = bo.findIndex(o => o[0] === 'drawImage' && o[2] === 'lighter');
+    const fills = bo.filter((o, i) => o[0] === 'fill' && i > iLuz), amb = bo[iAmb] && bo[iAmb][4];
+    t(`luz: en el búfer, el ambiente del bioma primero (${amb}: 0,88 × su tinte), las luces con 'lighter' y, al final, los ${fills.length} avisos sin golpear rellenos de blanco con 'source-over' (nunca se oscurecen)`,
+      iAmb === 0 && amb === 'rgb(231,227,236)' && iLuz > iAmb && fills.length === 2 && fills.every(o => o[2] === 'source-over' && o[4] === '#fff'), { amb, fills: fills.length });
+  } catch (e) { t('luz', false, String(e && e.stack || e)); }
+
+  // ---- E. Sombras de las paredes (horneadas): hacia el sureste, sólo en el suelo, con penumbra al final ----
+  try {
+    const M = mundo(), G = M.G, h = G.Sombras.alturaPared(), SX = G.Sombras.SOL.x, SY = G.Sombras.SOL.y, GRIS = 0xff808080 >>> 0;
+    const caso = (esPared, sombras = true) => {
+      G.MODS.sombras = sombras;
+      const W = 256, b = new Uint32Array(W * W).fill(GRIS);
+      const at = (tx, ty) => (esPared(tx, ty) ? 'wall' : 'floor');
+      const P = { w: W, h: W, get: (x, y) => b[y * W + x], set(x, y, v) { b[y * W + x] = v; }, suelo: (x, y) => !esPared(x >> 4, y >> 4) };
+      G.Sombras.paredes(P, 0, 0, 16, at, '#204060');
+      G.MODS.sombras = true;
+      return b;
+    };
+    const tocado = (b, x, y) => b[y * 256 + x] !== GRIS;
+    const col = caso(tx => tx === 5), ancho = [];                 // una pared de norte a sur en la columna de casillas 5
+    for (let x = 0; x < 256; x++) if (tocado(col, x, 100)) ancho.push(x);
+    const filaS = caso((tx, ty) => ty === 5), alto = [];          // una fila de paredes de oeste a este en la fila 5
+    for (let y = 0; y < 256; y++) if (tocado(filaS, 100, y)) alto.push(y);
+    const pen = col[100 * 256 + ancho[ancho.length - 1]], lleno = col[100 * 256 + 96];
+    t(`sombras: una pared de ${h} px de alto deja ${ancho.length} px de sombra al este (x ${ancho[0]}-${ancho[ancho.length - 1]}; el sol, ${SX} px por píxel de alto) y ${alto.length} al sur de una fila de paredes (y ${alto[0]}-${alto[alto.length - 1]}); nada al oeste, al norte ni en la pared; la última, en penumbra (más clara)`,
+      ancho[0] === 96 && ancho.length === Math.floor(h * SX - 0.5) + 1 && alto[0] === 96 && alto.length === Math.floor(h * SY - 0.5) + 1 && (pen & 255) > (lleno & 255), { ancho, alto });
+    t('sombras: con sombras = false, no se pintan', caso(tx => tx === 5, false).every(v => v === GRIS));
+    t('sombras: van con el mundo Dex (con mundoDex = false y Clásico, apagadas; con mundoDex, también con Clásico)', !mundo({ estilo: 'clasico', mundoDex: false }).G.Sombras.activas() && mundo({ estilo: 'clasico' }).G.Sombras.activas());
+  } catch (e) { t('sombras', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`relieve, sombras y luz: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`relieve, sombras y luz: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -6411,6 +6692,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { devMenuChecks(); } catch (e) { bad('no se pudo probar el menú de pruebas: ' + (e && e.stack || e)); }
   try { mapasChecks(); } catch (e) { bad('no se pudo probar los mapas propios: ' + (e && e.stack || e)); }
   try { multiversoChecks(); } catch (e) { bad('no se pudo probar el Multiverso: ' + (e && e.stack || e)); }
+  try { relieveChecks(); } catch (e) { bad('no se pudo probar el relieve, las sombras y la luz: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

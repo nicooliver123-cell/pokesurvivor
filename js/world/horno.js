@@ -46,8 +46,9 @@ G.Horno = (() => {
     stats.horneados++;
     stats.msMedio = stats.msMedio ? stats.msMedio * 0.8 + ms * 0.2 : ms;
   }
-  /** La clave de lo que hace válida una imagen: el mundo (semilla), la arena abierta y el estilo. */
-  function clave() { return [G.World.semilla, G.World.arena, G.Estilo ? G.Estilo.actual : '']; }
+  /** La clave de lo que hace válida una imagen: el mundo (semilla), la arena abierta y cómo se pinta (con el mundo Dex,
+   *  el mismo en los dos estilos; con G.MODS.mundoDex = false, el estilo). */
+  function clave() { return [G.World.semilla, G.World.arena, G.Entorno && G.Entorno.mundoDex ? (G.Entorno.mundoDex() ? 'dex' : 'clasico') : G.Estilo ? G.Estilo.actual : '']; }
   const misma = (a, b) => a && b && a.length === b.length && a.every((v, i) => v === b[i]);
   function validar() {
     if (pre && !misma(pre.clave, clave())) pre = null;

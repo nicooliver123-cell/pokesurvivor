@@ -588,6 +588,7 @@ G.World = (() => {
     kindAt, isWall, isLiquid, isFree, collide, projectileBlock, propsInCircle, nearestBreakable,
     damageProp, breakAt, specialsNear, update,
     chunkImage, get semilla() { return seed; }, rehornear() { const v = images; images = new Map(); fade = null; return v; },   // MOD nico: horneado escalonado y entornos (js/world/horno.js)
+    fundido() { return fade ? { from: fade.from, k: fadeK() } : null; },   // MOD nico: el fundido de bioma, para las paredes con altura (js/world/relieve.js)
     breakProp(p) { if (!broken.has(p.tx + ',' + p.ty)) destroyProp(p); },
     /** Arena de la grieta: { tx, ty, r } (en tiles) o null. */
     setArena(a) {

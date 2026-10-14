@@ -1,7 +1,8 @@
 /* ============ transicion.js — iris de las transiciones (MOD nico) ============
  * Lote 4 de la identidad «Dex de Expedición» (guía de marca §10.1 con la corrección de la revisión cruzada: el iris
- * no retrasa el juego). Sólo con el estilo Dex (en Clásico, el fogonazo de upstream tal cual). Ajuste en
- * js/core/mods.js (transiciones).
+ * no retrasa el juego). Va con el mundo Dex, así que con los dos estilos (G.MODS.mundoDex, 14-10-2026; con
+ * mundoDex = false, sólo con el estilo Dex y en Clásico el fogonazo de upstream tal cual). Ajuste en js/core/mods.js
+ * (transiciones).
  *
  * Una máscara del color de fondo de la marca con un agujero redondo centrado en tu Pokémon (y un aro de 3 px):
  *   - al empezar la partida: se abre desde negro en 280 ms;
@@ -24,7 +25,8 @@ G.Transicion = (() => {
     try { if (!mq && typeof matchMedia === 'function') mq = matchMedia('(prefers-reduced-motion: reduce)'); } catch (e) { mq = null; }
     return !!(mq && mq.matches);
   }
-  const activa = () => MODS().transiciones !== false && !!(G.Estilo && G.Estilo.dex);
+  // Va con el mundo Dex (G.MODS.mundoConDex: siempre, salvo mundoDex = false, que es sólo con el estilo Dex).
+  const activa = () => MODS().transiciones !== false && !!(typeof MODS().mundoConDex === 'function' ? MODS().mundoConDex() : G.Estilo && G.Estilo.dex);
 
   // fase: null | 'cerrando' | 'negro' | 'abriendo'; t0: cuándo empezó (s, performance.now)
   let fase = null, t0 = 0, plVisto = null, arenaVista = false, tiempoVisto = 0, cerrado = false;   // cerrado: ya se cerró para esta vuelta

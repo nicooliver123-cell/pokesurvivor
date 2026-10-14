@@ -1,6 +1,8 @@
 /* ============ entorno.js — entornos del Gremio y clima de dos tonos (estilo Dex) (MOD nico) ============
  * Lote 3 de la identidad «Dex de Expedición» (guía de marca §11 y plan U7, U9 y U10, con las correcciones de
- * la revisión cruzada, que mandan). Sólo con Dex; con Clásico, el mundo, la viñeta y el clima son los de
+ * la revisión cruzada, que mandan). Desde el 14-10-2026 (decisión de Nico: «elimina el otro modo visual. dex se ve
+ * mejor. que la opción sólo cambie cómo se ve la interfaz»), con los dos estilos: el estilo sólo cambia la interfaz.
+ * Con G.MODS.mundoDex = false, como antes: sólo con Dex, y con Clásico el mundo, la viñeta y el clima son los de
  * upstream y el chunk horneado es byte a byte el de upstream.
  *
  *   paletas    los colores del Gremio (G.MARCA.biomas) sobre G.Tiles.BIOMES de los 3 biomas que se turnan:
@@ -11,8 +13,8 @@
  *              oclusión al pie de las paredes, tierra mojada junto al agua y resplandor junto a la lava. SÓLO
  *              píxeles de suelo y sin trazos (lo que rechazó Nico). Se hornea una vez: no cuesta por fotograma,
  *              y no depende de la Calidad (cambiarla obligaría a rehornear).
- *   suelo      capa del suelo, después del terreno y antes de avisos, objetos y Pokémon (game.js, drawScene):
- *              farol, halos y motas por bioma según la Calidad (G.MODS.calidadEntorno) y las salpicaduras de la
+ *   suelo      capa del suelo, después del terreno y antes de avisos, objetos y Pokémon (game.js, drawScene): la
+ *              sombra de los objetos (sombras.js), farol, halos y motas por bioma según la Calidad (G.MODS.calidadEntorno) y las salpicaduras de la
  *              lluvia. La luz nunca tiñe un sprite. También llama al horno (G.Horno.tick), en los dos estilos.
  *   vineta     viñeta cálida y suave (world.js, drawVignette), en vez de la negra de upstream: el 46 % central,
  *              intacto.
@@ -28,7 +30,8 @@ G.Entorno = (() => {
   const MARCA = () => G.MARCA || null;
   const B = G.Tiles.BIOMES, NORMAL = G.Tiles.NORMAL, T = G.Tiles.T;
   const H = (x, y, s) => G.U.hash(x, y, s);
-  const conDex = () => !!(G.Estilo && G.Estilo.dex && MARCA());
+  // El mundo con el aspecto Dex: siempre (G.MODS.mundoDex, decisión de Nico del 14-10-2026); sin él, sólo con el estilo Dex.
+  const conDex = () => !!(MARCA() && (G.MODS && typeof G.MODS.mundoConDex === 'function' ? G.MODS.mundoConDex() : G.Estilo && G.Estilo.dex));
 
   // ===================================================================
   // 1. Paletas del Gremio (con copia de upstream para volver a Clásico)
@@ -101,6 +104,7 @@ G.Entorno = (() => {
    * (hasta un 10 % hacia `luz` y un 18 % hacia `sombra`), oclusión al pie de las paredes (hasta un 42 %), tierra
    * mojada alrededor del agua (40 %) y resplandor alrededor de la lava (30 %). Los campos se calculan por tile con
    * 3 tiles de margen, se desenfocan dos veces y se interpolan por píxel: nada de bordes ni trazos. Determinista.
+   * Al final, la sombra de las paredes con el sol fijo (G.Sombras.paredes, js/world/sombras.js).
    * Con Clásico no hace nada (el chunk es el de upstream).
    */
   let buf = null;                      // campos y tablas de gradar(), reutilizados (sin basura por chunk)
@@ -149,6 +153,7 @@ G.Entorno = (() => {
         P.set(px, py, ((c & 0xff000000) | (((b + 0.5) | 0) << 16) | (((gg + 0.5) | 0) << 8) | ((r + 0.5) | 0)) >>> 0);
       }
     }
+    if (G.Sombras) G.Sombras.paredes(P, cx, cy, n, at, g.sombra);   // la sombra de las paredes con el sol fijo (js/world/sombras.js)
   }
 
   // ===================================================================
@@ -225,7 +230,8 @@ G.Entorno = (() => {
     if (!q.halos.length) return;
     const HL = MARCA().halos, C = MARCA().color;
     ctx.imageSmoothingEnabled = false;
-    if (q.halos.includes('grieta') && G.Rift && G.Rift.rift) {
+    const luz = !!(G.Luz && G.Luz.activo());                       // con el búfer de luz, la grieta y tus disparos de fuego y eléctricos ya alumbran
+    if (q.halos.includes('grieta') && G.Rift && G.Rift.rift && !luz) {
       const r = G.Rift.rift, f = Math.min(1, r.t * 2, r.ttl / 1.5);
       const pulso = reducido() ? 0 : Math.sin(t * 6.2832 * HL.grieta.hz) * HL.grieta.pulso;
       if (cam.sees(r.x, r.y, HL.grieta.radio)) halo(ctx, C.grieta, r.x, r.y, HL.grieta.radio, (HL.grieta.alfa + pulso) * f);
@@ -242,6 +248,7 @@ G.Entorno = (() => {
       for (const p of G.Projectiles.all()) {
         if (n >= HL.disparo.max) break;
         if (!p.friendly && !hostiles) continue;                       // los hostiles ya llevan el contorno rojo
+        if (luz && p.friendly && p.vis && G.Luz.alumbra(p.vis.pal)) continue;
         if (!cam.sees(p.x, p.y, 20)) continue;
         halo(ctx, p.friendly ? String(p.color || '') : C.peligro, p.x, p.y, HL.disparo.radio, HL.disparo.alfa);
         n++;
@@ -329,6 +336,7 @@ G.Entorno = (() => {
     if (!conDex() || aplicada !== 'dex') { motas.length = 0; saliendo.length = 0; salp.length = 0; motasBi = -1; return; }
     const q = calidad(), g = grad(G.World.biome);
     ctx.save();
+    if (G.Sombras) G.Sombras.objetos(ctx, cam);   // la sombra de árboles y objetos con el sol fijo, debajo de todo (js/world/sombras.js)
     if (q.farol) farol(ctx, cam, g);
     halos(ctx, cam, q, t);
     if (q.motas > 0) dibujarMotas(ctx, cam, g, q.motas, dt); else { motas.length = 0; saliendo.length = 0; }
@@ -422,7 +430,7 @@ G.Entorno = (() => {
   if (G.Estilo && G.Estilo.on) G.Estilo.on(alCambiarEstilo);
 
   return {
-    paletas, gradar, grad, suelo, vineta, clima, calidad, ORIG, CAMPOS,
+    paletas, gradar, grad, suelo, vineta, clima, calidad, ORIG, CAMPOS, mundoDex: conDex,
     get aplicada() { return aplicada; }
   };
 })();

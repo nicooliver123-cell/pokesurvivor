@@ -6,6 +6,9 @@
  *            M PLUS Rounded 1c 500/800 en todo, también en el lienzo (Pixelify sólo en el logo).
  *   Clásico  el aspecto del original (style.css de upstream y Pixelify), más la tanda 1 de
  *            claridad y los arreglos que no son estética (ver abajo).
+ * Sólo cambia la interfaz (menús, HUD, letra y portada): desde el 14-10-2026 (decisión de Nico) el mundo
+ * se pinta con el aspecto Dex con los dos estilos (G.MODS.mundoDex: entorno.js, transicion.js, relieve.js
+ * y luz.js).
  *
  * El valor por defecto sale de G.MODS.estiloPorDefecto (js/core/mods.js); la elección del
  * jugador se guarda en G.Settings ('estilo', por dispositivo). Es local: no viaja por la red, y

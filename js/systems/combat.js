@@ -666,5 +666,6 @@ G.Combat = (() => {
   }
 
   return { tick, resolve, ghostCast, ghostOrbit, updateFields, drawGroundFields, drawAirFields, clearFields,
-           get fieldCount() { return fields.length; } };
+           get fieldCount() { return fields.length; },
+           get campos() { return fields; } };   // MOD nico: los campos de tus ataques, para el búfer de luz (js/world/luz.js)
 })();
