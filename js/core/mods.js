@@ -185,6 +185,11 @@ G.MODS = {
   luz: true,
   luzAmbiente: 0.88,
 
+  /* Sombras con un sol fijo arriba a la izquierda (2.5D falsa, aprobada por Nico el 14-10-2026; js/world/sombras.js,
+   * G.Sombras): las paredes, horneadas en el chunk (sólo en el suelo), y los árboles y objetos, su silueta inclinada
+   * hacia el sureste debajo de todo. Van con el mundo Dex (`mundoDex`). false = sin ellas. */
+  sombras: true,
+
   /* Arreglo de un fallo de upstream (desde «Arenas de grieta por tipo», 3f85b87): a partir del
    * minuto 12 el mapa normal se volvía una arena de la grieta («Grieta · …», con su líquido y su
    * daño; y en el 84 se rompía). true = el mapa rota entre sus 3 biomas normales cada 4 min.

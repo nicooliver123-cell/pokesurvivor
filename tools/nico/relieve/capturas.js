@@ -148,9 +148,17 @@ const COSTE = async () => {
         await page.evaluate(() => { if (G.Game.state === 'playing') G.Game.togglePause(); G.UI.hideAll(); G.FX.clear(); });
         for (const est of estilos) {
           await page.evaluate(e => G.Estilo.set(e), est);
-          for (const [cuando, alt, luz] of [['antes', 0, false], ['despues', 8, true]]) {
-            await page.evaluate(([a, l]) => { G.MODS.relieveAltura = a; G.MODS.luz = l; }, [alt, luz]);
-            await page.evaluate(() => new Promise(r => { let n = 8; const f = () => (--n ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); }));
+          // Antes: sin relieve, luz ni sombras y, en Clásico, con el mundo del proyecto base (mundoDex = false), como era.
+          for (const [cuando, on] of [['antes', false], ['despues', true]]) {
+            await page.evaluate(on => {
+              Object.assign(G.MODS, { relieveAltura: on ? 8 : 0, luz: on, sombras: on, mundoDex: on });
+              G.Tiles.clearProps && G.Tiles.clearProps();
+              if (G.Horno) G.Horno.rehornear(); else G.World.rehornear();
+            }, on);
+            await page.evaluate(async () => {
+              for (let i = 0; i < 300 && G.Horno && G.Horno.conViejas; i++) await new Promise(r => requestAnimationFrame(r));
+              for (let i = 0; i < 8; i++) await new Promise(r => requestAnimationFrame(r));
+            });
             const base = `${escena}-${est}-${nv}-${cuando}`;
             await page.locator('#game').screenshot({ path: path.join(OUT, base + '.png') });
             // Recorte ×2 alrededor de tu Pokémon (en píxeles CSS de la ventana).
@@ -161,7 +169,7 @@ const COSTE = async () => {
             filas.push({ escena, est, nv, cuando, f: base + '.png', r: base + '-recorte.png' });
           }
         }
-        await page.evaluate(() => { G.MODS.relieveAltura = 8; G.MODS.luz = true; if (G.Game.state === 'paused') G.Game.togglePause(); });
+        await page.evaluate(() => { Object.assign(G.MODS, { relieveAltura: 8, luz: true, sombras: true, mundoDex: true }); if (G.Game.state === 'paused') G.Game.togglePause(); });
       }
       if (errores.length) console.log(`[AVISO] ${nv}: errores en la página: ${errores.slice(0, 5).join(' | ')}`);
       await ctx.close();

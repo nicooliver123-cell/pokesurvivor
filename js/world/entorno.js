@@ -13,8 +13,8 @@
  *              oclusión al pie de las paredes, tierra mojada junto al agua y resplandor junto a la lava. SÓLO
  *              píxeles de suelo y sin trazos (lo que rechazó Nico). Se hornea una vez: no cuesta por fotograma,
  *              y no depende de la Calidad (cambiarla obligaría a rehornear).
- *   suelo      capa del suelo, después del terreno y antes de avisos, objetos y Pokémon (game.js, drawScene):
- *              farol, halos y motas por bioma según la Calidad (G.MODS.calidadEntorno) y las salpicaduras de la
+ *   suelo      capa del suelo, después del terreno y antes de avisos, objetos y Pokémon (game.js, drawScene): la
+ *              sombra de los objetos (sombras.js), farol, halos y motas por bioma según la Calidad (G.MODS.calidadEntorno) y las salpicaduras de la
  *              lluvia. La luz nunca tiñe un sprite. También llama al horno (G.Horno.tick), en los dos estilos.
  *   vineta     viñeta cálida y suave (world.js, drawVignette), en vez de la negra de upstream: el 46 % central,
  *              intacto.
@@ -104,6 +104,7 @@ G.Entorno = (() => {
    * (hasta un 10 % hacia `luz` y un 18 % hacia `sombra`), oclusión al pie de las paredes (hasta un 42 %), tierra
    * mojada alrededor del agua (40 %) y resplandor alrededor de la lava (30 %). Los campos se calculan por tile con
    * 3 tiles de margen, se desenfocan dos veces y se interpolan por píxel: nada de bordes ni trazos. Determinista.
+   * Al final, la sombra de las paredes con el sol fijo (G.Sombras.paredes, js/world/sombras.js).
    * Con Clásico no hace nada (el chunk es el de upstream).
    */
   let buf = null;                      // campos y tablas de gradar(), reutilizados (sin basura por chunk)
@@ -152,6 +153,7 @@ G.Entorno = (() => {
         P.set(px, py, ((c & 0xff000000) | (((b + 0.5) | 0) << 16) | (((gg + 0.5) | 0) << 8) | ((r + 0.5) | 0)) >>> 0);
       }
     }
+    if (G.Sombras) G.Sombras.paredes(P, cx, cy, n, at, g.sombra);   // la sombra de las paredes con el sol fijo (js/world/sombras.js)
   }
 
   // ===================================================================
@@ -334,6 +336,7 @@ G.Entorno = (() => {
     if (!conDex() || aplicada !== 'dex') { motas.length = 0; saliendo.length = 0; salp.length = 0; motasBi = -1; return; }
     const q = calidad(), g = grad(G.World.biome);
     ctx.save();
+    if (G.Sombras) G.Sombras.objetos(ctx, cam);   // la sombra de árboles y objetos con el sol fijo, debajo de todo (js/world/sombras.js)
     if (q.farol) farol(ctx, cam, g);
     halos(ctx, cam, q, t);
     if (q.motas > 0) dibujarMotas(ctx, cam, g, q.motas, dt); else { motas.length = 0; saliendo.length = 0; }

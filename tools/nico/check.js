@@ -111,6 +111,11 @@
  *      la ficha (refresh() real de gacha-ui.js), el inglés, los ganchos, el paquete y CREDITS.md; sus hojas (de PixelLab, montadas por
  *      tools/nico/multiverso/montar.py) con el tamaño, el radio y la escala de un Pokémon normal.
  * Sale con código 1 si algo falla.
+ *  26. Relieve, sombras y luz (2.5D falsa; js/world/relieve.js, sombras.js y luz.js con el mundo real): el lienzo del relieve
+ *      (tramos = paredes, techo subido y cara de 8 + H, el resto transparente), el orden en la escena (norte detrás, sur
+ *      delante, lo que vuela encima), su caja para Claridad, el dibujo y el fundido de bioma, la caché; la luz (sólo con
+ *      Calidad Alta y con el mundo Dex, sus fuentes, sin parpadeo con «Menos sacudidas», el búfer en la rejilla del mundo y
+ *      multiplicado, los avisos a 1, el brillo encima); y las sombras de las paredes (hacia el sureste, sólo en el suelo).
  */
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm'), crypto = require('crypto'), os = require('os');
@@ -471,7 +476,10 @@ const HOOKS = [
     'claridad: los disparos enemigos, con su contorno rojo'],
   ['js/entities/claridad.js', /if \(it\.prop\) q = rectProp\(it\.prop\);\r?\n\s*else if \(it\.ent && it\.ent\.caja\) q = it\.ent\.caja;/, 'claridad: una pared con altura tapa con su rectángulo (js/world/relieve.js)'],
   // Relieve y búfer de luz (PROTOTIPO, js/world/relieve.js y luz.js)
-  ['dev.html', /src="js\/world\/horno\.js"><\/script>[^\n]*\r?\n<script defer src="js\/world\/relieve\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/luz\.js"><\/script><!-- MOD nico/, 'relieve y luz: relieve.js y luz.js se cargan tras horno.js'],
+  ['dev.html', /src="js\/world\/horno\.js"><\/script>[^\n]*\r?\n<script defer src="js\/world\/relieve\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/luz\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/sombras\.js"><\/script><!-- MOD nico/, 'relieve, luz y sombras: relieve.js, luz.js y sombras.js se cargan tras horno.js'],
+  ['js/systems/combat.js', /get campos\(\) \{ return fields; \} \};\s*\/\/ MOD nico/, 'luz: combat.js da los campos de tus ataques (getter aditivo)'],
+  ['js/world/entorno.js', /if \(G\.Sombras\) G\.Sombras\.paredes\(P, cx, cy, n, at, g\.sombra\);/, 'sombras: gradar() hornea la sombra de las paredes'],
+  ['js/world/entorno.js', /if \(G\.Sombras\) G\.Sombras\.objetos\(ctx, cam\);/, 'sombras: la capa del suelo pinta la sombra de los objetos'],
   ['js/game.js', /if \(G\.Relieve\) G\.Relieve\.escena\(items, cam\);\s*\/\/ MOD nico[^\n]*\r?\n\s*items\.sort\(\(a, b\) => a\.y - b\.y\);/, 'relieve: las paredes con altura entran en la escena antes de ordenarla'],
   ['js/game.js', /G\.Claridad\.encima\(ctx\);[^\n]*\r?\n\s*if \(G\.Luz\) G\.Luz\.pintar\(ctx, G\.Camera\);\s*\/\/ MOD nico[^\n]*\r?\n\s*G\.Projectiles\.draw\(ctx\);/, 'luz: el búfer de luz, después de la escena y antes de los disparos (nunca oscurece un disparo enemigo)'],
   ['js/world/world.js', /fundido\(\) \{ return fade \? \{ from: fade\.from, k: fadeK\(\) \} : null; \},\s*\/\/ MOD nico/, 'relieve: world.js da el fundido de bioma'],
@@ -6357,6 +6365,217 @@ function multiversoChecks() {
   for (const [name, , detail] of failed) bad(`multiverso: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 26. Relieve, sombras y luz (2.5D falsa, aprobada por Nico el 14-10-2026) ----------------
+function relieveChecks() {
+  console.log('26. Relieve, sombras y luz (js/world/relieve.js, sombras.js y luz.js con tiles.js, mapas*.js, world.js y entorno.js reales)');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  /** Un contexto 2D de mentira que apunta cada llamada con el modo de mezcla, el alfa, el color y el suavizado de ese momento. */
+  const ctx2d = cv => {
+    const o = { ops: [], globalAlpha: 1, globalCompositeOperation: 'source-over', imageSmoothingEnabled: true, fillStyle: '#000',
+      createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }), putImageData(img) { if (cv) cv._img = img; } };
+    return new Proxy(o, {
+      get(x, k) { if (k in x) return x[k]; return (...a) => { x.ops.push([k, a, x.globalCompositeOperation, x.globalAlpha, x.fillStyle, x.imageSmoothingEnabled]); }; },
+      set(x, k, v) { x[k] = v; return true; }
+    });
+  };
+  const lienzo = () => { const cv = { width: 0, height: 0, _img: null }; const c = ctx2d(cv); cv.getContext = () => c; return cv; };
+  const camara = (x, y, w = 768, h = 432) => ({ x, y, w, h, scale: 1, left() { return this.x - this.w / 2; }, top() { return this.y - this.h / 2; },
+    sees(px, py, pad = 60) { return px > this.left() - pad && px < this.left() + this.w + pad && py > this.top() - pad && py < this.top() + this.h + pad; } });
+  const SEM = 1234, PX = 2, T = 16, TS = 32;
+  /** El mundo real (mapas propios) con entorno.js, horno.js, relieve.js, luz.js y sombras.js; estilo y Calidad de mentira. */
+  function mundo({ estilo = 'dex', mundoDex = true } = {}) {
+    const reloj = { t: 1000 };
+    const c = { console, performance: { now: () => reloj.t }, document: { createElement: lienzo }, matchMedia: () => ({ matches: false }) };
+    vm.createContext(c);
+    c.window = c; c.G = {};
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js']) vm.runInContext(rd(f), c, { filename: f });
+    const G = c.G;
+    G.MODS.mundoDex = mundoDex;
+    G.Estilo = { actual: estilo, get dex() { return this.actual === 'dex'; }, on() {} };
+    G.Settings = { fx: 2, get: () => false };
+    G.Sprites = { PX };
+    G.Game = { state: 'playing', st: { time: 10 }, player: { x: 0, y: 0 } };
+    G.Rift = { inArena: false, rift: null };
+    G.Hazards = { all: [] }; G.Projectiles = { all: () => [] }; G.Combat = { campos: [] };
+    vm.runInContext(rd('js/world/tiles.js'), c, { filename: 'js/world/tiles.js' });
+    cargarMapas(c, true);
+    for (const f of ['js/world/world.js', 'js/world/entorno.js', 'js/world/horno.js', 'js/world/relieve.js', 'js/world/luz.js', 'js/world/sombras.js'])
+      vm.runInContext(rd(f), c, { filename: f });
+    G.World.reset(SEM); G.World.setBiome(0, true);
+    return { G, c, reloj };
+  }
+  /** Una casilla de pared cerca del principio con suelo al norte (dos casillas) y al sur: la cresta. */
+  function sitio(G) {
+    const kind = (tx, ty) => G.World.kindAt(tx * TS + 16, ty * TS + 16);
+    for (let cy = -2; cy <= 2; cy++) for (let cx = -2; cx <= 2; cx++) {
+      for (let j = 2; j < 15; j++) for (let i = 1; i < 15; i++) {
+        const tx = cx * 16 + i, ty = cy * 16 + j;
+        if (kind(tx, ty) === 'wall' && kind(tx, ty - 1) === 'floor' && kind(tx, ty + 1) === 'floor' && kind(tx, ty - 2) === 'floor') return { cx, cy, tx, ty, kind };
+      }
+    }
+    return null;
+  }
+  /** Varios fotogramas de escena (el relieve hornea uno o dos lienzos por fotograma): la última lista, ordenada. */
+  function escena(G, cam, extra = [], n = 14) {
+    let items = [];
+    for (let k = 0; k < n; k++) { items = extra.map(e => ({ y: e.y, ent: e })); G.Relieve.escena(items, cam); }
+    items.sort((a, b) => a.y - b.y);
+    return items;
+  }
+
+  // ---- A. El lienzo del relieve: los tramos son las paredes del chunk; techo subido y cara de 8 + H; el resto, transparente ----
+  try {
+    const M = mundo(), G = M.G, S = sitio(G);
+    t('hay una cresta (pared con suelo al norte y al sur) cerca del principio con la semilla 1234', !!S, S);
+    const H = 8, R = G.Mapas.pintarRelieve(S.cx, S.cy, 16, 0, SEM, H), d = R.cv && R.cv._img && R.cv._img.data;
+    const k = (i, j) => S.kind(S.cx * 16 + i, S.cy * 16 + j);
+    let malTramo = 0, paredes = 0, malCara = 0;
+    const cubre = new Map();
+    for (const tr of R.tramos) for (let i = tr.i0; i <= tr.i1; i++) {
+      cubre.set(i + ',' + tr.j, (cubre.get(i + ',' + tr.j) || 0) + 1);
+      if (tr.cara !== (k(i, tr.j + 1) !== 'wall')) malCara++;
+    }
+    for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) { const w = k(i, j) === 'wall'; if (w) paredes++; if ((cubre.get(i + ',' + j) || 0) !== (w ? 1 : 0)) malTramo++; }
+    t(`relieve: los tramos cubren cada pared del chunk una vez y nada más (${paredes} paredes en ${R.tramos.length} tramos) y llevan cara donde al sur no hay pared`, paredes > 0 && !malTramo && !malCara, { malTramo, malCara });
+    // En la columna del centro de cada pared, opacos el techo (16 filas) y, con cara, 8 + H más; debajo, transparente.
+    const W = 16 * T, alfa = (x, y) => d[(y * W + x) * 4 + 3];
+    let malCol = 0, casos = 0;
+    for (const tr of R.tramos) for (let i = tr.i0; i <= tr.i1; i++) {
+      const x = i * T + 8, y0 = tr.j * T, alto = T + (tr.cara ? H : 0);
+      casos++;
+      for (let y = y0; y < y0 + alto; y++) if (alfa(x, y) !== 255) { malCol++; break; }
+      if (tr.cara && tr.j + 2 < 16 && k(i, tr.j + 2) !== 'wall') for (let y = y0 + alto; y < (tr.j + 2) * T; y++) if (alfa(x, y) !== 0) { malCol++; break; }
+    }
+    // Lo que no es pared, transparente: cada píxel opaco cae en el rectángulo de algún tramo.
+    let fuera = 0;
+    const dentro = (x, y) => R.tramos.some(tr => x >= tr.i0 * T && x < (tr.i1 + 1) * T && y >= tr.j * T && y < tr.j * T + T + (tr.cara ? H : 0));
+    for (let y = 0; y < 16 * T + H; y++) for (let x = 0; x < W; x++) if (alfa(x, y) && !dentro(x, y)) fuera++;
+    t(`relieve: el techo sube ${H} px y la cara mide 8 + ${H} (${casos} columnas de pared, ${malCol} mal); fuera de los tramos, todo transparente (${fuera} píxeles opacos fuera)`,
+      casos > 0 && !malCol && !fuera, { malCol, fuera });
+    t('relieve: el lienzo mide 16·16 de ancho y 16·16 + H de alto (H px por encima del chunk)', R.cv.width === 256 && R.cv.height === 256 + H, [R.cv.width, R.cv.height]);
+  } catch (e) { t('lienzo del relieve', false, String(e && e.stack || e)); }
+
+  // ---- B. La escena: lo del norte de la cresta, detrás; lo del sur, delante; lo que vuela por encima, encima ----
+  try {
+    const M = mundo(), G = M.G, S = sitio(G), x = S.tx * TS + 16, y0 = S.ty * TS;
+    const cam = camara(x, y0);
+    const norte = { x, y: y0 - 6, n: 'norte' }, sur = { x, y: y0 + TS + 6, n: 'sur' }, vuela = { x, y: y0 + 16, n: 'vuela' };
+    const items = escena(G, cam, [norte, sur, vuela]);
+    const tramo = items.find(it => it.ent.relieve && it.ent.caja[0] <= x && it.ent.caja[2] > x && it.y === y0);
+    const i = e => items.findIndex(it => it.ent === e), it = tramo ? items.indexOf(tramo) : -1;
+    const c = tramo && tramo.ent.caja;
+    t(`escena: el tramo de la cresta (orden ${tramo && tramo.y} = su borde norte) va después de lo que tiene los pies 6 px al norte y antes de lo de debajo; lo que vuela sobre ella, después de su último tramo`,
+      !!tramo && i(norte) < it && it < i(sur) && i(vuela) > it, { tramo: tramo && tramo.y, orden: items.map(q => q.ent.n || (q.ent.relieve ? 'pared@' + q.y : '?')).slice(0, 40) });
+    t(`escena: la caja del tramo (la que cuenta G.Claridad) va de 16 px por encima de la casilla (el techo subido) a su pie con la cara (${c && c[1] - y0} y ${c && c[3] - y0})`,
+      !!c && c[1] === y0 - 16 && c[3] === y0 + TS, c);
+    // Sin relieve (altura 0) o con mundoDex = false y Clásico, nada; con mundoDex, también con Clásico.
+    G.MODS.relieveAltura = 0;
+    const sin = escena(G, cam, [norte], 2).filter(q => q.ent.relieve).length;
+    G.MODS.relieveAltura = 8;
+    const MC = mundo({ estilo: 'clasico', mundoDex: false }), MCD = mundo({ estilo: 'clasico' });
+    const cla = escena(MC.G, cam, [], 4).filter(q => q.ent.relieve).length, claD = escena(MCD.G, cam, [], 14).filter(q => q.ent.relieve).length;
+    t(`escena: sin tramos con relieveAltura = 0 (${sin}) y con mundoDex = false y Clásico (${cla}); con mundoDex, también con Clásico (${claD})`, !sin && !cla && claD > 0);
+  } catch (e) { t('escena del relieve', false, String(e && e.stack || e)); }
+
+  // ---- C. Dibujo: un drawImage del trozo del lienzo; en el fundido de bioma, el viejo debajo y el nuevo con su alfa ----
+  try {
+    const M = mundo(), G = M.G, S = sitio(G), x = S.tx * TS + 16, y0 = S.ty * TS, cam = camara(x, y0);
+    let items = escena(G, cam);
+    const tr = items.find(it => it.ent.relieve), c1 = ctx2d();
+    tr.ent.draw(c1);
+    const d1 = c1.ops.filter(o => o[0] === 'drawImage');
+    t('dibujo: cada tramo, un drawImage de su trozo del lienzo a su caja', d1.length === 1 && d1[0][1].length === 9 && d1[0][1][5] === tr.ent.caja[0] && d1[0][1][6] === tr.ent.caja[1], d1[0] && d1[0][1].slice(1));
+    G.World.setBiome(1);                       // con fundido
+    G.World.update(0.5, cam);
+    items = escena(G, cam);
+    const tr2 = items.find(it => it.ent.relieve && it.ent.caja[0] === tr.ent.caja[0] && it.y === tr.y), c2 = ctx2d();
+    tr2.ent.draw(c2);
+    const d2 = c2.ops.filter(o => o[0] === 'drawImage'), fu = G.World.fundido();
+    t(`dibujo: en el fundido de bioma, el relieve viejo debajo (alfa 1) y el nuevo encima con el del fundido (${fu && fu.k.toFixed(2)})`,
+      !!fu && d2.length === 2 && d2[0][3] === 1 && Math.abs(d2[1][3] - fu.k) < 1e-9 && d2[0][1][0] !== d2[1][1][0], d2.map(o => o[3]));
+    const antes = G.Relieve.cache.geo;
+    G.World.reset(SEM + 1); G.Relieve.escena([], cam);
+    t(`caché: con otro mundo se olvidan los tramos (${antes} → ${G.Relieve.cache.geo})`, antes > 0 && G.Relieve.cache.geo <= 2);
+  } catch (e) { t('dibujo del relieve', false, String(e && e.stack || e)); }
+
+  // ---- D. Luz ----
+  try {
+    const M = mundo(), G = M.G, cam = camara(0, 0);
+    const act = [];
+    for (const fx of [2, 1, 0]) { G.Settings.fx = fx; act.push(G.Luz.activo()); }
+    G.Settings.fx = 2; G.MODS.luz = false; act.push(G.Luz.activo()); G.MODS.luz = true;
+    const MC = mundo({ estilo: 'clasico', mundoDex: false }), MD = mundo({ estilo: 'dex', mundoDex: false }), MK = mundo({ estilo: 'clasico' });
+    t(`luz: sólo con Calidad Alta (Alta, Media, Baja: ${act.slice(0, 3)}), nada con luz = false (${act[3]}); va con el mundo Dex: con mundoDex = false, sólo con Dex (${MD.G.Luz.activo()}; Clásico, ${MC.G.Luz.activo()}) y con mundoDex, también con Clásico (${MK.G.Luz.activo()})`,
+      act.join() === 'true,false,false,false' && MD.G.Luz.activo() && !MC.G.Luz.activo() && MK.G.Luz.activo());
+    const vis = p => ({ pal: p });
+    G.Projectiles.all = () => [{ x: 10, y: 10, r: 6, friendly: true, vis: vis('fire') }, { x: 40, y: 10, r: 6, friendly: true, vis: vis('electric') },
+      { x: 70, y: 10, r: 6, friendly: true, vis: vis('water') }, { x: 100, y: 10, r: 6, friendly: false, vis: vis('fire') }];
+    G.Combat.campos = [{ kind: 'patch', x: 0, y: 60, r: 40, t: 1, life: 3, m: { type: 'fire' } }, { kind: 'mine', x: 30, y: 60, t: 1, life: 5, m: { type: 'water' } }];
+    G.Rift.rift = { x: 120, y: 80, t: 2, ttl: 9 };
+    const L = G.Luz.luces(cam, 1, false), cols = L.map(l => l.col);
+    t(`luz: alumbran tus disparos de fuego y eléctricos (no los de agua ni los de un enemigo), tus campos de fuego y la grieta (${L.length} luces: ${cols.join(', ')})`,
+      L.length === 4 && cols[0] === '#ffae3a' && cols[1] === '#fff06a' && cols.includes('#B48AFF'), cols);
+    const a1 = G.Luz.luces(cam, 1, true).map(l => l.a), a2 = G.Luz.luces(cam, 1.37, true).map(l => l.a);
+    t('luz: con «Menos sacudidas y destellos» (reducido), ninguna parpadea ni late: el mismo alfa en dos momentos', JSON.stringify(a1) === JSON.stringify(a2), { a1, a2 });
+    // El ácido de la Vega Sulfúrea: una luz por casilla visible, sólo en el búfer.
+    G.Projectiles.all = () => []; G.Combat.campos = []; G.Rift.rift = null;
+    G.World.setBiome(2, true);
+    let liq = null;
+    for (let r2 = 0; r2 < 40 && !liq; r2 += 2) for (let a = 0; a < 6.28 && !liq; a += 0.5) {
+      const Lq = G.Luz.luces(camara(Math.cos(a) * r2 * TS, Math.sin(a) * r2 * TS), 1, false);
+      if (Lq.length >= 6) liq = { n: Lq.length, solo: Lq.every(l => l.solo), col: Lq[0].col };
+    }
+    t(`luz: en la Vega Sulfúrea, el ácido alumbra (una luz por casilla visible, sólo en el búfer: ${liq && liq.n}, ${liq && liq.col})`, !!liq && liq.solo && liq.col === '#a8f060', liq);
+    G.World.setBiome(0, true);
+    // pintar(): el búfer alineado con la rejilla del mundo y multiplicado; los avisos, a 1 en el búfer; el brillo, encima.
+    G.Projectiles.all = () => [{ x: 0, y: 0, r: 6, friendly: true, vis: vis('fire') }];
+    G.Hazards.all = [{ kind: 'zone', x: 100, y: 50, r: 44, hit: false }, { kind: 'beam', x: -100, y: 0, angle: 0.3, len: 120, w: 20, hit: false }, { kind: 'zone', x: 0, y: 0, r: 30, hit: true }];
+    const c3 = camara(3.7, 1.3, 777, 431), main = ctx2d();
+    G.Luz.pintar(main, c3);
+    const mult = main.ops.find(o => o[0] === 'drawImage' && o[2] === 'multiply'), Wb = Math.ceil(777 / PX) + 2, Hb = Math.ceil(431 / PX) + 2;
+    const ox = mult && mult[1][5], oy = mult && mult[1][6];
+    t(`luz: el búfer mide ceil(vista / ${PX}) + 2 píxeles de arte (${mult && mult[1][3]}×${mult && mult[1][4]}), empieza en la rejilla del mundo (${ox}, ${oy}: múltiplos de ${PX}) y se multiplica ×${PX} sin suavizar`,
+      !!mult && mult[1][3] === Wb && mult[1][4] === Hb && ox % PX === 0 && oy % PX === 0 && mult[1][7] === Wb * PX && mult[1][8] === Hb * PX && mult[5] === false, mult && mult[1].slice(1));
+    const brillo = main.ops.filter(o => o[0] === 'drawImage' && o[2] === 'lighter');
+    t(`luz: después, el brillo de cada luz con 'lighter' en la rejilla (${brillo.length}, alfa ${brillo[0] && brillo[0][3].toFixed(3)} ≈ 0,62 × 0,28) y sólo un drawImage con 'multiply'`,
+      brillo.length === 1 && Math.abs(brillo[0][3] - 0.62 * 0.28) < 0.05 && brillo[0][1][1] % PX === 0 && main.ops.filter(o => o[2] === 'multiply' && o[0] === 'drawImage').length === 1, brillo.map(o => o[1].slice(1)));
+    const bo = mult[1][0].getContext().ops;
+    const iAmb = bo.findIndex(o => o[0] === 'fillRect' && o[2] === 'source-over'), iLuz = bo.findIndex(o => o[0] === 'drawImage' && o[2] === 'lighter');
+    const fills = bo.filter((o, i) => o[0] === 'fill' && i > iLuz), amb = bo[iAmb] && bo[iAmb][4];
+    t(`luz: en el búfer, el ambiente del bioma primero (${amb}: 0,88 × su tinte), las luces con 'lighter' y, al final, los ${fills.length} avisos sin golpear rellenos de blanco con 'source-over' (nunca se oscurecen)`,
+      iAmb === 0 && amb === 'rgb(231,227,236)' && iLuz > iAmb && fills.length === 2 && fills.every(o => o[2] === 'source-over' && o[4] === '#fff'), { amb, fills: fills.length });
+  } catch (e) { t('luz', false, String(e && e.stack || e)); }
+
+  // ---- E. Sombras de las paredes (horneadas): hacia el sureste, sólo en el suelo, con penumbra al final ----
+  try {
+    const M = mundo(), G = M.G, h = G.Sombras.alturaPared(), SX = G.Sombras.SOL.x, SY = G.Sombras.SOL.y, GRIS = 0xff808080 >>> 0;
+    const caso = (esPared, sombras = true) => {
+      G.MODS.sombras = sombras;
+      const W = 256, b = new Uint32Array(W * W).fill(GRIS);
+      const at = (tx, ty) => (esPared(tx, ty) ? 'wall' : 'floor');
+      const P = { w: W, h: W, get: (x, y) => b[y * W + x], set(x, y, v) { b[y * W + x] = v; }, suelo: (x, y) => !esPared(x >> 4, y >> 4) };
+      G.Sombras.paredes(P, 0, 0, 16, at, '#204060');
+      G.MODS.sombras = true;
+      return b;
+    };
+    const tocado = (b, x, y) => b[y * 256 + x] !== GRIS;
+    const col = caso(tx => tx === 5), ancho = [];                 // una pared de norte a sur en la columna de casillas 5
+    for (let x = 0; x < 256; x++) if (tocado(col, x, 100)) ancho.push(x);
+    const filaS = caso((tx, ty) => ty === 5), alto = [];          // una fila de paredes de oeste a este en la fila 5
+    for (let y = 0; y < 256; y++) if (tocado(filaS, 100, y)) alto.push(y);
+    const pen = col[100 * 256 + ancho[ancho.length - 1]], lleno = col[100 * 256 + 96];
+    t(`sombras: una pared de ${h} px de alto deja ${ancho.length} px de sombra al este (x ${ancho[0]}-${ancho[ancho.length - 1]}; el sol, ${SX} px por píxel de alto) y ${alto.length} al sur de una fila de paredes (y ${alto[0]}-${alto[alto.length - 1]}); nada al oeste, al norte ni en la pared; la última, en penumbra (más clara)`,
+      ancho[0] === 96 && ancho.length === Math.floor(h * SX - 0.5) + 1 && alto[0] === 96 && alto.length === Math.floor(h * SY - 0.5) + 1 && (pen & 255) > (lleno & 255), { ancho, alto });
+    t('sombras: con sombras = false, no se pintan', caso(tx => tx === 5, false).every(v => v === GRIS));
+    t('sombras: van con el mundo Dex (con mundoDex = false y Clásico, apagadas; con mundoDex, también con Clásico)', !mundo({ estilo: 'clasico', mundoDex: false }).G.Sombras.activas() && mundo({ estilo: 'clasico' }).G.Sombras.activas());
+  } catch (e) { t('sombras', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`relieve, sombras y luz: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`relieve, sombras y luz: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -6375,6 +6594,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { devMenuChecks(); } catch (e) { bad('no se pudo probar el menú de pruebas: ' + (e && e.stack || e)); }
   try { mapasChecks(); } catch (e) { bad('no se pudo probar los mapas propios: ' + (e && e.stack || e)); }
   try { multiversoChecks(); } catch (e) { bad('no se pudo probar el Multiverso: ' + (e && e.stack || e)); }
+  try { relieveChecks(); } catch (e) { bad('no se pudo probar el relieve, las sombras y la luz: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });
