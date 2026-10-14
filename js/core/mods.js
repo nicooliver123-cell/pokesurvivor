@@ -187,7 +187,7 @@ G.MODS = {
 
   /* Menú de pruebas en Ajustes > Cuenta (petición de Nico, 14-10-2026; js/ui/dev-menu.js): las cuentas que lo ven, por la
    * huella SHA-256 de su uid de Firebase (el repositorio es público: el uid no se escribe). [] = nadie. */
-  devHuellas: [],
+  devHuellas: ['b9f8d94bd49b7471e01e9827da437297a0dad61278c0fa80bda2a936b5e1db4c'],   // Nico (su cuenta de Google)
 
   /** Crédito al juego original en Ajustes > Acerca de (decisión de Nico, 14-10-2026): su nombre y su autor, sin
    *  enlaces a su web ni a su repositorio (tools/nico/base.js sólo los deja aquí, en lang-en-mod.js y en los
