@@ -166,5 +166,14 @@ G.I18n.add({
   // Crédito al juego original en Ajustes > Acerca de (G.MODS.creditoOriginal).
   // Va en trozos (las negritas parten el texto): cada uno con su clave.
   'PokéSwarm es un proyecto personal de Nico, inspirado en': 'PokéSwarm is a personal project by Nico, inspired by',
-  ', el juego de fans de': ', the fan game by', ', y desarrollado a partir de su código (licencia MIT).': ', and built from its code (MIT license).'
+  ', el juego de fans de': ', the fan game by', ', y desarrollado a partir de su código (licencia MIT).': ', and built from its code (MIT license).',
+  // La guardería (js/systems/guarderia.js): su panel en Mejoras, los avisos y su fila en el fin de partida.
+  'Guardería': 'Daycare',
+  'Cada {x} min de run, sube 1 nivel una mejora al azar de cada Pokémon que esté aquí.': 'Every {x} min of play, each Pokémon here gains 1 level in a random upgrade.',
+  'Sacar a {x}': 'Take {x} out', 'Dejar a {x} ·': 'Leave {x} ·', 'Está llena: saca a alguno antes.': 'It\'s full: take one out first.',
+  '{x} entra en la guardería': '{x} enters the daycare', '{x} sale de la guardería': '{x} leaves the daycare',
+  'La guardería está llena: saca a alguno antes': 'The daycare is full: take one out first', 'Necesitas {x} Pokémonedas': 'You need {x} PokéCoins',
+  'Ya está en la guardería': 'Already in the daycare', 'No está en la guardería': 'Not in the daycare', 'No tienes ese Pokémon': 'You don\'t have that Pokémon',
+  'La guardería está cerrada': 'The daycare is closed', 'Aún no han subido de nivel.': 'No level-ups yet.',
+  'Siguiente entrenamiento en {x} de juego.': 'Next training after {x} of play.', 'Esta partida no cuenta para la guardería.': 'This run doesn\'t count for the daycare.'
 });

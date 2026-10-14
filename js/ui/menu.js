@@ -273,6 +273,7 @@ G.MenuUI = (() => {
       };
       box.appendChild(el);
     }
+    if (G.Guarderia) G.Guarderia.pintar(upgDex, renderUpgrades);   // MOD nico: la guardería (js/systems/guarderia.js)
   }
 
   return { init, open, GEN_NAMES };

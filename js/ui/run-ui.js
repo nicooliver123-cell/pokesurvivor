@@ -109,6 +109,7 @@ G.RunUI = (() => {
         <div class="caught-row" id="over-caught"></div></div>` : ''}
       ${r.record ? '<div style="grid-column:1/-1;text-align:center" class="gold">¡Nuevo récord de tiempo!</div>' : ''}`;
     $('btn-again').onclick = onBack;
+    if (G.Guarderia) G.Guarderia.enFin($('over-stats'));   // MOD nico: lo que ha ganado la guardería (js/systems/guarderia.js)
     if (r.caught && r.caught.length) {
       const row = $('over-caught');
       for (const c of r.caught) {

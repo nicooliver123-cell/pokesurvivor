@@ -177,6 +177,14 @@ G.MODS = {
    * del original. */
   maquinaGancho: true,
 
+  /* Guardería Pokémon (decisión de Nico, 14-10-2026; js/systems/guarderia.js, en la pantalla Mejoras): plazas, lo que
+   * cuesta dejar a un Pokémon (cada vez que entra; sacarlo es gratis y conserva lo ganado) y cada cuántos segundos de
+   * run gana cada uno 1 nivel en una de sus mejoras al azar. Sólo cuenta el tiempo de las runs de quien tiene la
+   * guardería, solo o en grupo. guarderiaPlazas: 0 = sin guardería. */
+  guarderiaPlazas: 5,
+  guarderiaPrecio: 500,
+  guarderiaSegundosPorPunto: 120,
+
   /** Crédito al juego original en Ajustes > Acerca de (decisión de Nico, 14-10-2026): su nombre y su autor, sin
    *  enlaces a su web ni a su repositorio (tools/nico/base.js sólo los deja aquí, en lang-en-mod.js y en los
    *  créditos del repositorio). */

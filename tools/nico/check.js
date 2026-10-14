@@ -4965,6 +4965,72 @@ function companeroChecks() {
   for (const [name, , detail] of failed) bad(`sin test: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+function guarderiaChecks() {
+  console.log('20. Guardería Pokémon (js/systems/guarderia.js): plazas, precio, reparto por tiempo y ganchos');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  /** util.js, mods.js, upgrades.js y guarderia.js reales en node:vm, con una Pokédex de mentira (sin documento). */
+  const nuevo = (mods = {}) => {
+    const c = { console, Math };
+    c.window = c; c.G = {};
+    vm.createContext(c);
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/data/upgrades.js', 'js/systems/guarderia.js']) vm.runInContext(rd(f), c, { filename: f });
+    Object.assign(c.G.MODS, mods);
+    c.G.DEX_BY = {}; for (let d = 1; d <= 9; d++) c.G.DEX_BY[d] = { dex: d, name: 'P' + d };
+    return c;
+  };
+  const partida = coins => ({ coins, owned: Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map(d => [d, { at: 1 }])), pupg: {} });
+  try {
+    const { G } = nuevo(), GU = G.Guarderia, s = partida(3000);
+    t('ajustes por defecto: 5 plazas y 500 Pokémonedas', GU.plazas() === 5 && GU.precio() === 500);
+    const r1 = GU.meter(s, 1);
+    t('dejar a un Pokémon cobra 500', r1.ok && s.coins === 2500 && GU.esta(s, 1), { r1, coins: s.coins });
+    t('no entra dos veces ni uno que no tienes', !GU.meter(s, 1).ok && !GU.meter(s, 9).ok && s.coins === 2500);
+    for (const d of [2, 3, 4, 5]) GU.meter(s, d);
+    const lleno = GU.meter(s, 6);
+    t('5 plazas: el sexto no entra y no se cobra', !lleno.ok && s.coins === 500 && GU.estado(s).mons.length === 5, { lleno, coins: s.coins });
+    t('sacar es gratis y libera la plaza', GU.sacar(s, 5).ok && s.coins === 500 && GU.meter(s, 6).ok && s.coins === 0);
+    t('sin monedas no entra', GU.sacar(s, 6).ok && !GU.meter(s, 6).ok && s.coins === 0);
+    // Reparto: 250 s = 2 puntos y sobran 10 para la siguiente run; cada uno sube 2 niveles.
+    const sumas = () => [1, 2, 3, 4].map(d => Object.values(s.pupg[d] || {}).reduce((a, b) => a + b, 0));
+    const g1 = GU.repartir(s, 250);
+    t('250 s: 2 niveles a cada uno y sobran 10 s', sumas().every(n => n === 2) && GU.estado(s).resto === 10 && g1.length === 4, { sumas: sumas(), resto: GU.estado(s).resto });
+    GU.repartir(s, 110);
+    t('lo que sobra cuenta en la siguiente run (10 + 110 = 1 nivel más)', sumas().every(n => n === 3) && GU.estado(s).resto === 0, sumas());
+    t('nunca «Repertorio» y nunca por encima del máximo', [1, 2, 3, 4].every(d => !s.pupg[d].moves && G.Upgrades.LIST.every(u => (s.pupg[d][u.id] || 0) <= u.max)));
+    // Al máximo: un Pokémon con todo lleno no gana nada y no rompe.
+    const s2 = partida(500); s2.pupg[1] = Object.fromEntries(G.Upgrades.LIST.filter(u => u.id !== 'moves').map(u => [u.id, u.max]));
+    GU.meter(s2, 1);
+    t('con todas las mejoras al máximo no gana nada', GU.repartir(s2, 600).length === 0);
+    // Lo sacado conserva lo ganado; con la guardería vacía no se acumula tiempo.
+    const antes = JSON.stringify(s.pupg[1]);
+    GU.sacar(s, 1); GU.sacar(s, 2); GU.sacar(s, 3); GU.sacar(s, 4);
+    t('al sacarlo conserva las mejoras ganadas', JSON.stringify(s.pupg[1]) === antes);
+    GU.repartir(s, 1000);
+    t('vacía: no acumula tiempo para luego', GU.estado(s).resto === 0);
+    // alAcabar: una run sospechosa no reparte; una limpia sí.
+    const s3 = partida(500); GU.meter(s3, 7);
+    const sucia = GU.alAcabar(s3, 600, false);
+    const limpia = GU.alAcabar(s3, 240, true);
+    t('alAcabar: la run sospechosa no reparte; la limpia sí (240 s = 2)', sucia && !sucia.ganado.length && limpia && limpia.ganado[0].dex === 7
+      && Object.values(s3.pupg[7]).reduce((a, b) => a + b, 0) === 2, { sucia, limpia });
+    const { G: G0 } = nuevo({ guarderiaPlazas: 0 }), s4 = partida(1000);
+    t('guarderiaPlazas: 0 = sin guardería', !G0.Guarderia.meter(s4, 1).ok && s4.coins === 1000 && G0.Guarderia.alAcabar(s4, 600, true) === null);
+  } catch (e) { t('lógica de la guardería', false, String(e && e.stack || e)); }
+  try {
+    const gancho = (f, re) => rd(f).split(/\r?\n/).some(l => re.test(l) && /MOD nico/.test(l));
+    t('ganchos de una línea: endRun de game.js, renderUpgrades de menu.js y showOver de run-ui.js',
+      gancho('js/game.js', /G\.Guarderia\.alAcabar\(save, time, clean\)/) && gancho('js/ui/menu.js', /G\.Guarderia\.pintar\(upgDex, renderUpgrades\)/)
+      && gancho('js/ui/run-ui.js', /G\.Guarderia\.enFin\(/));
+    t('dev.html carga guarderia.js y el paquete lo lleva', /src="js\/systems\/guarderia\.js"/.test(rd('dev.html')) && /Guarderia/.test(rd('js/app.min.js')));
+    t('inglés de la guardería en lang-en-mod.js', /'Guardería': 'Daycare'/.test(rd('js/data/lang-en-mod.js')));
+    t('finales de línea: guarderia.js, nuevo, en LF', !/\r/.test(rd('js/systems/guarderia.js')));
+  } catch (e) { t('ganchos de la guardería', false, String(e && e.stack || e)); }
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`guardería: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`guardería: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -4977,6 +5043,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { juegoChecks(); } catch (e) { bad('no se pudo probar los ajustes de juego: ' + (e && e.stack || e)); }
   try { divididaChecks(); } catch (e) { bad('no se pudo probar la pantalla dividida: ' + (e && e.stack || e)); }
   try { companeroChecks(); } catch (e) { bad('no se pudo probar «Elige a tu compañero»: ' + (e && e.stack || e)); }
+  try { guarderiaChecks(); } catch (e) { bad('no se pudo probar la guardería: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

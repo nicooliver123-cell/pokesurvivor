@@ -284,6 +284,29 @@ html.pantalla-dividida.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: c
   .ec-pie { margin: 0 0 6px; flex-wrap: nowrap; }
 }
 
+/* Guardería (js/systems/guarderia.js), en la pantalla Mejoras: cinco plazas en fila (en un móvil, se reparten el
+   ancho) y el botón de dejar o sacar al Pokémon elegido. Y su fila en el fin de partida. */
+.guarderia { margin: 0 0 10px; padding: 10px 12px; }
+.guarderia-cab { gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.guarderia-cab small { color: var(--muted); font-size: 12px; }
+.guarderia-plazas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
+.guarderia-plaza { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 76px; padding: 4px;
+  border-radius: 8px; background: rgba(0,0,0,.25); border: 2px solid rgba(244,248,255,.14); cursor: pointer; text-align: center; min-width: 0; }
+.guarderia-plaza.vacia { border-style: dashed; cursor: default; color: var(--muted); }
+.guarderia-plaza.on { border-color: var(--gold); }
+.guarderia-plaza canvas { width: 72px; height: 60px; image-rendering: pixelated; max-width: 100%; }
+.guarderia-plaza small { font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guarderia-pie { gap: 10px; align-items: center; flex-wrap: wrap; }
+.guarderia-pie small { color: var(--muted); font-size: 12px; }
+.guarderia-fin div { font-size: 14px; }
+.guarderia-fin div b { font-size: inherit; display: inline; color: var(--ink, #fff); }
+.guarderia-fin .nota { font-size: 12px; color: var(--muted); }
+@media (max-height: 519.98px) {
+  .guarderia { padding: 8px 10px; }
+  .guarderia-plaza { min-height: 60px; }
+  .guarderia-plaza canvas { width: 54px; height: 45px; }
+}
+
 /* =====================================================================
  * 2. ESTILO DEX («Dex de Expedición»): sólo con html.estilo-dex
  * ===================================================================== */

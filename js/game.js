@@ -277,6 +277,7 @@ G.Game = (() => {
     const record = clean && time > save.stats.bestTime;
 
     save.coins += coins;
+    if (G.Guarderia) G.Guarderia.alAcabar(save, time, clean);   // MOD nico: la guardería entrena con el tiempo de esta run (js/systems/guarderia.js)
     bankTickets(false);
     save.stats.runs++;
     save.stats.totalKills += pl.kills;
