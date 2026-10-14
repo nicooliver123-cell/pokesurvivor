@@ -638,6 +638,7 @@ const KNOWN = [
   ['js/entities/player.js|if (this.bellHeal > 0) { const h = Math.min(this.bellHeal, 4 * dt); this.hp = Math.min(this.maxHp, this.hp + h); this.bellHeal -= h; }', 1, 'jugador: Cascabel'],
   ['js/entities/player.js|if (this.regen > 0) this.hp = Math.min(this.maxHp, this.hp + this.regen * dt);', 1, 'jugador: regeneración'],
   ['js/entities/player.js|this.hp = Math.max(1, this.maxHp * frac);', 1, 'jugador: reanimado'],
+  ['js/systems/evo-partida.js|if (!pl.remote) pl.hp = Math.min(pl.maxHp, Math.max(1, pl.hp + Math.max(0, d)));', 1, 'jugador: evoluciona en partida (sólo el suyo; nunca un enemigo)'],
   ['js/entities/player.js|this.hp = n.hp; this.maxHp = n.maxHp;', 1, 'compañero remoto: su vida por red'],
   ['js/systems/interact.js|pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.14 * dt);', 1, 'manantial: cura al JUGADOR'],
   ['js/systems/weather.js|pl.hp -= d;', 1, 'clima: daño al jugador'],
@@ -5072,6 +5073,73 @@ function trampasChecks() {
   for (const [name, , detail] of failed) bad(`trampas: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+function evoPartidaChecks() {
+  console.log('23. Evolución dentro de la partida (js/systems/evo-partida.js): niveles, cartas, cambio de Pokémon y red');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  /** util.js, mods.js, la Pokédex, evolutions.js y evo-partida.js reales; sprites, efectos y red de mentira. */
+  const montar = ({ coop = false, host = true, local = 'yo', mates = {} } = {}) => {
+    const c = { console, Math }; c.window = c; c.G = {}; vm.createContext(c);
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/evolutions.js', 'js/systems/evo-partida.js'])
+      vm.runInContext(rd(f), c, { filename: f });
+    const red = [];
+    c.G.Sprites = { Animator: function (dex, sc, sh) { this.dex = dex; this.scale = sc; this.shiny = sh; }, hasShiny: () => true, preload: () => {}, animMeta: () => null,
+      bodyRadius: d => 10 + (d % 5), bodyHeight: d => 20 + (d % 7) };
+    c.G.FX = { ring() {}, burst() {} }; c.G.Audio = { sfx() {} }; c.G.Camera = { sees: () => true }; c.G.Spawner = { say() {} };
+    c.G.Coop = { active: coop, isHost: coop && host, local: { uid: local }, mate: u => mates[u], broadcast: ev => red.push(['todos', ev]), toHost: ev => red.push(['anfitrion', ev]) };
+    return { G: c.G, red };
+  };
+  const jugador = (G, dex, level, extra = {}) => Object.assign({ mon: G.DEX_BY[dex], dex, level, shiny: false, x: 0, y: 0, maxHp: G.DEX_BY[dex].hp + 40, hp: 50,
+    baseSpd: G.DEX_BY[dex].spd, baseAtk: G.DEX_BY[dex].atk, scale: 1, uid: 'yo' }, extra);
+  const normales = () => [{ key: 'a', type: 'stat' }, { key: 'b', type: 'stat' }, { key: 'c', type: 'up' }];
+  try {
+    const { G, red } = montar(), E = G.EvoPartida;
+    t('niveles: el real × 0,5 hacia arriba (Charmeleon 8, Charizard 18, Dragonite 28); sin nivel, 20 (Raichu)',
+      E.nivelDe(5) === 8 && E.nivelDe(6) === 18 && E.nivelDe(149) === 28 && E.nivelDe(26) === 20, [E.nivelDe(5), E.nivelDe(6), E.nivelDe(149), E.nivelDe(26)]);
+    t('Charmander: nada a nivel 7, Charmeleon a nivel 8', !E.disponibles(jugador(G, 4, 7)).length && E.disponibles(jugador(G, 4, 8)).join() === '5');
+    const p1 = E.cartas(jugador(G, 4, 9), normales(), 3);
+    t('la carta va delante y siguen siendo 3 (2 normales)', p1.length === 3 && p1[0].evoDex === 5 && p1[0].type === 'evo' && p1.filter(c => !c.evoDex).length === 2, p1.map(c => c.key));
+    const p2 = E.cartas(jugador(G, 133, 20), normales(), 3);
+    t('Eevee a nivel 20: 2 ramas al azar y 1 carta normal para no evolucionar', p2.filter(c => c.evoDex).length === 2 && p2.length === 3 && p2.filter(c => c.evoDex).every(c => G.EVO[133].includes(c.evoDex)), p2.map(c => c.key));
+    const pl = jugador(G, 4, 9), antes = { max: pl.maxHp, hp: pl.hp };
+    p1[0].apply(pl);
+    const d = G.DEX_BY[5].hp - G.DEX_BY[4].hp;
+    t('al elegirla es Charmeleon: sprite, especie, ataque, velocidad y vida (+diferencia)', pl.dex === 5 && pl.mon.name === 'Charmeleon' && pl.anim.dex === 5
+      && pl.baseAtk === G.DEX_BY[5].atk && pl.baseSpd === G.DEX_BY[5].spd && pl.maxHp === antes.max + d && pl.hp === antes.hp + Math.max(0, d), { pl: [pl.maxHp, pl.hp], antes, d });
+    t('en solitario no manda nada por la red', !red.length);
+    t('sin la siguiente fase a su nivel, no hay más carta (Charmeleon a nivel 9)', !E.disponibles(pl).length);
+    const { G: G0 } = montar(); G0.MODS.evoEnPartida = false;
+    t('evoEnPartida: false = sin cartas', G0.EvoPartida.cartas(jugador(G0, 4, 30), normales(), 3).every(c => !c.evoDex));
+  } catch (e) { t('lógica de la evolución en partida', false, String(e && e.stack || e)); }
+  try {
+    // Red: el invitado avisa al anfitrión; el anfitrión aplica y reenvía a todos; cada uno ignora el eco de lo suyo.
+    let m = montar({ coop: true, host: false, local: 'inv' });
+    const yo = jugador(m.G, 4, 9, { uid: 'inv' });
+    m.G.EvoPartida.evolucionar(yo, 5);
+    t('el invitado avisa al anfitrión con [evo, uid, dex, shiny]', m.red.length === 1 && m.red[0][0] === 'anfitrion' && JSON.stringify(m.red[0][1]) === '["evo","inv",5,0]', m.red);
+    const copia = { pl: null };
+    m = montar({ coop: true, host: true, local: 'anf', mates: { inv: copia } });
+    copia.pl = jugador(m.G, 4, 9, { uid: 'inv', remote: true, hp: 77 });
+    m.G.EvoPartida.deRed(['evo', 'inv', 5, 0], 'inv');
+    t('el anfitrión cambia la copia del invitado (sin tocar su vida, que llega por la red) y lo reenvía a todos',
+      copia.pl.dex === 5 && copia.pl.hp === 77 && m.red.length === 1 && m.red[0][0] === 'todos', { dex: copia.pl.dex, hp: copia.pl.hp, red: m.red });
+    m.G.EvoPartida.deRed(['evo', 'otro', 6, 0], 'inv');
+    t('nadie avisa por otro jugador', m.red.length === 1);
+    m = montar({ coop: true, host: false, local: 'inv' });
+    m.G.EvoPartida.deRed(['evo', 'inv', 5, 0]);
+    t('el eco de lo tuyo no hace nada', !m.red.length);
+    const gancho = (f, re) => rd(f).split(/\r?\n/).some(l => re.test(l) && /MOD nico/.test(l));
+    t('ganchos de una línea: offer de levelup.js, renderCards de run-ui.js y los dos sentidos de coop.js',
+      gancho('js/systems/levelup.js', /G\.EvoPartida\.cartas\(pl, picked, n\)/) && gancho('js/ui/run-ui.js', /G\.EvoPartida\.pintarCarta\(el, c\)/)
+      && gancho('js/net/coop.js', /G\.EvoPartida\.deRed\(ev, from\)/) && gancho('js/net/coop.js', /G\.EvoPartida\.deRed\(ev\); break;/));
+    t('dev.html carga evo-partida.js y el paquete lo lleva', /src="js\/systems\/evo-partida\.js"/.test(rd('dev.html')) && /EvoPartida/.test(rd('js/app.min.js')));
+    t('G.EVO_NIVEL generado: 327 niveles', rd('js/data/evolutions.js').match(/^  \d+: \d+,/gm).length === 327);
+  } catch (e) { t('red de la evolución en partida', false, String(e && e.stack || e)); }
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`evolución en partida: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`evolución en partida: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 function devMenuChecks() {
   console.log('21. Menú de pruebas (js/ui/dev-menu.js): sólo con una huella de G.MODS.devHuellas');
   const src = rd('js/ui/dev-menu.js'), mods = rd('js/core/mods.js');
@@ -5101,6 +5169,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { companeroChecks(); } catch (e) { bad('no se pudo probar «Elige a tu compañero»: ' + (e && e.stack || e)); }
   try { guarderiaChecks(); } catch (e) { bad('no se pudo probar la guardería: ' + (e && e.stack || e)); }
   try { trampasChecks(); } catch (e) { bad('no se pudo probar las trampas: ' + (e && e.stack || e)); }
+  try { evoPartidaChecks(); } catch (e) { bad('no se pudo probar la evolución en partida: ' + (e && e.stack || e)); }
   try { devMenuChecks(); } catch (e) { bad('no se pudo probar el menú de pruebas: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);

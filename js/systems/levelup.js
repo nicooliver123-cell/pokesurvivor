@@ -122,6 +122,7 @@ G.LevelUp = (() => {
       used.add(c.key);
       picked.push(c);
     }
+    if (G.EvoPartida) G.EvoPartida.cartas(pl, picked, n);   // MOD nico: «Evolucionar en X» (js/systems/evo-partida.js)
     return picked;
   }
 

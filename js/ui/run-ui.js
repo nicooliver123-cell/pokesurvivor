@@ -53,6 +53,7 @@ G.RunUI = (() => {
          <div class="txt"><div class="nm">${c.title} ${tag}</div><div class="ds">${c.desc}</div></div>
          <div class="key">${i + 1}</div>`;
       if (G.Estilo) G.Estilo.carta(el, c);   // MOD nico: franja e icono del tipo (Dex) y foco con Tab (js/ui/estilo.js)
+      if (G.EvoPartida) G.EvoPartida.pintarCarta(el, c);   // MOD nico: el sprite de la evolución (js/systems/evo-partida.js)
       el.dataset.sfx = 'none';             // el juego pone su propio sonido al elegir
       el.onclick = () => pick(i);
       box.appendChild(el);
