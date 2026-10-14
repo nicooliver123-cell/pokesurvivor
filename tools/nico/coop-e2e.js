@@ -69,6 +69,9 @@
  *      ninguna copia nueva nace con los pies dentro de la vista de B. B corriendo 7 s con A lejos y unos Gastly detrás a su
  *      velocidad, dentro de su vista pero más lejos de lo que ve A: ningún rezagado sale de la vista de B ni vuelve dentro.
  *      No cuentan el duende del tesoro ni los esbirros que un invocador saca a su lado (salen a la vista a propósito).
+ *      Y la bomba de B (G.MODS.bombaVistas): con A lejos, B coge una bomba (A se la suelta a los pies de su copia) y daña a
+ *      los Gastly que A ha puesto a los lados de la vista de B (más allá del círculo de upstream) y no a los de arriba y
+ *      abajo, fuera de ella (dentro de ese círculo).
  *      Cada fase, también de control con el ajuste apagado en A (upstream): ahí SÍ pasa. Al terminar, todo como estaba.
  *
  * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
@@ -907,7 +910,9 @@ const VISTAS_A = `(() => {
  *   1. Juntos y quietos: A provoca oleadas (G.Spawner.burst: el anillo de aparición de siempre) además del goteo, 12 s.
  *   2. Rezagados: A se va lejos; A crea detrás de B, dentro de su vista pero más lejos de lo que A ve, unos Gastly que le siguen
  *      a su misma velocidad, y B corre en línea recta 7 s.
- * Cada fase con G.MODS.aparicionVistas y, de control, con el ajuste apagado en el anfitrión (como upstream): ahí tiene que pasar.
+ *   3. La bomba de B (G.MODS.bombaVistas), con A lejos: daña a los de su pantalla, no al círculo de la vista de A.
+ * Cada fase con G.MODS.aparicionVistas (la 3, con bombaVistas) y, de control, con el ajuste apagado en el anfitrión (como
+ * upstream): ahí tiene que pasar.
  */
 async function vistasCoop(A, B, uidB) {
   await A.page.setViewportSize({ width: 1440, height: 900 });
@@ -993,6 +998,43 @@ async function vistasCoop(A, B, uidB) {
     (z.fotos || 0) > 40 && visto(z) === 0, { invitado: z, ejemplos: rB.ej.filter(e => e.fase === 'rezagados').slice(0, 5) });
   check('Rezagados, control: sin el ajuste en el anfitrión SÍ saltan rezagados desde la vista de B o hasta ella (la prueba lo detecta)',
     (zc.saltosDesde || 0) + (zc.saltosHasta || 0) > 0, { invitado: zc, ejemplos: rB.ej.filter(e => e.fase === 'rezagados-control').slice(0, 5) });
+
+  // 3. La bomba de B (G.MODS.bombaVistas). A, lejos, pone Gastly quietos a los lados de la vista de B (dentro de ella y fuera
+  // del círculo con el que upstream mide la bomba de un compañero: el radio de la vista de A) y arriba y abajo (fuera de ella y
+  // dentro de ese círculo), y suelta una bomba a los pies de la copia de B: la coge B, por el recorrido de siempre.
+  const bombas = {};
+  await A.page.evaluate(() => {
+    const H = window.__bombaA = { fase: '', ids: new Map() }, hu = G.Enemy.prototype.hurt;
+    G.Enemy.prototype.hurt = function (d, col, kx, ky, kb) { if (H.fase && col === '#ff7b3d' && kb === 160) H.ids.set(this.id, H.fase); return hu.apply(this, arguments); };
+  });
+  for (const [nombre, conAjuste] of [['bomba', true], ['bomba-control', false]]) {
+    await A.page.evaluate(([v, uidB]) => { const a = G.Game.player, b = G.Coop.mate(uidB).pl; window.__bombaA.antes = G.MODS.bombaVistas; G.MODS.bombaVistas = v; window.__vistasA.vaciar(); a.x = b.x - 2600; a.y = b.y; }, [conAjuste, uidB]);
+    await sleep(1000);   // la cámara de B, quieta en su sitio
+    const vb = await B.page.evaluate(() => { const c = G.Camera, p = G.Game.player; return { x: c.x, y: c.y, w: c.w, h: c.h, px: p.x, py: p.y }; });
+    const sitios = { derecha: [vb.x + vb.w / 2 - 50, vb.y], izquierda: [vb.x - vb.w / 2 + 50, vb.y], arriba: [vb.px, vb.y - vb.h / 2 - 70], abajo: [vb.px, vb.y + vb.h / 2 + 70], cerca: [vb.px + 120, vb.py] };
+    const puestos = await A.page.evaluate(([sitios, uidB]) => {
+      const b = G.Coop.mate(uidB).pl, R = G.Camera.outerRadius(), def = { dex: 92, name: 'Gastly', hp: 1e6, spd: 0, dmg: 0, xp: 0, behavior: 'chase' }, out = {};
+      for (const [k, [x, y]] of Object.entries(sitios)) { const e = G.EnemyMgr.add(new G.Enemy(def, x, y, { hp: 1, spd: 1, dmg: 1 })); out[k] = { id: e.id, aB: Math.round(Math.hypot(x - b.x, y - b.y)), R: Math.round(R) }; }
+      return { out, vista: G.Vistas && G.Vistas.vista(uidB) };
+    }, [sitios, uidB]);
+    await sleep(500);
+    const enVistaB = await B.page.evaluate(ids => Object.fromEntries(Object.entries(ids).map(([k, id]) => { const e = G.EnemyMgr.get(id); return [k, e ? G.Camera.sees(e.x, e.y, 0) : null]; })),
+      Object.fromEntries(Object.entries(puestos.out).map(([k, v]) => [k, v.id])));
+    await A.page.evaluate(([f, uidB]) => { const b = G.Coop.mate(uidB).pl; window.__bombaA.fase = f; G.Pickups.drop('bomb', b.x, b.y, 0); }, [nombre, uidB]);
+    await sleep(800);
+    const dados = await A.page.evaluate(f => { const H = window.__bombaA; H.fase = ''; G.MODS.bombaVistas = H.antes; return [...H.ids].filter(([, g]) => g === f).map(([id]) => id); }, nombre);
+    bombas[nombre] = { vistaDeB: puestos.vista, enVistaB, distanciaAB: puestos.out, danados: Object.fromEntries(Object.entries(puestos.out).map(([k, v]) => [k, dados.includes(v.id)])) };
+    await A.page.evaluate(() => window.__vistasA.vaciar());
+    step(`Bomba ${nombre}`, `B coge una bomba; ajuste ${conAjuste ? 'activado' : 'apagado'} en el anfitrión: ` + JSON.stringify(bombas[nombre].danados));
+  }
+  report.vistasCoop.bombas = bombas;
+  const bo = bombas.bomba, bc = bombas['bomba-control'];
+  const premisa = x => x && x.vistaDeB && x.enVistaB.derecha && x.enVistaB.izquierda && x.enVistaB.cerca && x.enVistaB.arriba === false && x.enVistaB.abajo === false &&
+    ['derecha', 'izquierda'].every(k => x.distanciaAB[k].aB > x.distanciaAB[k].R) && ['arriba', 'abajo', 'cerca'].every(k => x.distanciaAB[k].aB < x.distanciaAB[k].R);
+  check('Bomba de B (bombaVistas): daña a los enemigos de los lados de su pantalla, que B ve, y no a los de arriba y abajo, que no ve (con la vista que manda B)',
+    premisa(bo) && bo.danados.derecha && bo.danados.izquierda && bo.danados.cerca && !bo.danados.arriba && !bo.danados.abajo, bo);
+  check('Bomba de B, control: sin el ajuste (upstream, el círculo del radio de la vista de A) no llega a los de los lados y sí a los de arriba y abajo',
+    premisa(bc) && !bc.danados.derecha && !bc.danados.izquierda && bc.danados.cerca && bc.danados.arriba && bc.danados.abajo, bc);
 
   // Como estaban: A junto a B, los dos a 1280x720, el ajuste activado.
   await ajuste(true);

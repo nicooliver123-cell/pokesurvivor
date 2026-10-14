@@ -202,6 +202,15 @@ G.MODS = {
   aparicionVistas: true,
   aparicionMargen: 40,
 
+  /* Cooperativo: la bomba que coge un compañero daña a los enemigos del rectángulo de SU vista (js/net/vistas.js), como
+   * la tuya, que daña a los de tu pantalla. En upstream el anfitrión no sabe qué ve el invitado y usa un círculo del
+   * radio de SU vista (1440x900: 465 px de mundo): con un móvil de invitado (844x390@3: 1266x585) la bomba no llegaba a
+   * los enemigos de los lados de su pantalla (hasta 633), y alcanzaba a los de arriba y abajo que no ve (más allá de 292).
+   * Con un PC de invitado, su vista (720x450) es más pequeña que ese círculo: su bomba alcanza menos que en upstream y lo
+   * mismo que jugando solo. Usa la vista que manda el invitado (con aparicionVistas o con esto); sin ella, el círculo de
+   * upstream. Lo decide el anfitrión. Cambia el equilibrio: false (upstream) hasta que Nico lo pruebe y decida. */
+  bombaVistas: false,
+
   /* Evolución dentro de la partida (decisión de Nico, 14-10-2026; js/systems/evo-partida.js): al subir de nivel sale la
    * carta «Evolucionar en X» cuando tu Pokémon ya puede; dura hasta el final de esa partida. Nivel de la partida: el real
    * de los juegos × evoNivelFactor, redondeado hacia arriba (Charmander 16 -> 8, Dragonite 55 -> 28); las que no son

@@ -106,6 +106,9 @@
  *      del móvil); en solitario, con el ajuste apagado o sin vistas.js, las mismas apariciones que upstream con el mismo azar;
  *      los rezagados con el bloque de enemy.js tal cual (el que el móvil ve no vuelve; el que nadie ve, sí); y la red con
  *      coop.js real (el invitado manda ['vista', ...] al empezar, al cambiar y cada 2 s; el anfitrión la apunta, con topes).
+ *      Y la bomba de un compañero (G.MODS.bombaVistas) con el trozo de onCollect() de game.js tal cual, sobre una rejilla
+ *      de enemigos: con el ajuste, exactamente los del rectángulo de SU vista (un móvil y un PC); sin él, sin sus datos,
+ *      sin vistas.js o con la línea de upstream reconstruida, el círculo de upstream; y la tuya, siempre tu pantalla.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -451,6 +454,8 @@ const HOOKS = [
     'apariciones en grupo: un rezagado sólo vuelve si nadie lo ve (EnemyMgr.update)'],
   ['js/net/coop.js', /function tick\(dt\) \{\r?\n\s*if \(!active\) return;\r?\n\s*if \(G\.Vistas\) G\.Vistas\.tick\(dt, host\);\s*\/\/ MOD nico/, 'apariciones en grupo: el invitado manda su vista (tick)'],
   ['js/net/coop.js', /case 'vista': if \(G\.Vistas\) G\.Vistas\.deRed\(from, ev\); break;\s*\/\/ MOD nico/, "apariciones en grupo: el anfitrión apunta la vista de cada invitado ('vista')"],
+  ['js/game.js', /const R = G\.Camera\.outerRadius\(\);\r?\n[^\n]*\r?\n\s*for \(const e of G\.EnemyMgr\.all\(\)\) \{\r?\n\s*if \(G\.Vistas && G\.Vistas\.bombaEnSuVista\(who, mine\) \? !G\.Vistas\.enSuVista\(who, e\.x, e\.y\) : mine \? !G\.Camera\.sees\(e\.x, e\.y, 0\) : G\.U\.dist2\(e\.x, e\.y, who\.x, who\.y\) > R \* R\) continue;\s*\/\/ MOD nico/,
+    'la bomba de un compañero, en SU vista (onCollect; detrás, la condición de upstream tal cual)'],
   ['js/systems/rift.js', /shiny: G\.Sprites\.hasShiny\(mon\.dex\) && Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(1 \/ 512\) : 1 \/ 512\),\s*\/\/ MOD nico/, 'shiny ×1,5: legendario de la grieta'],
   ['js/systems/gacha.js', /Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(SHINY_RATE\) : SHINY_RATE\)\);\s*\/\/ MOD nico/, 'shiny ×1,5: gacha'],
   ['js/ui/gacha-ui.js', /<span>1%<\/span><\/div>[\s\S]*?<\/p>`;\r?\n\s*if \(G\.MODS && G\.MODS\.notasGacha\) \$\('gacha-rates'\)\.innerHTML = G\.MODS\.notasGacha\(\$\('gacha-rates'\)\.innerHTML\);\s*\/\/ MOD nico/,
@@ -5530,11 +5535,11 @@ function vistasChecks() {
 
   // Red: coop.js real en los dos lados. El invitado manda ['vista', ...] al empezar, al cambiar y cada 2 s; el anfitrión la apunta.
   try {
-    const cliente = (uid, anfitrion, ajuste = true) => {
+    const cliente = (uid, anfitrion, ajuste = true, bombaAj = false) => {
       const c = { console, performance: { now: () => 0 } }; c.window = c; c.G = {}; vm.createContext(c);
       for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/core/camera.js']) vm.runInContext(rd(f), c, { filename: f });
       const G = c.G, nop = () => {}, S = { enviados: [], mandados: [], dts: [] };
-      G.MODS.aparicionVistas = ajuste;
+      G.MODS.aparicionVistas = ajuste; G.MODS.bombaVistas = bombaAj;
       const pl = { x: 100, y: 50, dead: false, hp: 100, maxHp: 100, moveAngle: 0, walking: false, magnet: 78, aim: 0, xpMul: 1, reviveT: 0, activeGroup: () => [] };
       Object.assign(G, {
         Net: { uid, on: fn => { S.recibe = fn; }, onPeer: nop, slow: () => false, viaTurn: () => false,
@@ -5569,12 +5574,78 @@ function vistasChecks() {
     t('de alguien que no está en la partida, nada', A.G.Vistas.vista('Z') === null);
     const Bsin = cliente('B', false, false);
     for (let f = 0; f < 300; f++) Bsin.G.Coop.tick(1 / 60);
-    t('con aparicionVistas: false el invitado no manda nada nuevo (como upstream)', Bsin.S.enviados.length > 0 && Bsin.S.enviados.every(m => !(m.ev || []).some(ev => ev[0] === 'vista')),
+    t('con aparicionVistas y bombaVistas en false el invitado no manda nada nuevo (como upstream)', Bsin.S.enviados.length > 0 && Bsin.S.enviados.every(m => !(m.ev || []).some(ev => ev[0] === 'vista')),
       { mensajes: Bsin.S.enviados.length });
+    const Bbomba = cliente('B', false, false, true);
+    for (let f = 0; f < 300; f++) { Object.assign(Bbomba.G.Camera, { w: VB.w, h: VB.h }); Bbomba.G.Coop.tick(1 / 60); }
+    const vb = Bbomba.S.enviados.flatMap(m => (m.ev || []).filter(ev => ev[0] === 'vista'));
+    t('con sólo bombaVistas (aparicionVistas en false) el invitado también manda su vista, que necesita la bomba', vb.length >= 2 && vb.length <= 4 && vb[0][1] === VB.w, { vistas: vb.length, primera: vb[0] });
     for (let f = 0; f < 120; f++) A.G.Coop.tick(1 / 60);
     t('el anfitrión no manda su vista a nadie', A.S.mandados.length > 0 && !A.S.enviados.length && A.S.mandados.every(m => !(m.ev || []).some(ev => ev[0] === 'vista')),
       { mensajes: A.S.mandados.length });
   } catch (e) { t('red con coop.js real', false, String(e && e.stack || e)); }
+
+  // La bomba de un compañero (G.MODS.bombaVistas): el trozo de onCollect() de js/game.js tal cual, sobre una rejilla de
+  // enemigos (cada 24 px, en posiciones impares para no caer justo en un borde). A, el anfitrión (PC), lejos; B la coge.
+  try {
+    const m = rd('js/game.js').match(/    if \(p\.kind === 'bomb'\) \{\r?\n[\s\S]*?\r?\n    \}\r?\n/);
+    if (!m) throw new Error('no encuentro la bomba en onCollect() de js/game.js');
+    const GANCHO = /G\.Vistas && G\.Vistas\.bombaEnSuVista\(who, mine\) \? !G\.Vistas\.enSuVista\(who, e\.x, e\.y\) : /;
+    if (!GANCHO.test(m[0])) throw new Error('la bomba de onCollect() no lleva el gancho');
+    // Upstream: el mismo trozo sin el gancho ni su comentario (lo que queda detrás del gancho es su condición tal cual).
+    const UPSTREAM = m[0].replace(GANCHO, '').replace(/\s*\/\/ MOD nico[^\r\n]*/, '');
+    const R = Math.hypot(VA.w, VA.h) / 2 + 40;   // G.Camera.outerRadius() del anfitrión: 464,5
+    const bomba = ({ trozo = m[0], vistas = true, ajuste = true, apariciones = true, coop = true, host = true, datos = VB, mia = false } = {}) => {
+      const c = { console }; c.window = c; c.G = {}; vm.createContext(c);
+      for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/core/camera.js']) vm.runInContext(rd(f), c, { filename: f });
+      const G = c.G, golpes = [], aros = [];
+      G.MODS.bombaVistas = ajuste; G.MODS.aparicionVistas = apariciones;
+      const yo = { x: -2600, y: 0, level: 7 }, otro = { x: 90, y: 20, remote: true, uid: 'B', level: 3 }, who = mia ? yo : otro;
+      Object.assign(G, { Settings: { get: () => false }, Coop: { active: coop, isHost: coop && host, local: yo }, FX: { ring: (x, y, r0, r1) => aros.push(Math.round(r1)) } });
+      Object.assign(G.Camera, { x: yo.x, y: yo.y, w: VA.w, h: VA.h });
+      const es = [];
+      for (let dx = -983; dx <= 985; dx += 24) for (let dy = -695; dy <= 697; dy += 24)
+        es.push({ x: who.x + dx, y: who.y + dy, hurt(d, col, kx, ky, kb) { golpes.push({ x: this.x, y: this.y, d, col, kx, ky, kb }); } });
+      G.EnemyMgr = { all: () => es };
+      if (vistas) vm.runInContext(rd('js/net/vistas.js'), c, { filename: 'js/net/vistas.js' });
+      if (vistas && datos) G.Vistas.deRed('B', ['vista', datos.w, datos.h, datos.ox || 0, datos.oy || 0]);
+      vm.runInContext(`var __bomba = (p, who, pl) => { const mine = who === pl;\n${trozo}};`, c, { filename: 'js/game.js (la bomba de onCollect)' });
+      c.__bomba({ kind: 'bomb' }, who, yo);
+      const clave = e => Math.round(e.x) + ',' + Math.round(e.y);
+      return { G, who, es, golpes, aros, k: new Set(golpes.map(clave)), clave, dmg: 60 + yo.level * 14 };
+    };
+    const igual = (x, quien) => { const q = new Set(x.es.filter(quien).map(x.clave)); return q.size > 0 && q.size === x.k.size && [...q].every(k => x.k.has(k)); };
+    const rect = (v, w) => e => Math.abs(e.x - (w.x + (v.ox || 0))) < v.w / 2 && Math.abs(e.y - (w.y + (v.oy || 0))) < v.h / 2;
+    const d2 = (a, b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
+    const circulo = w => e => d2(e, w) <= R * R;
+    const cuenta = x => x.k.size;
+
+    // Un móvil de invitado (1266x585, corrida 31 a la izquierda y 37 abajo, como manda el HUD Dex compacto).
+    const movil = bomba(), movilUp = bomba({ trozo: UPSTREAM }), sinAj = bomba({ ajuste: false }), sinDatos = bomba({ datos: null }), sinVistas = bomba({ vistas: false });
+    const lados = [...movil.k].filter(k => !movilUp.k.has(k)).length, noVe = [...movilUp.k].filter(k => !movil.k.has(k)).length;
+    t('bomba de un compañero con un móvil (bombaVistas): daña exactamente a los enemigos del rectángulo de SU vista (1266x585, con lo que la tiene corrida)',
+      igual(movil, rect(VB, movil.who)), { golpeados: cuenta(movil), enSuVista: movil.es.filter(rect(VB, movil.who)).length });
+    t('control: la condición de upstream (el trozo sin el gancho) daña al círculo del radio de la vista del ANFITRIÓN (465 px) alrededor del compañero; el ajuste alcanza a los de los lados de su pantalla y deja a los de arriba y abajo que no ve',
+      igual(movilUp, circulo(movilUp.who)) && lados > 0 && noVe > 0, { upstream: cuenta(movilUp), conAjuste: cuenta(movil), soloConAjuste: lados, soloUpstream: noVe });
+    t('sin el ajuste, sin la vista del compañero (otra versión, o aún no ha llegado) o sin vistas.js, exactamente lo de upstream',
+      [sinAj, sinDatos, sinVistas].every(x => igual(x, circulo(x.who))), { sinAjuste: cuenta(sinAj), sinDatos: cuenta(sinDatos), sinVistas: cuenta(sinVistas), upstream: cuenta(movilUp) });
+    // Un PC de invitado (720x450, sin corrimiento): su vista es más pequeña que el círculo de upstream; su bomba, como jugando solo.
+    const pc = bomba({ datos: { w: VA.w, h: VA.h } }), pcUp = bomba({ trozo: UPSTREAM, datos: { w: VA.w, h: VA.h } });
+    t('con un PC de invitado (720x450), su rectángulo: menos que el círculo de upstream (lo mismo que su bomba jugando solo)',
+      igual(pc, rect({ w: VA.w, h: VA.h }, pc.who)) && cuenta(pc) < cuenta(pcUp), { conAjuste: cuenta(pc), upstream: cuenta(pcUp) });
+    // La tuya, la del anfitrión: su pantalla (G.Camera.sees(x, y, 0)), con el ajuste o sin él.
+    const tuya = bomba({ mia: true }), tuyaUp = bomba({ mia: true, trozo: UPSTREAM }), cam = tuya.G.Camera;
+    t('tu bomba no cambia: tu pantalla, con el ajuste y con la condición de upstream', igual(tuya, e => cam.sees(e.x, e.y, 0)) && igual(tuyaUp, e => cam.sees(e.x, e.y, 0)),
+      { conAjuste: cuenta(tuya), upstream: cuenta(tuyaUp) });
+    const soloAj = bomba({ apariciones: false });
+    t('bombaVistas no depende de aparicionVistas (sólo de la vista que manda el invitado)', igual(soloAj, rect(VB, soloAj.who)), { golpeados: cuenta(soloAj) });
+    const inv = bomba({ host: false });
+    t('sólo lo decide el anfitrión: en el invitado (que no aplica la bomba), bombaEnSuVista() dice que no', inv.G.Vistas.bombaEnSuVista(inv.who, false) === false && movil.G.Vistas.bombaEnSuVista(movil.who, false) === true,
+      { invitado: inv.G.Vistas.bombaEnSuVista(inv.who, false) });
+    t('el daño, el empuje y el aro, como upstream (60 + nivel × 14, el empuje desde quien la coge; el aro, del radio del anfitrión)',
+      movil.golpes.every(g => g.d === movil.dmg && g.col === '#ff7b3d' && g.kb === 160 && g.kx === g.x - movil.who.x && g.ky === g.y - movil.who.y) && movil.aros.join() === movilUp.aros.join() && movil.aros[0] === Math.round(R),
+      { aros: movil.aros, aroUpstream: movilUp.aros });
+  } catch (e) { t('la bomba de un compañero con el trozo de onCollect()', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`apariciones en grupo: ${r.length} casos bien`);

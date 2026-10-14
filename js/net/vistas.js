@@ -17,15 +17,19 @@
  *     también los del jefe, que upstream no miraba;
  *   - fueraDeTodas(): un rezagado sólo está fuera de la vista si está más lejos que el radio de la vista de cada uno
  *     (upstream: el radio de la del anfitrión, contra el jugador vivo más cercano).
- * Sin datos de un invitado (otra versión, o aún no han llegado), su vista es la del anfitrión, como en upstream. En
- * solitario, en el invitado, con el ajuste apagado o sin este fichero, los ganchos hacen lo de upstream. Sólo lee el
- * juego; lo único que viaja por la red es ese evento, del invitado al anfitrión.
+ * Con G.MODS.bombaVistas (el invitado también manda su vista con este ajuste), la bomba que coge un compañero daña a los
+ * enemigos del rectángulo de SU vista (bombaEnSuVista() y enSuVista(), en onCollect() de js/game.js), como la tuya con
+ * G.Camera.sees(x, y, 0); upstream usa un círculo del radio de la vista del anfitrión alrededor de él.
+ * Sin datos de un invitado (otra versión, o aún no han llegado), su vista es la del anfitrión, como en upstream (la bomba,
+ * con el círculo de upstream). En solitario, en el invitado, con el ajuste apagado o sin este fichero, los ganchos hacen
+ * lo de upstream. Sólo lee el juego; lo único que viaja por la red es ese evento, del invitado al anfitrión.
  */
 G.Vistas = (() => {
   const otras = new Map();             // en el anfitrión: uid -> { w, h, ox, oy } de cada invitado
   let partida = null, enviada = null, desde = 0;
 
   const ajuste = () => !!(G.MODS && G.MODS.aparicionVistas);
+  const bomba = () => !!(G.MODS && G.MODS.bombaVistas);
   const margen = () => { const m = G.MODS ? +G.MODS.aparicionMargen : NaN; return m >= 0 ? m : 40; };
 
   /** Otra partida (otro Player local): lo de la anterior ya no vale. */
@@ -109,13 +113,27 @@ G.Vistas = (() => {
     return true;
   }
 
+  /** game.js, onCollect(), la bomba: ¿la que ha cogido p daña a los enemigos de SU vista? Sólo en el anfitrión, con
+   *  bombaVistas, si la ha cogido un compañero y éste ha mandado su vista; si no, la de upstream (el círculo). */
+  function bombaEnSuVista(p, mine) {
+    if (mine || !p || !p.remote || !bomba() || !G.Coop.isHost) return false;
+    alDia();
+    return otras.has(p.uid);
+  }
+
+  /** ¿Cae (x, y) dentro de la vista de p, sin margen? (la tuya: G.Camera.sees(x, y, 0)) */
+  function enSuVista(p, x, y) {
+    const v = de(p);
+    return Math.abs(x - v.x) < v.w / 2 && Math.abs(y - v.y) < v.h / 2;
+  }
+
   /** coop.js, tick(): el invitado avisa de su vista al empezar, al cambiar (como mucho 2 veces por segundo) y cada 2 s.
    *  Lo corrida que está es la del encuadre (G.Encuadre: el HUD Dex compacto y el pliegue), no la de la cámara menos su
    *  Pokémon: ésa lleva además el retraso de la cámara al moverse (unos 13 px a toda velocidad), que cambia de signo con
    *  cada giro y que la copia de su Pokémon en el anfitrión ya lleva parecido (llega con su latencia). */
   function tick(dt, host) {
     alDia();
-    if (host || !ajuste()) return;
+    if (host || !(ajuste() || bomba())) return;
     const c = G.Camera, l = G.Coop.local;
     if (!l || !(c.w > 0) || !(c.h > 0)) return;
     desde += dt;
@@ -136,5 +154,5 @@ G.Vistas = (() => {
     otras.set(uid, { w, h, ox: G.U.clamp(ox, -400, 400), oy: G.U.clamp(oy, -400, 400) });
   }
 
-  return { activo, de, radio, radioDe, vistoPorAlguien, fueraDeTodas, tick, deRed, vista: uid => otras.get(uid) || null };
+  return { activo, de, radio, radioDe, vistoPorAlguien, fueraDeTodas, bombaEnSuVista, enSuVista, tick, deRed, vista: uid => otras.get(uid) || null };
 })();
