@@ -2,6 +2,12 @@
 
 Lo que PokéSwarm usa de otros, con sus licencias. El código y su licencia, en [LICENSE](LICENSE).
 
+## Juego original
+
+PokéSwarm es un proyecto personal de Nico, inspirado en *PokéSurvivor*, el
+juego de fans de JPTER78, y desarrollado a partir de su código (licencia MIT;
+su aviso de copyright, en [LICENSE](LICENSE)).
+
 ## Sprites
 
 Los sprites estilo *Pokémon Mundo Misterioso* vienen de

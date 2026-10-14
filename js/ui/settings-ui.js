@@ -98,6 +98,7 @@ G.SettingsUI = (() => {
       box.innerHTML = `<div class="about-logo" translate="no">PokéSwarm</div><p class="sub center">Versión ${esc(VERSION)}</p>`   // MOD nico: el nombre
         + `<p class="sub">Juego de fans <b>gratuito y sin ánimo de lucro</b>: sin anuncios ni compras. Pokémon y sus personajes son propiedad de Nintendo, Creatures, GAME FREAK y The Pokémon Company; este proyecto no está afiliado a ellos.</p>`   // MOD nico: con The Pokémon Company
         + section('Créditos')
+        + (G.MODS && G.MODS.creditoOriginal ? G.MODS.creditoOriginal() : '')   // MOD nico: inspirado en el juego original
         + `<ul class="credits">
              <li><b>Sprites:</b> PMD SpriteCollab y sus artistas (CC BY-NC 4.0).</li>
              <li><b>Datos de los Pokémon:</b> PokéAPI.</li>

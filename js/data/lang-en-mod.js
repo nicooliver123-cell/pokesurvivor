@@ -162,5 +162,9 @@ G.I18n.add({
   'Al azar': 'Random', 'Elegir a {x}': 'Choose {x}', 'Elige uno o déjalo al azar.': 'Pick one or leave it to chance.', 'Iniciales': 'Starters',
   'Tu apodo, tus misiones de hoy y tu inicial no cambian.': 'Your nickname, today\'s missions and your starter don\'t change.',
   // La máquina de gancho del gacha (js/ui/gancho.js); el resto de sus rótulos son los de la tragaperras (lang-en.js).
-  'POKé GANCHO': 'POKé CLAW'
+  'POKé GANCHO': 'POKé CLAW',
+  // Crédito al juego original en Ajustes > Acerca de (G.MODS.creditoOriginal).
+  // Va en trozos (las negritas parten el texto): cada uno con su clave.
+  'PokéSwarm es un proyecto personal de Nico, inspirado en': 'PokéSwarm is a personal project by Nico, inspired by',
+  ', el juego de fans de': ', the fan game by', ', y desarrollado a partir de su código (licencia MIT).': ', and built from its code (MIT license).'
 });

@@ -177,6 +177,13 @@ G.MODS = {
    * del original. */
   maquinaGancho: true,
 
+  /** Crédito al juego original en Ajustes > Acerca de (decisión de Nico, 14-10-2026): su nombre y su autor, sin
+   *  enlaces a su web ni a su repositorio (tools/nico/base.js sólo los deja aquí, en lang-en-mod.js y en los
+   *  créditos del repositorio). */
+  creditoOriginal() {
+    return '<p class="sub">PokéSwarm es un proyecto personal de Nico, inspirado en <b>PokéSurvivor</b>, el juego de fans de <b>JPTER78</b>, y desarrollado a partir de su código (licencia MIT).</p>';
+  },
+
   /* ---- Identidad visual «Dex de Expedición» (elegida por Nico el 12-10-2026) ----
    * Estilo que ve quien no lo ha cambiado en Ajustes > Gráficos > Estilo (js/ui/estilo.js):
    *   'dex'      menús de Rotom-Dex (css/nico.css) y letra M PLUS Rounded 1c en todo, también en el

@@ -139,7 +139,7 @@ const nombraDominio = s => BASE.nombra(s, ['dominio']).length > 0, nombraAutor =
   const malos = casos.filter(([id, txt, sale]) => (BASE.nombra(txt, [P[id]]).length > 0) !== sale);
   // Y la línea: la aparición de la línea 3 se da en su sitio.
   const enLinea = BASE.nombra('a\nb\nx Juego Ajeno', [P.nombre]), lineaOk = enLinea.length === 1 && 'a\nb\nx Juego Ajeno'.slice(0, enLinea[0].i).split('\n').length === 3;
-  const huellasOk = BASE.SENAS.length === 6 && BASE.SENAS.every(s => /^[0-9a-f]{64}$/.test(s.h) && s.n > 0);
+  const huellasOk = BASE.SENAS.length === 6 && BASE.CREDITO.join() === 'autor,nombre' && BASE.SENAS.every(s => /^[0-9a-f]{64}$/.test(s.h) && s.n > 0);
   if (!malos.length && lineaOk && huellasOk) ok(`base.js: la búsqueda por huellas encuentra las señas (${casos.length} casos inventados, con mayúsculas, tilde, espacio, subdominio y dentro de una URL) y no da falsos positivos`);
   else bad(`base.js: la búsqueda por huellas falla: ${JSON.stringify(malos)}${lineaOk ? '' : ' (línea mal)'}${huellasOk ? '' : ' (huellas mal formadas)'}`);
 }
@@ -156,7 +156,7 @@ const nombraDominio = s => BASE.nombra(s, ['dominio']).length > 0, nombraAutor =
     try { execFileSync(process.execPath, [path.join(ROOT, js), tmp], { stdio: 'ignore' }); limpio = true; } catch (e) { limpio = false; }
     fs.rmSync(tmp, { force: true });
   }
-  if (modo !== '100755' || !ex(js) || !limpio || !/BASE\.nombra\(msg\)/.test(rd(js))) bad(`hook de los mensajes de commit: ${sh} (ejecutable en git: ${modo || 'no está'}) o ${js} no funciona`);
+  if (modo !== '100755' || !ex(js) || !limpio || !/BASE\.nombra\(msg, BASE\.VIGILADAS\)/.test(rd(js))) bad(`hook de los mensajes de commit: ${sh} (ejecutable en git: ${modo || 'no está'}) o ${js} no funciona`);
   else ok('hook de los mensajes de commit: ejecutable, busca las señas de base.js y deja pasar un mensaje limpio');
   if (!process.env.CI && activo !== 'tools/nico/hooks') warn('el hook de los mensajes de commit no está activo en este clon: git config core.hooksPath tools/nico/hooks');
 }
@@ -176,7 +176,7 @@ const FB_HOST = /(?<![\w<>.-])([a-z0-9][a-z0-9-]*)((?:\.[a-z0-9-]+)*)\.(firebase
 let hits = 0;
 for (const f of SERVED) {
   const s = rd(f);
-  for (const what of new Set(BASE.nombra(s).map(o => o.que))) { hits++; bad(`${f}: ${what}`); }
+  for (const what of new Set(BASE.nombra(s, BASE.CREDITO_EN.includes(f) ? BASE.VIGILADAS : undefined).map(o => o.que))) { hits++; bad(`${f}: ${what}`); }
   for (const m of s.matchAll(FB_HOST)) {
     const id = m[1].replace(/-default-rtdb$/, '');
     if (!ALLOWED.includes(id)) { hits++; bad(`${f}: URL de Firebase de un proyecto fuera de la lista blanca: ${m[0]}`); }
@@ -195,13 +195,19 @@ if (!hits) ok(`${SERVED.length} ficheros servidos sin referencias a la infraestr
   const malos = [];
   for (const f of pub.filter(f => f !== 'LICENSE' && !BIN.test(f) && ex(f))) {
     const txt = rd(f), vistos = new Set();
-    for (const o of BASE.nombra(txt)) {
+    for (const o of BASE.nombra(txt, BASE.CREDITO_EN.includes(f) ? BASE.VIGILADAS : undefined)) {   // el crédito, sólo en CREDITO_EN
       const m = `${f}:${txt.slice(0, o.i).split('\n').length} (${o.que})`;
       if (!vistos.has(m)) { vistos.add(m); malos.push(m); }
     }
   }
   if (malos.length) bad(`lo publicado nombra el proyecto base (${malos.length}): ${malos.slice(0, 12).join('; ')}${malos.length > 12 ? '…' : ''}`);
-  else ok(`${pub.length} ficheros publicados sin el nombre, el dominio, el Firebase, la apiKey, el autor ni el correo del proyecto base (salvo el aviso MIT de LICENSE)`);
+  else ok(`${pub.length} ficheros publicados sin el dominio, el Firebase, la apiKey ni el correo del proyecto base, y con su nombre y su autor sólo en el aviso MIT de LICENSE y en los créditos (${BASE.CREDITO_EN.join(', ')})`);
+  // El crédito al juego original (decisión de Nico, 14-10-2026): Ajustes > Acerca de lo dice, con nombre y autor.
+  const cred = () => { const x = { console }; x.window = x; x.G = {}; vm.createContext(x); vm.runInContext(rd('js/core/mods.js'), x); return x.G.MODS.creditoOriginal ? x.G.MODS.creditoOriginal() : ''; };
+  let credTxt = ''; try { credTxt = cred(); } catch (e) { credTxt = ''; }
+  if (BASE.CREDITO.every(id => BASE.nombra(credTxt, [id]).length) && /MOD nico/.test((rd('js/ui/settings-ui.js').split(/\r?\n/).find(l => l.includes('creditoOriginal')) || '')))
+    ok('crédito al juego original: Ajustes > Acerca de nombra el juego y a su autor (G.MODS.creditoOriginal)');
+  else bad('crédito al juego original: G.MODS.creditoOriginal() no nombra el juego y su autor, o falta su gancho en settings-ui.js');
   // Y LICENSE conserva el aviso MIT tal cual (la única excepción): el bloque entero, de «MIT License» a «SOFTWARE.»
   // (copyright, permiso, condición y exención de garantía), sin CR, tiene la huella del de upstream. Si upstream lo
   // cambia (por ejemplo, el año), se copia su bloque literal y se pone aquí la huella nueva.
