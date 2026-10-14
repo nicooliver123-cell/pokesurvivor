@@ -6696,9 +6696,9 @@ function relieveChecks() {
   for (const [name, , detail] of failed) bad(`relieve, sombras y luz: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
-// ---------------- 25. apariciones en grupo con vistas distintas (js/net/vistas.js) ----------------
+// ---------------- 27. apariciones en grupo con vistas distintas (js/net/vistas.js) ----------------
 function vistasChecks() {
-  console.log('25. Apariciones en grupo con vistas distintas (js/net/vistas.js): anillo, «¿lo ve alguien?», jefes, rezagados y red');
+  console.log('27. Apariciones en grupo con vistas distintas (js/net/vistas.js): anillo, «¿lo ve alguien?», jefes, rezagados y red');
   const r = [];
   const t = (name, cond, detail) => r.push([name, !!cond, detail]);
   // Las vistas medidas en el E2E (px de mundo, con el píxel nítido): un PC a 1440x900 (A, anfitrión) y un móvil a 844x390@3
