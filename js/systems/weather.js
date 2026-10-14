@@ -83,6 +83,7 @@ G.Weather = (() => {
   }
 
   function pick(biome) {
+    if (G.Mapas && G.Mapas.activo) return G.Mapas.climaAlAzar(biome);   // MOD nico: clima de los biomas propios (js/world/mapas.js)
     const w = BIOME_W[biome % BIOME_W.length];
     let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0);
     for (const k in w) { r -= w[k]; if (r <= 0) return k; }

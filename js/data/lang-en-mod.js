@@ -199,5 +199,14 @@ G.I18n.add({
   '· No hay legendarios, así que tampoco pity.': '· There are no legendaries, so there is no pity either.',
   '· Un repetido da {x} Pokémonedas (un shiny repetido, el triple).': '· A duplicate gives {x} PokéCoins (a shiny duplicate, triple).',
   '· Nunca salen de enemigos: sólo se consiguen aquí.': '· They never show up as enemies: you can only get them here.',
-  'Sólo sale en el banner del Multiverso, en el gacha.': 'Only in the Multiverse banner of the gacha.'
+  'Sólo sale en el banner del Multiverso, en el gacha.': 'Only in the Multiverse banner of the gacha.',
+  // Mapas propios (js/world/mapas-datos.js: los mismos que G.MapasDatos.NOMBRES_EN): los 3 biomas y las 18 arenas de la
+  // grieta. «Grieta · {x}», «— {x} —» y las mayúsculas del HUD clásico salen de estas claves (i18n.js).
+  'Vega del Alba': 'Dawn Vale', 'Vega Helada': 'Frozen Vale', 'Vega Sulfúrea': 'Sulfur Vale',
+  'Plaza del Eco': 'Echo Plaza', 'Caldera Rúnica': 'Rune Caldera', 'Atolón Hundido': 'Sunken Atoll',
+  'Jardín Colgante': 'Hanging Garden', 'Bobina Tormenta': 'Storm Coil', 'Lago de Seracs': 'Serac Lake',
+  'Tatami Sagrado': 'Sacred Tatami', 'Pozas de Ponzoña': 'Venom Pools', 'Cañada Seca': 'Dry Gulch',
+  'Mirador Nuboso': 'Cloud Lookout', 'Corona Astral': 'Astral Crown', 'Celdas de Ámbar': 'Amber Cells',
+  'Cantil Fósil': 'Fossil Cliff', 'Osario Velado': 'Veiled Ossuary', 'Nido Escamado': 'Scaled Nest',
+  'Arrabal Sin Luna': 'Moonless Quarter', 'Forja Sellada': 'Sealed Forge', 'Corro de Hadas': 'Fairy Ring'
 });

@@ -1,5 +1,5 @@
 /* ============ tools/nico/estilo-e2e.js — prueba de la identidad visual en el navegador ============
- *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud | --solo-portada | --solo-entornos | --solo-juego | --solo-companero]
+ *   cd tools/nico && node estilo-e2e.js [--dev] [--headed] [--puerto 8092] [--sin-capturas] [--solo-hud | --solo-portada | --solo-entornos | --solo-juego | --solo-companero | --solo-mapas]
  *
  * Arnés del estilo «Dex de Expedición» (lote 1: base del estilo y menús). Modo local, un jugador
  * invitado, sin emulador: abre index.html (con --dev, dev.html) en Chromium con Playwright y, en
@@ -65,8 +65,10 @@
  *  13. Entornos del Gremio, clima y horneado escalonado (--solo-entornos; lote 3). Capturas por pares de los tres biomas
  *      (en un sitio con paredes y charcos) a 1440x900, 844x390@3 y 724x784@3, una arena y la lluvia, la nieve y la arena.
  *      Imagen (1440x900): los píxeles de un Pokémon cerca del borde son idénticos con y sin el farol (que sólo va en el suelo);
- *      la viñeta cálida deja intacto el 46 % central; la lluvia de dos tonos da ≥ 2:1 (el borde contra el suelo más claro del
- *      juego, el núcleo contra el más oscuro y, en cada suelo donde llueve, el mejor de los dos); y el contraste de los
+ *      la viñeta cálida deja intacto el 46 % central; la lluvia de dos tonos da ≥ 2:1 por el mejor de sus dos tonos en cada
+ *      color de suelo del juego (biomas y arenas) y, aparte, en cada suelo donde llueve (los 3 normales y las arenas con lluvia
+ *      de G.Tiles.ARENA_THEMES); con los mapas propios todos los suelos son de tono medio, así que el borde oscuro contra el
+ *      suelo más claro y el núcleo contra el más oscuro sólo van al informe, como extremos; y el contraste de los
  *      Pokémon contra el suelo (mediana de la silueta, 36 Pokémon) no empeora más de 0,05 frente a Clásico en los tres biomas
  *      ni, con lluvia, más de 0,1 frente a Clásico con lluvia (lo que la lluvia de Dex le quita a Dex, al informe). Horneado, con GPU (otro Chromium, con requestAnimationFrame y G.Tiles.paintChunk
  *      envueltos sólo en la prueba): en el fondo de los menús (el cambio de bioma de cada 30 s), de los 236 a los 244 s de
@@ -99,6 +101,18 @@
  *      «Elegir a X» guardan el inicial, el compañero, la personalidad en null y el logro «Primer compañero». Teclado en
  *      escritorio: un solo Tab para la rejilla, flechas, Inicio, Fin, Espacio, Intro hasta «Elegir a X» y el anillo de
  *      foco. Al cambiar de tamaño se recoloca; en vertical (360x807) sale «Gira el móvil» y al girar cabe; en inglés.
+ *  17. Mapas propios (--solo-mapas; G.MODS.mapasPropios, js/world/mapas*.js): que están puestos (los 3 biomas con sus nombres,
+ *      el pintor, los objetos y el fondo del menú con G.Mapas.SEMILLA_MENU) y capturas por pares Dex/Clásico del fondo del
+ *      menú (sin la interfaz) y de los 3 biomas (en un sitio con paredes y líquido, sin clima) a 1440x900, 844x390@3 y
+ *      724x784@3, y de las 18 arenas en Dex a 1440x900 (por G.Rift.debugArena, con tu Pokémon en el centro; el azar de cada
+ *      entrada, sembrado sólo durante esa llamada: el mismo legendario y el mismo sitio en cada pasada). En el móvil
+ *      (844x390@3), en las arenas de fuego (isla) y normal (octógono), con Dex y con Clásico, tu Pokémon en el límite de
+ *      keepInside de rift.js ((r − 1,4) casillas) al este y al oeste, en la vista de la cámara: (a) lo que se pinta, 0 píxeles
+ *      de terreno normal: en las casillas a q ≥ 32² (donde mapas.js deja de dar la arena), el suelo horneado del chunk es el
+ *      vacío de la grieta (o el vacío retocado por la gradación de Dex), sin líquido con sus chispas ni objetos; y (b) el
+ *      terreno: ninguna casilla a la vista a q ≥ 32² (la regla del §7 de la especificación) y todo lo de fuera del círculo,
+ *      su borde o el vacío (G.Mapas.codigo A_BORDE o A_VACIO y pared para G.World.kindAt). Al informe, la cota con tu
+ *      Pokémon en cualquier casilla transitable. Consola sin errores.
  *
  * Capturas en tools/nico/out/estilo/ (pares Dex/Clásico de menú, colección, gacha, tiradas, subida de
  * nivel con foco y con el ratón encima, Ajustes, pausa, fin, sala, iniciales, mejoras y tragaperras, a
@@ -124,7 +138,8 @@ const SOLO_PORTADA = process.argv.includes('--solo-portada');   // sólo la port
 const SOLO_ENTORNOS = process.argv.includes('--solo-entornos');   // sólo los entornos del Gremio, el clima y el horneado (sección 13)
 const SOLO_JUEGO = process.argv.includes('--solo-juego');   // sólo los ajustes de juego y la pantalla dividida (secciones 14 y 15)
 const SOLO_COMPANERO = process.argv.includes('--solo-companero');   // sólo «Elige a tu compañero» sin el test (sección 16)
-const OTRAS = !SOLO_HUD && !SOLO_PORTADA && !SOLO_ENTORNOS && !SOLO_JUEGO && !SOLO_COMPANERO;      // todas las secciones
+const SOLO_MAPAS = process.argv.includes('--solo-mapas');   // sólo los mapas propios (sección 17)
+const OTRAS = !SOLO_HUD && !SOLO_PORTADA && !SOLO_ENTORNOS && !SOLO_JUEGO && !SOLO_COMPANERO && !SOLO_MAPAS;      // todas las secciones
 const ESTILOS = ['clasico', 'dex'];
 
 /** Avisos de la consola que son del entorno de la prueba, no del juego. */
@@ -1487,21 +1502,26 @@ const horneadoOk = r => r.maxHornos <= 1 && r.medMsHorno <= 4 && r.mas4 <= Math.
 const horneadoTxt = r => `como mucho 1 chunk por fotograma (${r.maxHornos}) y 4 ms de horneado (mediana ${r.medMsHorno} ms; ${r.mas4} de ${r.conHorno} por encima de 4 ms, el mayor ${r.maxMsHorno} ms)`;
 
 /** Un sitio de suelo con paredes y charcos a la vista (cerca del principio): allí se pone tu Pokémon, sin enemigos ni
- *  oleadas (sólo en la prueba), para que las capturas enseñen la oclusión, la tierra mojada y el agua. */
-const ESCENA_ENTORNO = () => {
+ *  oleadas (sólo en la prueba), para que las capturas enseñen la oclusión, la tierra mojada y el agua. Se busca en anillos
+ *  hasta `rMax` casillas del principio (70 por omisión, como en la sección 13); con `aproximado`, si ningún sitio llega a 10
+ *  de pared y 10 de líquido, el que más tenga de los dos (los mapas propios van por franjas: en algunas semillas las
+ *  paredes y el agua quedan más lejos o no coinciden). */
+const ESCENA_ENTORNO = ({ rMax = 70, aproximado = false } = {}) => {
   const pl = G.Game.player, W = G.World, TS = W.TS;
   for (const x of document.querySelectorAll('.ach-pop, .toast')) x.remove();   // los avisos del invitado nuevo, fuera de las capturas
   pl.hurt = function () {};
   G.Spawner.update = () => {};
   G.EnemyMgr.clear(); G.Projectiles.clear(); G.FX.clear();
-  let mejor = null;
-  for (let r = 14; r < 70 && !mejor; r += 2) for (let a = 0; a < 6.283 && !mejor; a += 0.3) {
+  let mejor = null, casi = null;
+  for (let r = 14; r < rMax && !mejor; r += 2) for (let a = 0; a < 6.283 && !mejor; a += 0.3) {
     const tx = Math.round(Math.cos(a) * r), ty = Math.round(Math.sin(a) * r);
     if (W.kindAt(tx * TS + 16, ty * TS + 16) !== 'floor') continue;
     let p = 0, l = 0;
     for (let j = -5; j <= 5; j++) for (let i = -9; i <= 9; i++) { const k = W.kindAt((tx + i) * TS + 16, (ty + j) * TS + 16); if (k === 'wall') p++; else if (k === 'liquid') l++; }
     if (p >= 10 && l >= 10 && p + l < 80) mejor = { tx, ty, p, l };
+    else if (aproximado && p + l < 80 && (!casi || Math.min(p, l) > Math.min(casi.p, casi.l))) casi = { tx, ty, p, l, aproximado: true };
   }
+  if (!mejor && casi) mejor = casi;
   if (mejor) { pl.x = mejor.tx * TS + 16; pl.y = mejor.ty * TS + 16; G.Camera.x = pl.x; G.Camera.y = pl.y; }
   return mejor;
 };
@@ -1560,17 +1580,25 @@ const VINETA = () => {
 };
 /** Contraste de los dos tonos de la lluvia (G.Entorno.clima de verdad, quieta, sobre un lienzo del color de un suelo; fondo =
  *  el color más repetido, el suelo con el tinte). Los píxeles del borde (oscuro) y del núcleo (claro) son los que salen del
- *  color del tono mezclado con el fondo con su alfa (±12 por canal). Devuelve: el borde contra el suelo más claro del juego y
- *  el núcleo contra el más oscuro (de todos los biomas y arenas), y, en cada color de suelo de donde llueve (los tres normales,
- *  la Gruta Marina y la Central Voltio), el mejor de los dos tonos. */
+ *  color del tono mezclado con el fondo con su alfa (±12 por canal). Los suelos de un bioma: floor, dirt, light y speck y, con
+ *  los mapas propios, las superficies de suelo del pintor que mira check.js §23 I (senda y losa, sus dos primeros tonos, y
+ *  cauce, el primero). Con los mapas propios todos los suelos son de tono medio, así que ningún tono sirve solo en todos:
+ *  la gota se ve por el mejor de los dos. Devuelve, en TODOS los colores de suelo del juego (los 21 biomas: los 3 normales y
+ *  las 18 arenas) y en los de donde llueve (los 3 normales y las arenas con weather 'rain' de G.Tiles.ARENA_THEMES), el
+ *  suelo en el que el mejor de los dos tonos da menos; y, como extremos para el informe (como antes), el borde contra el suelo
+ *  más claro del juego y el núcleo contra el más oscuro. */
 const LLUVIA_CONTRASTE = () => {
   const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
   const L = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b), ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
   const hex = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
   const B = G.Tiles.BIOMES, R = G.MARCA.clima.rain;
+  const SUELOS = [['floor'], ['dirt'], ['light'], ['speck'], ['senda', 2], ['losa', 2], ['cauce', 1]];
   const colores = bis => {
     const out = [];
-    for (const bi of bis) for (const k of ['floor', 'dirt', 'light', 'speck']) [].concat(B[bi][k]).forEach(h => { if (!out.includes(h)) out.push(h); });
+    for (const bi of bis) for (const [k, n] of SUELOS) {
+      if (B[bi][k] === undefined) continue;
+      [].concat(B[bi][k]).slice(0, n || Infinity).forEach(h => { if (/^#[0-9a-f]{6}$/i.test(h) && !out.includes(h)) out.push(h); });
+    }
     return out.sort((a, b) => L(...hex(a)) - L(...hex(b)));
   };
   const medir = h => {
@@ -1588,9 +1616,13 @@ const LLUVIA_CONTRASTE = () => {
     }
     return out;
   };
-  const todos = colores(B.map((_, i) => i)), llueve = colores([0, 1, 2, G.Tiles.arenaBiome('water'), G.Tiles.arenaBiome('electric')]).map(medir);
-  const mejor = x => Math.max(x.borde, x.nucleo);
-  return { claro: medir(todos[todos.length - 1]), oscuro: medir(todos[0]), peor: llueve.reduce((a, x) => (mejor(x) < mejor(a) ? x : a)), suelos: llueve.length };
+  const conLluvia = G.Tiles.ARENA_TYPES.filter(t => G.Tiles.ARENA_THEMES[t] && G.Tiles.ARENA_THEMES[t].weather === 'rain');
+  const llueveEn = new Set(colores([0, 1, 2].concat(conLluvia.map(t => G.Tiles.arenaBiome(t)))));
+  const todos = colores(B.map((_, i) => i)).map(medir), mejor = x => Math.max(x.borde, x.nucleo);
+  const peorDe = l => l.reduce((a, x) => (mejor(x) < mejor(a) ? x : a));
+  const llueve = todos.filter(x => llueveEn.has(x.suelo));
+  return { claro: todos[todos.length - 1], oscuro: todos[0], peorTodos: peorDe(todos), peor: peorDe(llueve),
+    suelosTodos: todos.length, suelos: llueve.length, arenasConLluvia: conLluvia, biomas: B.length };
 };
 /** Contraste de los Pokémon contra el suelo (como medir.sprites() de la maqueta del Gremio): el mismo fotograma con y sin
  *  Pokémon (sin HUD, efectos ni disparos; con el clima si `clima`); por enemigo, la luminancia mediana de su silueta frente
@@ -1679,8 +1711,11 @@ async function pruebaEntornos(browser) {
       check(`${nv}: viñeta cálida: el 46 % central queda intacto (alfa ${vi.centro}) y en las esquinas llega a ${vi.esquina} (tope 0,26, en marrón ${vi.color.join(',')}; la negra de upstream, unos 0,33)`, vi.centro === 0 && vi.esquina > 0.1 && vi.esquina <= 0.26, vi);
       const ll = await page.evaluate(LLUVIA_CONTRASTE);
       report.medidas['entorno-lluvia-contraste'] = ll;
-      check(`${nv}: lluvia de dos tonos: el borde oscuro contra el suelo más claro del juego (${ll.claro.suelo}) da ${ll.claro.borde}:1 y el núcleo claro contra el más oscuro (${ll.oscuro.suelo}), ${ll.oscuro.nucleo}:1; y en los ${ll.suelos} colores de suelo de donde llueve, el mejor tono da al menos ${Math.max(ll.peor.borde, ll.peor.nucleo)}:1 (${ll.peor.suelo}) (≥ 2:1 todo)`,
-        ll.claro.borde >= 2 && ll.oscuro.nucleo >= 2 && Math.max(ll.peor.borde, ll.peor.nucleo) >= 2 && ll.suelos >= 20, ll);
+      // Con los mapas propios todos los suelos son de tono medio: el borde oscuro contra el suelo más claro y el núcleo contra
+      // el más oscuro quedan al informe; lo que se exige es que en cada suelo se vea la gota por el mejor de sus dos tonos.
+      const mj = x => Math.max(x.borde, x.nucleo);
+      check(`${nv}: lluvia de dos tonos: en los ${ll.suelosTodos} colores de suelo del juego (${ll.biomas} biomas: los 3 normales y las arenas), el mejor de los dos tonos da al menos ${mj(ll.peorTodos)}:1 (${ll.peorTodos.suelo}), y en los ${ll.suelos} de donde llueve (los 3 normales y las arenas con lluvia: ${ll.arenasConLluvia.join(', ')}), al menos ${mj(ll.peor)}:1 (${ll.peor.suelo}) (≥ 2:1 los dos); extremos: el borde oscuro contra el suelo más claro (${ll.claro.suelo}) da ${ll.claro.borde}:1 y el núcleo claro contra el más oscuro (${ll.oscuro.suelo}), ${ll.oscuro.nucleo}:1`,
+        mj(ll.peorTodos) >= 2 && mj(ll.peor) >= 2 && ll.suelosTodos >= 60 && ll.suelos >= 15 && ll.arenasConLluvia.length >= 1, ll);
       // Contraste de los Pokémon contra el suelo: Dex frente a Clásico en los tres biomas (≤ 0,05 peor) y con lluvia (≤ 0,1).
       // Sin ataques mientras se mide (sólo en la prueba): un golpe enseña la barra de vida o el destello del Pokémon.
       await page.evaluate(() => { G.EnemyMgr.clear(); G.Projectiles.clear(); window.__tick = G.Combat.tick; G.Combat.tick = () => {}; });
@@ -2491,6 +2526,228 @@ async function pruebaCompanero(browser) {
   }
 }
 
+// ---------------- 17. Mapas propios (G.MODS.mapasPropios) ----------------
+/** ¿Están puestos los mapas propios? Los 3 biomas con sus nombres, el pintor y los sprites de js/world/mapas*.js. */
+const MAPAS_ACTIVOS = () => ({
+  activo: !!(G.Mapas && G.Mapas.activo),
+  nombres: G.Tiles.BIOMES.slice(0, 3).map(b => b.name),
+  esperados: G.MapasDatos ? G.MapasDatos.BIOMAS.map(b => b.name) : [],
+  pintor: G.Tiles.paintChunk === (G.Mapas && G.Mapas.pintar),
+  sprites: G.Tiles.propSprite === (G.Mapas && G.Mapas.sprite),
+  arenas: G.Tiles.ARENA_TYPES.length,
+  semilla: G.World.semilla, semillaMenu: G.Mapas && G.Mapas.SEMILLA_MENU
+});
+/** Sólo el lienzo del juego (para ver el fondo del menú sin la interfaz encima) o todo otra vez. */
+const SIN_INTERFAZ = quitar => {
+  let s = document.getElementById('__sin-interfaz');
+  if (quitar && !s) { s = document.createElement('style'); s.id = '__sin-interfaz'; s.textContent = 'body > :not(#game) { visibility: hidden !important; }'; document.head.appendChild(s); }
+  if (!quitar && s) s.remove();
+};
+/** Entra en la arena `tipo` con G.Rift.debugArena (la de verdad: rift.js, con su legendario). Sólo durante esa llamada,
+ *  Math.random es un generador sembrado con `i`: el legendario, el sitio (tx, ty) y que no sea shiny quedan siempre
+ *  iguales y cada arena a más de 100 casillas de las otras (lo mira la prueba), para que no se mezclen sus chunks. El
+ *  clima forzado de la anterior se quita antes (begin() sólo pone el de las arenas que lo tienen). Sin daño para tu
+ *  Pokémon y con el legendario quieto (sólo en la prueba). */
+const ENTRAR_ARENA = ({ tipo, i }) => {
+  const r = Math.random;
+  let s = (0x9e3779b9 * (i + 1)) >>> 0;
+  Math.random = () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  try {
+    G.Rift.reset();
+    G.Weather.clear();
+    G.Rift.debugArena(tipo);
+  } finally { Math.random = r; }
+  const a = G.Rift.arena, pl = G.Game.player, W = G.World, TS = W.TS;
+  pl.hurt = function () {};
+  const e = G.EnemyMgr.get(a.bossId);
+  if (e) e.spd = 0;
+  return { tipo: a.type, tx: a.tx, ty: a.ty, bioma: W.biome, esperado: G.Tiles.arenaBiome(tipo), nombre: W.biomeName(),
+    nombreDatos: G.MapasDatos && G.MapasDatos.ARENAS[tipo] ? G.MapasDatos.ARENAS[tipo].name : null,
+    centro: W.kindAt(a.x, a.y), legendario: e ? e.name : null, shiny: !!(e && e.shiny), clima: G.Tiles.ARENA_THEMES[tipo].weather || null };
+};
+/** Tu Pokémon en el centro de la arena (para ver su forma en la captura). */
+const AL_CENTRO = () => { const a = G.Rift.arena, pl = G.Game.player; pl.x = a.x; pl.y = a.y; G.Camera.x = pl.x; G.Camera.y = pl.y; };
+/** Tu Pokémon en el límite de keepInside de rift.js ((r − 1,4) casillas del centro) al este (+1) o al oeste (−1), sin que
+ *  las paredes lo saquen (sólo en la prueba: G.World.collide no lo toca a él), para ver hasta dónde llega la cámara. */
+const AL_LIMITE = lado => {
+  const a = G.Rift.arena, pl = G.Game.player, max = (a.r - 1.4) * G.World.TS;
+  if (!window.__collide) {
+    const c = window.__collide = G.World.collide;
+    G.World.collide = function (e) { return e === G.Game.player ? false : c.apply(this, arguments); };
+  }
+  pl.x = a.x + lado * max; pl.y = a.y; pl.svx = pl.svy = 0;
+  return max;
+};
+const SIN_LIMITE = () => { if (window.__collide) { G.World.collide = window.__collide; delete window.__collide; } };
+/** Las casillas que se ven (la vista de la cámara, con su temblor) en la arena. Dos cosas:
+ *  - El terreno (la regla del §7 de la especificación: pared desde el borde de la forma hasta q < 32² «para que no haya
+ *    terreno normal ni chispas de líquido en ninguna pantalla»): ninguna casilla a la vista con q ≥ 32², donde mapas.js
+ *    deja de dar la arena y vuelve el terreno normal (pared, suelo o líquido para G.World.kindAt y las colisiones); y las de
+ *    fuera del círculo de la arena (q ≥ r²), su borde o el vacío (código A_BORDE o A_VACIO de G.Mapas.codigo y pared).
+ *  - Lo que se pinta: en las casillas de terreno normal que se vean, lo que pinta mapas-pintar.js es todo del vacío de la
+ *    grieta (#0d0a18, #7b3cff y #c9a6ff: pinta vacío todo lo que está a q ≥ borde² de la arena), sin chispas de líquido
+ *    encima (drawLiquid las pinta en las casillas de líquido) ni objetos del escenario. Se mira el chunk pintado otra vez
+ *    con G.Mapas.pintar sin gradación (su `at` dice pared en todas); el chunk horneado de verdad (G.World.chunkImage) se
+ *    compara con él aparte, para el informe: con Dex, la gradación de entorno.js mira G.World.kindAt y no el código, así
+ *    que en una casilla de terreno normal que sea suelo aclara u oscurece un poco el vacío.
+ *  Devuelve los recuentos, los píxeles CSS de esas casillas a la vista, la casilla más lejana que se ve (q) y dónde están
+ *  tu Pokémon y la cámara. */
+const MEDIR_BORDE_ARENA = () => {
+  const W = G.World, TS = W.TS, cam = G.Camera, A = W.arena, S = W.semilla, M = G.Mapas, pl = G.Game.player, ar = G.Rift.arena;
+  const BORDE = 1 | (M.SUB.A_BORDE << 2), VACIO = 1 | (M.SUB.A_VACIO << 2), PARED2 = M.P.arena.pared * M.P.arena.pared, R2 = A.r * A.r;
+  const L = cam.left() - cam._sx, T = cam.top() - cam._sy, Rx = L + cam.w, Ry = T + cam.h, k = cam.scale;
+  const n = { arena: 0, borde: 0, vacio: 0, normal: 0, malas: 0 }, malas = [];
+  const pintado = { casillas: 0, pixeles: 0, noVacio: 0, graduados: 0, liquido: 0, objetos: 0, colores: [] };
+  const VACIO_RGB = new Set([0x0d0a18, 0x7b3cff, 0xc9a6ff]), N = 16, chunks = new Map();
+  const leer = im => ({ w: im.width, d: im.getContext('2d').getImageData(0, 0, im.width, im.height).data });
+  const pixelesChunk = (cx, cy) => {
+    const key = cx + ',' + cy;
+    if (!chunks.has(key)) chunks.set(key, { crudo: leer(M.pintar(cx, cy, N, () => 'wall', null, W.biome, S)), horneado: leer(W.chunkImage(cx, cy)) });
+    return chunks.get(key);
+  };
+  let pxNormal = 0, qMax = 0, lejana = null;
+  for (let ty = Math.floor(T / TS); ty * TS < Ry; ty++) for (let tx = Math.floor(L / TS); tx * TS < Rx; tx++) {
+    const lx = tx - A.tx, ly = ty - A.ty, q = lx * lx + ly * ly;
+    if (q > qMax) { qMax = q; lejana = [lx, ly]; }
+    if (q >= PARED2) {
+      n.normal++;
+      pxNormal += (Math.min(Rx, (tx + 1) * TS) - Math.max(L, tx * TS)) * (Math.min(Ry, (ty + 1) * TS) - Math.max(T, ty * TS)) * k * k;
+      // Lo que se pinta en ella: el suelo horneado (antes del tinte y la viñeta) y si es líquido (chispas de drawLiquid).
+      const cx = Math.floor(tx / N), cy = Math.floor(ty / N), { crudo, horneado } = pixelesChunk(cx, cy), t = crudo.w / N;
+      pintado.casillas++;
+      for (let y = (ty - cy * N) * t; y < (ty - cy * N + 1) * t; y++) for (let x = (tx - cx * N) * t; x < (tx - cx * N + 1) * t; x++) {
+        const o = (y * crudo.w + x) * 4, d = crudo.d, h = horneado.d, rgb = (d[o] << 16) | (d[o + 1] << 8) | d[o + 2];
+        pintado.pixeles++;
+        if (!VACIO_RGB.has(rgb) || d[o + 3] !== 255) { pintado.noVacio++; if (pintado.colores.length < 6) pintado.colores.push('#' + rgb.toString(16).padStart(6, '0')); }
+        if (horneado.w === crudo.w && (h[o] !== d[o] || h[o + 1] !== d[o + 1] || h[o + 2] !== d[o + 2])) pintado.graduados++;
+      }
+      if (W.kindAt(tx * TS + TS / 2, ty * TS + TS / 2) === 'liquid') pintado.liquido++;
+      continue;
+    }
+    if (q < R2) { n.arena++; continue; }
+    const c = M.codigo(tx, ty, S, A), kind = W.kindAt(tx * TS + TS / 2, ty * TS + TS / 2);
+    if (c === BORDE && kind === 'wall') n.borde++;
+    else if (c === VACIO && kind === 'wall') n.vacio++;
+    else { n.malas++; if (malas.length < 8) malas.push({ lx, ly, codigo: c, kind }); }
+  }
+  // Cota del peor caso (para el informe): con la misma cámara (la misma vista y el mismo desplazamiento respecto a tu Pokémon,
+  // el del encuadre en Dex), tu Pokémon en cualquier punto de cualquier casilla transitable de la arena (q < r², no pared):
+  // la casilla más lejana que llegaría a verse. Sin descontar su radio (una cota algo por encima).
+  const off = [(cam.x - pl.x) / TS, (cam.y - pl.y) / TS], hw = cam.w / 2 / TS, hh = cam.h / 2 / TS;
+  const alcance = { q: 0, jugador: null, casilla: null };
+  for (let ly = -A.r; ly <= A.r; ly++) for (let lx = -A.r; lx <= A.r; lx++) {
+    if (lx * lx + ly * ly >= R2 || W.kindAt((A.tx + lx) * TS + TS / 2, (A.ty + ly) * TS + TS / 2) === 'wall') continue;
+    for (const px of [lx - 0.5, lx + 0.5]) for (const py of [ly - 0.5, ly + 0.5]) for (const ex of [-hw, hw]) for (const ey of [-hh, hh]) {
+      const vx = Math.round(px + off[0] + ex), vy = Math.round(py + off[1] + ey), q = vx * vx + vy * vy;
+      if (q > alcance.q) Object.assign(alcance, { q, jugador: [lx, ly], casilla: [vx, vy] });
+    }
+  }
+  // Objetos del escenario a la vista sobre terreno normal (en la arena no hay ninguno hasta q < 51²).
+  for (const p of W.visibleProps(cam)) {
+    const lx = p.tx - A.tx, ly = p.ty - A.ty;
+    if (lx * lx + ly * ly >= PARED2 && cam.sees(p.x, p.y, 0)) pintado.objetos++;
+  }
+  return { n, malas, pintado, alcance, pxNormal: Math.round(pxNormal), qMax, lejana, limite: Math.sqrt(PARED2),
+    jugador: [+((pl.x - ar.x) / TS).toFixed(2), +((pl.y - ar.y) / TS).toFixed(2)], camara: [+((cam.x - pl.x) / TS).toFixed(2), +((cam.y - pl.y) / TS).toFixed(2)],
+    vista: [+(cam.w / TS).toFixed(1), +(cam.h / TS).toFixed(1)], escala: +k.toFixed(4) };
+};
+const slug = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+async function pruebaMapas(browser) {
+  const t0 = Date.now();
+  for (const clave of ['pc', 'movil', 'pleg2']) {
+    const tv = Date.now(), v = VP[clave], P = await nuevo(browser, v), { page } = P, nv = nombreVp(v);
+    if (!await entrar(P)) { check(`${nv}: mapas: se entra a jugar`, false); await P.ctx.close(); continue; }
+    const act = await page.evaluate(MAPAS_ACTIVOS);
+    report.medidas['mapas-activos-' + nv] = act;
+    check(`${nv}: mapas propios puestos: ${act.nombres.join(', ')}, el pintor y los objetos de js/world/mapas*.js, 18 arenas y el fondo del menú con la semilla ${act.semillaMenu} (${act.semilla})`,
+      act.activo && act.pintor && act.sprites && act.arenas === 18 && act.nombres.length === 3 && act.nombres.every((x, i) => x === act.esperados[i]) && act.semilla === act.semillaMenu, act);
+    // El fondo del menú, sin la interfaz encima, en los dos estilos.
+    for (const est of ['dex', 'clasico']) {
+      await estilo(page, est);
+      await page.evaluate(HORNEADO);
+      await page.evaluate(SIN_INTERFAZ, true);
+      await sleep(250);
+      await captura(page, `mapa-menu-${est}-${nv}`);
+      await page.evaluate(SIN_INTERFAZ, false);
+    }
+    // Los tres biomas, en un sitio con paredes y líquido a la vista, en los dos estilos y sin clima.
+    await page.evaluate(() => { G.Estilo.set('dex'); G.Flow.play(); });
+    await sleep(1200);
+    const sitio = await page.evaluate(ESCENA_ENTORNO, { rMax: 160, aproximado: true });
+    report.medidas['mapa-sitio-' + nv] = sitio;
+    // Sólo para las capturas (el mundo es otro en cada partida): al informe, no es una comprobación.
+    console.log(`[INFO] ${nv}: sitio de las capturas de los biomas: ${sitio ? `${sitio.p} casillas de pared y ${sitio.l} de líquido en 19x11, a (${sitio.tx}, ${sitio.ty})${sitio.aproximado ? ' (el que más tenía: ninguno llegaba a 10 y 10)' : ''}` : 'ninguno: el principio'}`);
+    for (let b = 0; b < 3; b++) {
+      const nombre = await page.evaluate(b => { G.World.setBiome(b, true); G.Weather.clear(); return G.World.biomeName(); }, b);
+      for (const est of ['dex', 'clasico']) {
+        await estilo(page, est);
+        await page.evaluate(HORNEADO);
+        await sleep(250);
+        await captura(page, `mapa-${slug(nombre)}-${est}-${nv}`);
+      }
+    }
+    await estilo(page, 'dex');
+    if (clave === 'pc') {
+      // Las 18 arenas, en Dex, con tu Pokémon en el centro.
+      const tipos = await page.evaluate(() => G.Tiles.ARENA_TYPES.slice()), arenas = [];
+      for (const [i, tipo] of tipos.entries()) {
+        const a = await page.evaluate(ENTRAR_ARENA, { tipo, i });
+        await page.evaluate(AL_CENTRO);
+        await sleep(1300);                       // el iris y el fogonazo del viaje
+        await page.evaluate(HORNEADO);
+        await captura(page, `mapa-arena-${tipo}-dex-${nv}`);
+        arenas.push(a);
+      }
+      report.medidas['mapa-arenas-' + nv] = arenas;
+      const lejos = Math.min(...arenas.flatMap((a, i) => arenas.slice(i + 1).map(b => Math.hypot(a.tx - b.tx, a.ty - b.ty))));
+      const malas = arenas.filter(a => a.tipo !== tipos[arenas.indexOf(a)] || a.bioma !== a.esperado || a.nombre !== 'Grieta · ' + a.nombreDatos || a.centro !== 'floor');
+      check(`${nv}: las 18 arenas por rift.js (G.Rift.debugArena): cada una con su bioma, su nombre de G.MapasDatos («Grieta · …») y suelo en el centro; a ${Math.round(lejos)} casillas o más unas de otras (> 100)`,
+        arenas.length === 18 && !malas.length && lejos > 100, malas.length ? malas : arenas.map(a => `${a.tipo}: ${a.nombre} · ${a.legendario}`));
+    }
+    if (clave === 'movil') {
+      // En el móvil, con tu Pokémon en el límite de keepInside al este y al oeste: nada de terreno normal a la vista.
+      const res = [];
+      for (const [i, tipo] of [[1, 'fire'], [0, 'normal']]) {
+        await page.evaluate(ENTRAR_ARENA, { tipo, i });
+        await sleep(1300);
+        for (const est of ['dex', 'clasico']) {
+          await estilo(page, est);
+          for (const [lado, nombre] of [[1, 'este'], [-1, 'oeste']]) {
+            await page.evaluate(AL_LIMITE, lado);
+            await sleep(1200);                   // la cámara y, en Dex, el encuadre (unos 400 ms)
+            await page.evaluate(HORNEADO);
+            const m1 = await page.evaluate(MEDIR_BORDE_ARENA);
+            await sleep(200);
+            const m = await page.evaluate(MEDIR_BORDE_ARENA);
+            Object.assign(m, { quieta: Math.abs(m.camara[0] - m1.camara[0]) < 0.02 && Math.abs(m.camara[1] - m1.camara[1]) < 0.02, tipo, estilo: est, lado: nombre });
+            await captura(page, `mapa-arena-${tipo}-${nombre}-${est}-${nv}`);
+            res.push(m);
+          }
+        }
+        await page.evaluate(SIN_LIMITE);
+      }
+      report.medidas['mapa-borde-arena-' + nv] = res;
+      const resumen = m => ({ tipo: m.tipo, estilo: m.estilo, lado: m.lado, n: m.n, malas: m.malas, pintado: m.pintado, alcance: m.alcance, pxNormal: m.pxNormal, qMax: m.qMax, lejana: m.lejana, jugador: m.jugador, camara: m.camara, vista: m.vista, quieta: m.quieta });
+      const enSitio = res.length === 8 && res.every(m => m.quieta && Math.abs(Math.abs(m.jugador[0]) - 9.6) <= 0.05);
+      // Lo que se ve: el vacío de la grieta, aunque la cámara llegue al terreno normal (lo pinta mapas-pintar.js).
+      const malPintado = res.filter(m => m.pintado.noVacio || m.pintado.liquido || m.pintado.objetos);
+      check(`${nv}: en la arena (fuego e isla, normal y octógono; Dex y Clásico) con tu Pokémon en el límite de keepInside (9,6 casillas) al este y al oeste: 0 píxeles de terreno normal a la vista: lo que se ve fuera del círculo es su borde o el vacío de la grieta, también en las casillas de terreno normal que alcanza la cámara (${res.map(m => m.pintado.casillas).join('/')} casillas: ${res.map(m => m.pintado.noVacio).join('/')} píxeles pintados que no son del vacío; en el chunk horneado, ${res.map(m => m.pintado.graduados).join('/')} del vacío retocados por la gradación de Dex, que toma esas casillas por suelo; ${res.map(m => m.pintado.liquido).join('/')} de líquido con sus chispas y ${res.map(m => m.pintado.objetos).join('/')} objetos)`,
+        enSitio && !malPintado.length, enSitio ? malPintado.map(resumen) : res.map(resumen));
+      // El terreno: la regla del §7 (pared hasta q < 32² para que ninguna pantalla vea terreno normal).
+      const malTerreno = res.filter(m => m.n.normal || m.n.malas);
+      const peor = res.reduce((a, m) => (m.qMax > a.qMax ? m : a)), cota = res.reduce((a, m) => (m.alcance.q > a.alcance.q ? m : a));
+      check(`${nv}: en la arena, con tu Pokémon en el límite de keepInside al este y al oeste: ninguna casilla a la vista es terreno normal (q ≥ ${peor.limite}², donde mapas.js deja de dar la arena: ${res.map(m => m.n.normal).join('/')} casillas, ${res.map(m => m.pxNormal).join('/')} px CSS; para G.World.kindAt y las colisiones son pared o suelo, y un río ahí pintaría sus chispas) y todo lo de fuera del círculo es su borde o el vacío (${res.map(m => m.n.borde + '+' + m.n.vacio).join(', ')}; mal ${res.map(m => m.n.malas).join('/')}); la casilla más lejana a la vista, a √${peor.qMax} = ${Math.sqrt(peor.qMax).toFixed(1)} casillas del centro (${peor.lejana}; ${peor.tipo}, ${peor.estilo}, ${peor.lado}; la cámara, a (${peor.camara}) casillas de tu Pokémon). Al informe: con tu Pokémon en cualquier casilla transitable, se llegaría a ver hasta √${cota.alcance.q} = ${Math.sqrt(cota.alcance.q).toFixed(1)} (${cota.tipo}, ${cota.estilo}: desde (${cota.alcance.jugador}) se ve (${cota.alcance.casilla}))`,
+        enSitio && !malTerreno.length, enSitio ? malTerreno.map(resumen) : res.map(resumen));
+    }
+    check(`${nv}: mapas: consola sin errores ni avisos y nada pedido fuera de 127.0.0.1`, !P.consola.length && !P.fuera.length, { consola: P.consola.slice(0, 5), fuera: P.fuera.slice(0, 5) });
+    console.log(`[INFO] ${nv}: mapas en ${((Date.now() - tv) / 1000).toFixed(1)} s`);
+    await P.ctx.close();
+  }
+  report.medidas['mapas-segundos'] = Math.round((Date.now() - t0) / 1000);
+  console.log(`[INFO] mapas propios (sección 17): ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+}
+
 // ---------------- hoja de contactos ----------------
 function hojaDeContactos() {
   const pares = {};
@@ -2766,6 +3023,9 @@ function hojaDeContactos() {
 
     // 16. «Elige a tu compañero» sin el test de personalidad.
     if (OTRAS || SOLO_COMPANERO) await pruebaCompanero(browser);
+
+    // 17. Mapas propios: capturas de los biomas, las 18 arenas y el fondo del menú, y nada de terreno normal en la arena.
+    if (OTRAS || SOLO_MAPAS) await pruebaMapas(browser);
 
     // 8. Sin internet: con el service worker y en Clásico, se cargan las fuentes en reposo; luego, sin red, a Dex.
     if (OTRAS) {

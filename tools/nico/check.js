@@ -94,6 +94,16 @@
  *      starters.js de upstream intactos (huella); disposicion() con las medidas de Chromium en 12 pantallas y los dos
  *      estilos (los 29 sin desplazar, píxel de arte entero, nombres y tipos dentro); confirmar() guarda como el test
  *      (personalidad null, el logro «Primer compañero» con achievements.js real); inglés, estilos y paquete.
+ *  23. Mapas propios (G.MODS.mapasPropios; js/world/mapas-datos.js, mapas.js, mapas-pintar.js y mapas-sprites.js con tiles.js,
+ *      world.js y weather.js reales, cargados con new Function en este reino como tools/nico/mapas/vista.js: en node:vm el
+ *      generador va unas 40 veces más lento): el interruptor (con false, el proyecto base tal cual); pureza (sin azar ni reloj, la
+ *      misma huella en cualquier orden y en otro reino) y suma de control fija; estructura en 4 semillas × 384² (pared, líquido,
+ *      pasillos de 1, suelo encerrado, holgura), el claro de salida, los objetos (recuentos del §6, separación, cruces) y la
+ *      aparición (spawner, grieta, ladrón y perdido con isFree de verdad); las 18 arenas en 40 posiciones y en el mundo de verdad;
+ *      paletas (campos, legibilidad con L*, contraste y ΔE2000, y lejos de las originales), nombres e inglés; el pintor (sólo
+ *      ImageData, determinista, no más lento que el de upstream, gradación sólo en el suelo); los sprites (tamaño, contorno, el
+ *      orbe del altar, trampas); la semilla del menú; el clima al azar; y que el terreno no depende del bioma. §12, §15 (M1) y §16
+ *      también corren con los mapas propios (§16 B, el «Clásico byte a byte», sin ellos).
  *  24. Multiverso (js/data/multiverso.js): los personajes de otros mundos en G.DEX sin chocar con upstream (gen 10, desde el
  *      10001), sus hojas con el tamaño de su meta, su ataque propio (escalera de su forma, fuera de los pools de tipo),
  *      nunca de enemigo (2.000 runs con enemies.js real, con control sin los ganchos; el Pokémon perdido de events.js),
@@ -494,6 +504,18 @@ const HOOKS = [
   ['js/world/world.js', /damageProp, breakAt, specialsNear, update,\r?\n    chunkImage, get semilla\(\) \{ return seed; \}, rehornear\(\) \{ const v = images; images = new Map\(\); fade = null; return v; \},\s*\/\/ MOD nico/, 'horno: world.js expone chunkImage, la semilla y rehornear()'],
   ['js/game.js', /G\.World\.drawLiquid\(ctx, cam, t\);\r?\n    if \(G\.Entorno\) G\.Entorno\.suelo\(ctx, cam, t\);\s*\/\/ MOD nico[^\n]*\r?\n    G\.Hazards\.draw\(ctx\);/, 'entornos: la capa del suelo (y el horno) en drawScene, tras drawLiquid'],
   ['js/systems/weather.js', /function draw\(ctx, w, h, dt\) \{\r?\n    if \(G\.Entorno && G\.Entorno\.clima\(ctx, w, h, dt, cur && cur\.kind, level\(\)\)\) return;\s*\/\/ MOD nico/, 'entornos: primera línea de G.Weather.draw (con Dex, el clima de dos tonos)'],
+  // Mapas propios (js/world/mapas-datos.js, mapas.js, mapas-pintar.js y mapas-sprites.js; G.MODS.mapasPropios)
+  ['dev.html', /src="js\/world\/tiles\.js"><\/script>\r?\n<script defer src="js\/world\/mapas-datos\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/mapas\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/mapas-pintar\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/mapas-sprites\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/world\.js">/,
+    'mapas propios: mapas-datos.js, mapas.js, mapas-pintar.js y mapas-sprites.js, en ese orden, entre tiles.js y world.js (antes que entorno.js, que copia las paletas al cargar)'],
+  ['js/world/world.js', /function terrainRaw\(tx, ty\) \{\r?\n    if \(G\.Mapas && G\.Mapas\.activo\) return G\.Mapas\.terreno\(tx, ty, seed, arena\);\s*\/\/ MOD nico/, 'mapas propios: primera línea de terrainRaw (el terreno de G.Mapas)'],
+  ['js/world/world.js', /function placeProps\(c\) \{\r?\n    if \(G\.Mapas && G\.Mapas\.activo\) return G\.Mapas\.props\(c, N, seed, arena, broken, makeProp\);\s*\/\/ MOD nico/, 'mapas propios: primera línea de placeProps (los objetos de G.Mapas)'],
+  ['js/world/world.js', /a\.th = G\.Tiles\.ARENA_THEMES\[a\.type\] \|\| G\.Tiles\.ARENA_THEMES\.normal;\r?\n      if \(G\.Mapas && G\.Mapas\.activo\) return G\.Mapas\.olvidarArena\(a, data, images, N\);\s*\/\/ MOD nico[^\n]*\r?\n      \/\/ Olvida los chunks de esa zona/,
+    'mapas propios: setArena olvida los chunks que cambia la arena (G.Mapas.olvidarArena), justo antes de lo que olvida upstream'],
+  ['js/systems/weather.js', /function pick\(biome\) \{\r?\n    if \(G\.Mapas && G\.Mapas\.activo\) return G\.Mapas\.climaAlAzar\(biome\);\s*\/\/ MOD nico/, 'mapas propios: primera línea de pick (el clima al azar de los biomas propios)'],
+  ['js/game.js', /function init\(\) \{\r?\n      G\.World\.reset\(4242\);\r?\n      if \(G\.Mapas && G\.Mapas\.activo\) G\.World\.reset\(G\.Mapas\.SEMILLA_MENU\);\s*\/\/ MOD nico[^\n]*\r?\n      G\.World\.setBiome\(0, true\);/,
+    'mapas propios: el fondo de los menús con G.Mapas.SEMILLA_MENU (init, justo tras el reset(4242) de upstream)'],
+  ['js/game.js', /function restore\(\) \{\r?\n      G\.World\.reset\(4242\);\r?\n      if \(G\.Mapas && G\.Mapas\.activo\) G\.World\.reset\(G\.Mapas\.SEMILLA_MENU\);\s*\/\/ MOD nico[^\n]*\r?\n      G\.World\.setBiome\(bi, true\);/,
+    'mapas propios: el fondo de los menús con G.Mapas.SEMILLA_MENU (restore, justo tras el reset(4242) de upstream)'],
   // Lote 4: ajustes de juego (js/ui/encuadre.js, transicion.js y golpe-final.js)
   ['dev.html', /src="js\/ui\/hud-dex\.js"><\/script>[^\n]*\r?\n<script defer src="js\/ui\/encuadre\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/ui\/transicion\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/ui\/golpe-final\.js"><\/script><!-- MOD nico/,
     'lote 4: encuadre.js, transicion.js y golpe-final.js, tras hud-dex.js'],
@@ -2417,6 +2439,56 @@ function claridadChecks() {
   for (const [name, , detail] of failed) bad(`claridad: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- mapas propios: carga compartida (la usan §12, §15, §16 y §23) ----------------
+/** Los 4 ficheros de los mapas propios (G.MODS.mapasPropios), en el orden de dev.html: entre tiles.js y world.js. */
+const MAPAS = ['js/world/mapas-datos.js', 'js/world/mapas.js', 'js/world/mapas-pintar.js', 'js/world/mapas-sprites.js'];
+/** Carga los mapas propios en el contexto node:vm `c` (con util.js, mods.js, marca.js y tiles.js ya cargados) con
+ *  G.MODS.mapasPropios = activo: mapas.js lo lee al cargar (con false no toca nada). Después va world.js. */
+function cargarMapas(c, activo) {
+  c.G.MODS.mapasPropios = !!activo;
+  for (const f of MAPAS) vm.runInContext(rd(f), c, { filename: f });
+}
+/** Qué enseña cada píxel de un chunk normal (sin arena ni vacío) de 16×16 casillas que pinta mapas-pintar.js, según los
+ *  códigos de `cod(tx, ty)` (kind | sub << 2) y lo que dice su cabecera: es lo que la máscara de suelo deja gradar a Dex
+ *  (§16 C y §23 K). `SUB`: los subtipos de G.Mapas. Devuelve 256×256 clases, por filas:
+ *  - 'triangulo': el triángulo de líquido de 5 px de una casilla de suelo que los pinta (llano, orilla, cauce, arcén,
+ *    explanada y puerto) en la esquina donde hay líquido a los dos lados. Es líquido: no se gradúa.
+ *  - 'suelo': el resto de las casillas de suelo. Se gradúa.
+ *  - 'recorte': las esquinas de una pared (escalonadas 3-2-1 arriba y 2-1 abajo, sin pared a los dos lados) o de un
+ *    líquido (en diagonal, 5 px, sin líquido a los dos lados ni en diagonal ni un vado o un puente al lado, y nunca en la
+ *    pila de la fuente), que enseñan el suelo de al lado. Se gradúan.
+ *  - 'otro': lo demás de las paredes y los líquidos. No se gradúa. */
+function clasesChunk(SUB, cod, cx, cy) {
+  const S = SUB, TRI = [S.LLANO, S.ORILLA, S.CAUCE, S.ARCEN, S.APRON, S.PUERTO], CRUCE = [S.VADO, S.PUENTE, S.A_PUENTE];
+  const x0 = cx * 16 - 1, y0 = cy * 16 - 1, rej = new Int32Array(18 * 18);   // los códigos, con una casilla de faldón
+  for (let j = 0; j < 18; j++) for (let i = 0; i < 18; i++) rej[j * 18 + i] = cod(x0 + i, y0 + j);
+  const kd = (i, j) => { const k = rej[(j + 1) * 18 + i + 1] & 3; return k === 3 ? 1 : k; }, sb = (i, j) => rej[(j + 1) * 18 + i + 1] >> 2;
+  const L = (i, j) => kd(i, j) === 2, X = (i, j) => kd(i, j) === 0 && CRUCE.includes(sb(i, j));
+  const out = new Array(256 * 256);
+  for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) {
+    const k = kd(i, j);
+    let clase;
+    if (k === 0) {
+      const tri = TRI.includes(sb(i, j));
+      clase = (x, y) => {
+        const ex = x < 8 ? -1 : 1, ey = y < 8 ? -1 : 1;
+        return tri && Math.min(x, 15 - x) + Math.min(y, 15 - y) < 5 && L(i + ex, j) && L(i, j + ey) ? 'triangulo' : 'suelo';
+      };
+    } else if (k === 1) {
+      const n = kd(i, j - 1) === 1, s = kd(i, j + 1) === 1, w = kd(i - 1, j) === 1, e = kd(i + 1, j) === 1;
+      clase = (x, y) => ((!n && !w && y < 3 && x < 3 - y) || (!n && !e && y < 3 && x > 12 + y) ||
+        (!s && !w && y > 13 && x < y - 13) || (!s && !e && y > 13 && x > 28 - y) ? 'recorte' : 'otro');
+    } else {
+      const pila = sb(i, j) === S.PILA, n = L(i, j - 1) || X(i, j - 1), s = L(i, j + 1) || X(i, j + 1), w = L(i - 1, j) || X(i - 1, j), e = L(i + 1, j) || X(i + 1, j);
+      const cNW = !pila && !n && !w && !L(i - 1, j - 1), cNE = !pila && !n && !e && !L(i + 1, j - 1);
+      const cSW = !pila && !s && !w && !L(i - 1, j + 1), cSE = !pila && !s && !e && !L(i + 1, j + 1);
+      clase = (x, y) => ((cNW && x + y < 5) || (cNE && 15 - x + y < 5) || (cSW && x + 15 - y < 5) || (cSE && 30 - x - y < 5) ? 'recorte' : 'otro');
+    }
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) out[(j * 16 + y) * 256 + i * 16 + x] = clase(x, y);
+  }
+  return out;
+}
+
 // ---------------- 12. arreglos de upstream: biomas desde el minuto 12 y el fogonazo de la grieta ----------------
 function arreglosChecks() {
   console.log('12. Arreglos de upstream: biomas desde el minuto 12 (world.js y tiles.js reales) y el fogonazo de la grieta');
@@ -2425,14 +2497,17 @@ function arreglosChecks() {
   const gsrc = rd('js/game.js');
   const trozo = (re, que) => { const m = gsrc.match(re); if (!m) throw new Error('no encuentro en js/game.js: ' + que); return m[0]; };
   let resumen = '';
-  // El cambio de bioma de update(), tal cual, con world.js y tiles.js reales.
-  function partida(biomasEnCiclo = true) {
-    const c = { console };
+  // El cambio de bioma de update(), tal cual, con world.js y tiles.js reales; `mapas`: con los mapas propios (como el
+  // juego) o sin ellos (G.MODS.mapasPropios = false: los biomas del proyecto base).
+  function partida(biomasEnCiclo = true, mapas = true) {
+    const c = { console, document: { createElement: () => ({ getContext: () => ({}) }) } };
     vm.createContext(c);
     c.window = c; c.G = {};
-    for (const f of ['js/core/util.js', 'js/core/mods.js']) vm.runInContext(rd(f), c, { filename: f });
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js']) vm.runInContext(rd(f), c, { filename: f });
     c.G.Sprites = { PX: 2 };
-    for (const f of ['js/world/tiles.js', 'js/world/world.js']) vm.runInContext(rd(f), c, { filename: f });
+    vm.runInContext(rd('js/world/tiles.js'), c, { filename: 'js/world/tiles.js' });
+    cargarMapas(c, mapas);
+    vm.runInContext(rd('js/world/world.js'), c, { filename: 'js/world/world.js' });
     const G = c.G, avisos = [];
     G.MODS.biomasEnCiclo = biomasEnCiclo;
     Object.assign(G, { Rift: { inArena: false }, Audio: { sfx() {} }, Spawner: { say: s => avisos.push(s) }, FX: { ring() {} }, Camera: { outerRadius: () => 500 } });
@@ -2457,13 +2532,18 @@ ${cambio}      } }; })();`, c, { filename: 'js/game.js (cambio de bioma)' });
     resumen = fila.map(f => `${f.min}′ ${f.i} ${f.nombre}`).join(', ');
     t('con el arreglo: a los 0, 4, 8, 12, 16, 24, 60, 84 y 120 min, el bioma normal que toca (cada 4 min, en ciclo de 3)',
       fila.every((f, k) => f.i === esperado[k] && f.nombre === B[esperado[k]].name), fila.map(f => `${f.min}: ${f.i} ${f.nombre}`));
-    t('con el arreglo: el líquido y el daño de los charcos, los del bioma normal (sólo el volcán quema)',
-      fila.every(f => f.liquido === B[f.i].liquid && f.danio === (f.liquido === 'lava')) && fila[4].liquido === 'water' && !fila[4].danio,
+    t('con el arreglo y los mapas propios: el líquido y el daño de los charcos, los del bioma normal (sólo quema el tramo 2, el ácido de la Vega Sulfúrea; a los 16 min, hielo)',
+      fila.every(f => f.liquido === B[f.i].liquid && f.danio === (f.i === 2)) && fila.some(f => f.i === 2) && fila[4].liquido === 'ice' && !fila[4].danio,
       fila.map(f => `${f.min}: ${f.liquido}${f.danio ? ' (quema)' : ''}`));
     t('con el arreglo: el aviso de bioma nunca dice «Grieta»', P.avisos.length > 0 && !P.avisos.some(s => /Grieta/.test(s)), P.avisos.slice(0, 6));
-    const O = partida(false);
+    // Sin los mapas propios (mapasPropios = false), los biomas del proyecto base, como antes de los mapas.
+    const Q = partida(true, false), BQ = Q.G.Tiles.BIOMES, filaQ = [0, 4, 8, 12, 16, 24, 60, 84, 120].map(Q.ver);
+    t('con el arreglo y sin los mapas propios (mapasPropios = false): el bioma normal que toca, y el líquido y el daño de upstream (sólo el volcán quema; a los 16 min, agua)',
+      filaQ.every((f, k) => f.i === esperado[k] && f.nombre === BQ[f.i].name && f.liquido === BQ[f.i].liquid && f.danio === (f.liquido === 'lava')) && filaQ[4].liquido === 'water' && !filaQ[4].danio,
+      filaQ.map(f => `${f.min}: ${f.i} ${f.nombre} ${f.liquido}${f.danio ? ' (quema)' : ''}`));
+    const O = partida(false, false);
     const ctl = [12, 16, 84].map(O.ver);
-    t('control (biomasEnCiclo = false, como upstream): a los 12 min «Grieta · …», a los 16 lava que quema y a los 84 se rompe (la prueba lo detecta)',
+    t('control (biomasEnCiclo = false y sin los mapas propios, como upstream): a los 12 min «Grieta · …», a los 16 lava que quema y a los 84 se rompe (la prueba lo detecta)',
       /^Grieta · /.test(ctl[0].nombre) && ctl[1].liquido === 'lava' && ctl[1].danio && /^ERROR/.test(ctl[2].nombre), ctl.map(f => `${f.min}: ${f.i} ${f.nombre}`));
     const M = P.G.MODS;
     t('biomaNormal(): entero en [0, 3) también con negativos o decimales; con el ajuste en false, tal cual', M.biomaNormal(3) === 0 && M.biomaNormal(-1) === 2 &&
@@ -2999,15 +3079,17 @@ function identidadChecks() {
     t('todos los textos nuevos tienen inglés (i18n.js real): Estilo, Clásico, su explicación, los créditos, «Probabilidades», «Cerrar», el aviso legal y los controles (el plegable en vertical, con las ranuras abajo y a la derecha)', !sin.length, sin);
   } catch (e) { t('inglés de la identidad', false, String(e && e.stack || e)); }
   try {
+    // Los nuevos de los mapas propios (los que falten ya los apunta §23) y sus herramientas, si están.
+    const NUEVOS_MAPAS = [...MAPAS, 'tools/nico/mapas/vista.js', 'tools/nico/mapas/medir.js'];
     const ficheros = ['dev.html', 'css/style.css', 'css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/settings-ui.js', 'js/ui/run-ui.js',
       'js/ui/menu.js', 'js/ui/gacha-ui.js', 'js/game.js', 'js/core/mods.js', 'js/data/lang-en-mod.js', 'js/entities/claridad.js', 'CREDITS.md', 'assets/fonts/OFL-MPLUSRounded1c.txt',
       'tools/nico/check.js', 'js/ui/hud.js', 'js/ui/hud-dex.js', 'js/systems/events.js', 'tools/nico/coop-e2e.js', 'css/portada.css', 'js/ui/portada.js',
       'tools/nico/iconos.py', 'js/main.js', 'js/core/importar.js', 'js/ui/importar-ui.js', 'js/ui/ui.js', '404.html', 'contacto/index.html', 'manifest.webmanifest',
-      'js/world/entorno.js', 'js/world/horno.js', 'js/world/tiles.js', 'js/world/world.js', 'js/systems/weather.js'].concat(ex('tools/nico/estilo-e2e.js') ? ['tools/nico/estilo-e2e.js'] : []);
+      'js/world/entorno.js', 'js/world/horno.js', 'js/world/tiles.js', 'js/world/world.js', 'js/systems/weather.js'].concat(ex('tools/nico/estilo-e2e.js') ? ['tools/nico/estilo-e2e.js'] : [], NUEVOS_MAPAS.filter(ex));
     const mezcla = ficheros.filter(f => { const s = rd(f), crlf = (s.match(/\r\n/g) || []).length, lf = (s.match(/\n/g) || []).length; return crlf && crlf !== lf; });
     const nuevosCRLF = ['css/tokens-dex.css', 'css/nico.css', 'js/ui/marca.js', 'js/ui/estilo.js', 'js/ui/hud-dex.js', 'assets/fonts/OFL-MPLUSRounded1c.txt',
-      'css/portada.css', 'js/ui/portada.js', 'tools/nico/iconos.py', 'js/world/entorno.js', 'js/world/horno.js'].filter(f => /\r/.test(rd(f)));
-    t('finales de línea: ningún fichero tocado mezcla CRLF y LF, y los nuevos van en LF', !mezcla.length && !nuevosCRLF.length, { mezcla, nuevosCRLF });
+      'css/portada.css', 'js/ui/portada.js', 'tools/nico/iconos.py', 'js/world/entorno.js', 'js/world/horno.js', ...NUEVOS_MAPAS.filter(ex)].filter(f => /\r/.test(rd(f)));
+    t('finales de línea: ningún fichero tocado mezcla CRLF y LF, y los nuevos van en LF (también los 4 de los mapas propios y sus herramientas de tools/nico/mapas/)', !mezcla.length && !nuevosCRLF.length, { mezcla, nuevosCRLF });
   } catch (e) { t('finales de línea', false, String(e && e.stack || e)); }
   try {
     const c = { console }; c.window = c; c.G = {}; vm.createContext(c); vm.runInContext(rd('js/core/mods.js'), c, { filename: 'js/core/mods.js' });
@@ -3491,9 +3573,12 @@ function hudDexChecks() {
   const cortaUp = s => /…$/.test(s) && !/(elige fusión|todos|grieta)…$/.test(s);
   // M1. Nombres de arena enteros en el sensor de Rotom (sin «Grieta · »; con la letra un punto menor o en dos líneas).
   try {
-    const tiles = rd('js/world/tiles.js'), ini = tiles.indexOf('const ARENA_THEMES');
-    const arenas = [...tiles.slice(ini, tiles.indexOf('};', ini)).matchAll(/name: '([^']+)'/g)].map(m => 'Grieta · ' + m[1]);
-    const nombres = ['Bosque Umbrío', 'Cueva Cristal', 'Volcán Ceniza', ...arenas];
+    // Los nombres de verdad: G.Tiles.BIOMES con los mapas propios cargados (los 3 biomas y las 18 arenas, ya con «Grieta · »).
+    const cm = { console, document: { createElement: () => ({ getContext: () => ({}) }) } };
+    vm.createContext(cm); cm.window = cm; cm.G = {}; cm.G.Sprites = { PX: 2 };
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js', 'js/world/tiles.js']) vm.runInContext(rd(f), cm, { filename: f });
+    cargarMapas(cm, true);
+    const nombres = cm.G.Tiles.BIOMES.map(b => b.name), arenas = nombres.filter(n => /^Grieta · /.test(n));
     const malos = [], vistos = {};
     for (const [w, h, tactil] of [[1440, 900], [1920, 1080], [1024, 768], [724, 784, true], [784, 724, true], [844, 390, true], [780, 360, true], [568, 320, true]]) {
       const H = cargarHud({ w, h, tactil });
@@ -3511,8 +3596,8 @@ function hudDexChecks() {
         }
       }
     }
-    t(`sensor de Rotom: los ${nombres.length} nombres (3 biomas y ${arenas.length} arenas) enteros, sin «Grieta · » ni «…», con y sin clima, en escritorio (1440x900, 1920x1080, 1024x768), el plegable abierto (724x784, 784x724) y los móviles (844x390, 780x360, 568x320)`,
-      arenas.length === 18 && !malos.length, malos.length ? malos.slice(0, 6) : vistos);
+    t(`sensor de Rotom: los ${nombres.length} nombres de los mapas propios (G.Tiles.BIOMES: 3 biomas y ${arenas.length} arenas) enteros, sin «Grieta · » ni «…», con y sin clima, en escritorio (1440x900, 1920x1080, 1024x768), el plegable abierto (724x784, 784x724) y los móviles (844x390, 780x360, 568x320)`,
+      arenas.length === 18 && nombres.length === 21 && !malos.length, malos.length ? malos.slice(0, 6) : vistos);
     // Un nombre que no cabe ni con la letra menor (Rotom estrecho): en dos líneas, entero y sin «Despejado».
     const H = cargarHud({ w: 844, h: 390, tactil: true });
     H.juego.bioma = 'Grieta · Bosque Encantado de las Hadas Eternas';
@@ -3897,8 +3982,9 @@ function entornoChecks() {
     sees(px, py, pad = 60) { return px > this.left() - pad && px < this.left() + this.w + pad && py > this.top() - pad && py < this.top() + this.h + pad; } });
   /** El mundo real (tiles.js y world.js; `upstream`: sin las líneas «MOD nico») con entorno.js y horno.js si se piden, un reloj
    *  de mentira y un estilo de mentira con la interfaz de G.Estilo (actual, dex, on). paintChunk apunta cada horneado (y lo
-   *  alarga `lento` ms en el reloj) y marca el lienzo con su bioma, su estilo y su chunk. */
-  function mundo({ estilo = 'dex', entorno = true, horno = true, upstream = false, lento = 0 } = {}) {
+   *  alarga `lento` ms en el reloj) y marca el lienzo con su bioma, su estilo y su chunk. `mapas`: los mapas propios entre
+   *  tiles.js y world.js con G.MODS.mapasPropios = mapas (como el juego, true; con false, el mundo del proyecto base). */
+  function mundo({ estilo = 'dex', entorno = true, horno = true, upstream = false, lento = 0, mapas = true } = {}) {
     const reloj = { t: 1000 };
     const c = { console, performance: { now: () => reloj.t }, document: { createElement: lienzoFalso } };
     vm.createContext(c);
@@ -3911,7 +3997,9 @@ function entornoChecks() {
     G.Game = { state: 'playing', st: { time: 10 }, player: { x: 0, y: 0 } };
     G.Rift = { inArena: false, rift: null };
     const src = f => (upstream ? rd(f).split(/\r?\n/).filter(l => !/MOD nico/.test(l)).join('\n') : rd(f));
-    for (const f of ['js/world/tiles.js', 'js/world/world.js']) vm.runInContext(src(f), c, { filename: f });
+    vm.runInContext(src('js/world/tiles.js'), c, { filename: 'js/world/tiles.js' });
+    if (!upstream) cargarMapas(c, mapas);
+    vm.runInContext(src('js/world/world.js'), c, { filename: 'js/world/world.js' });
     if (entorno) vm.runInContext(rd('js/world/entorno.js'), c, { filename: 'js/world/entorno.js' });
     if (horno) vm.runInContext(rd('js/world/horno.js'), c, { filename: 'js/world/horno.js' });
     const pinta = G.Tiles.paintChunk, hornos = [];
@@ -3944,25 +4032,34 @@ function entornoChecks() {
   const iguales = (a, b) => !!(a && b && a.length === b.length && a.every((v, i) => v === b[i]));
   const SEMILLA = 1234;
 
-  // ---- A. Paletas: el suelo conserva su tono; Clásico vuelve a upstream ----
+  // ---- A. Paletas: el suelo conserva su tono; Clásico vuelve a upstream (sin los mapas propios); con ellos, sin recoloreo ----
   try {
-    const U = mundo({ upstream: true, entorno: false, horno: false }).G, D = mundo().G;
+    const U = mundo({ upstream: true, entorno: false, horno: false }).G, D = mundo({ mapas: false }).G;
     const BU = U.Tiles.BIOMES, BD = D.Tiles.BIOMES, PAL = D.MARCA.biomas;
     const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const suelo = [0, 1, 2].every(i => ['floor', 'dirt', 'speck'].every(k => eq(BD[i][k], BU[i][k])));
     const gremio = [0, 1, 2].every(i => Object.keys(PAL[i]).filter(k => k !== 'nombre' && k[0] !== '_').every(k => eq(BD[i][k], PAL[i][k])));
     const luz = [0, 1, 2].map(i => BD[i].light !== BU[i].light);
-    t('paletas del Gremio con Dex: floor, dirt y speck idénticos a upstream en los 3 biomas; paredes, agua, flores, hojas, troncos, rocas y hierba de G.MARCA.biomas; `light` cambia sólo en cueva y volcán (algo más oscuro)',
+    t('sin los mapas propios (mapasPropios = false), paletas del Gremio con Dex: floor, dirt y speck idénticos a upstream en los 3 biomas; paredes, agua, flores, hojas, troncos, rocas y hierba de G.MARCA.biomas; `light` cambia sólo en cueva y volcán (algo más oscuro)',
       suelo && gremio && !luz[0] && luz[1] && luz[2] && D.Entorno.aplicada === 'dex', { luz, light: [0, 1, 2].map(i => [BU[i].light, BD[i].light]) });
     const arenas = BD.slice(3).every((b, i) => eq(b, BU[3 + i]));
     D.Estilo.set('clasico');
     const vuelta = [0, 1, 2].every(i => D.Entorno.CAMPOS.every(k => eq(BD[i][k], BU[i][k])) && eq(BD[i], BU[i])) && BD.length === BU.length;
-    t('con Clásico, las paletas vuelven a las de upstream (copia ORIG, campo a campo) y las arenas de la grieta no se tocan nunca', arenas && vuelta && D.Entorno.aplicada === 'clasico');
+    t('sin los mapas propios, con Clásico las paletas vuelven a las de upstream (copia ORIG, campo a campo) y las arenas de la grieta no se tocan nunca', arenas && vuelta && D.Entorno.aplicada === 'clasico');
+    // Con los mapas propios (como el juego): G.MARCA.biomas sólo lleva { nombre, _g }, así que Dex no recolorea nada; la
+    // gradación, el farol y las motas siguen (aplicada 'dex').
+    const MD = mundo().G, MC = mundo({ estilo: 'clasico' }).G, BM = MD.Tiles.BIOMES, DAT = MD.MapasDatos.BIOMAS;
+    const deDatos = [0, 1, 2].every(i => Object.keys(DAT[i]).every(k => eq(BM[i][k], DAT[i][k])));
+    t('con los mapas propios, Dex no recolorea: los 3 biomas llevan las paletas de G.MapasDatos (CAMPOS vacío), los 21 iguales que con Clásico, y la gradación sigue (aplicada «dex»)',
+      deDatos && !MD.Entorno.CAMPOS.length && eq(BM, MC.Tiles.BIOMES) && MD.Entorno.aplicada === 'dex', { CAMPOS: MD.Entorno.CAMPOS, aplicada: MD.Entorno.aplicada });
+    const antes = JSON.stringify(BM);
+    MD.Estilo.set('clasico');
+    t('con los mapas propios, pasar a Clásico no cambia ningún color (ni de los biomas ni de las arenas)', JSON.stringify(BM) === antes && MD.Entorno.aplicada === 'clasico');
   } catch (e) { t('paletas', false, String(e && e.stack || e)); }
 
-  // ---- B. Con Clásico, el chunk es byte a byte el de upstream (también tras ir y volver de Dex) ----
+  // ---- B. Con Clásico, el chunk es byte a byte el de upstream (también tras ir y volver de Dex); sin los mapas propios ----
   try {
-    const U = mundo({ upstream: true, entorno: false, horno: false }), C = mundo({ estilo: 'dex' });
+    const U = mundo({ upstream: true, entorno: false, horno: false }), C = mundo({ estilo: 'dex', mapas: false });
     C.G.Estilo.set('clasico');
     let casos = 0;
     const mal = [];
@@ -3972,7 +4069,7 @@ function entornoChecks() {
       U.G.World.drawGround(a, cam); C.G.World.drawGround(b, cam);
       a.imgs.forEach((im, i) => { casos++; if (!iguales(bytes(im[0]), bytes(b.imgs[i] && b.imgs[i][0]))) mal.push({ bi, x, y, i }); });
     }
-    t(`con Clásico, cada chunk horneado es byte a byte el de upstream (${casos} chunks: bosque, cueva, volcán y una arena, con paredes y charcos, después de pasar por Dex)`, casos >= 24 && !mal.length, mal.slice(0, 4));
+    t(`sin los mapas propios (mapasPropios = false, con sus 4 ficheros cargados) y con Clásico, cada chunk horneado es byte a byte el de upstream (${casos} chunks: bosque, cueva, volcán y una arena, con paredes y charcos, después de pasar por Dex)`, casos >= 24 && !mal.length, mal.slice(0, 4));
   } catch (e) { t('Clásico = upstream', false, String(e && e.stack || e)); }
 
   // ---- C. Gradación: sólo el suelo, determinista y sin trazos ----
@@ -3987,23 +4084,56 @@ function entornoChecks() {
       for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) { const k = at(cx * 16 + i, cy * 16 + j); if (k === 'wall') p++; else if (k === 'liquid') l++; }
       if (p > 8 && l > 8) cand.push([cx, cy]);
     }
-    let soloSuelo = true, cambiados = 0, sueloTotal = 0, determinista = true, maxGrad = 0;
+    let determinista = true, maxGrad = 0;
     const df = (gx, gy) => (Math.sin(gx / 90) + Math.cos(gy / 70)) / 4 + 0.5;
-    for (const bi of [0, 1, 2, G.Tiles.arenaBiome('fire')]) for (const [cx, cy] of cand.slice(0, 3)) {
-      const pinta = () => G.Tiles.paintChunk(cx, cy, 16, at, df, bi, SEMILLA);
-      const con = bytes(pinta());
-      const otra = bytes(pinta());
-      const E = G.Entorno; G.Entorno = null; const sin = bytes(pinta()); G.Entorno = E;
-      if (!iguales(con, otra)) determinista = false;
-      for (let py = 0; py < 256; py++) for (let px = 0; px < 256; px++) {
-        const o = (py * 256 + px) * 4, k = at(cx * 16 + (px >> 4), cy * 16 + (py >> 4));
-        const dif = con[o] !== sin[o] || con[o + 1] !== sin[o + 1] || con[o + 2] !== sin[o + 2] || con[o + 3] !== sin[o + 3];
-        if (k === 'floor') { sueloTotal++; if (dif) cambiados++; } else if (dif) soloSuelo = false;
+    // Por píxel, con la máscara de suelo de mapas-pintar.js (clasesChunk): [píxeles, gradados] de cada clase.
+    const SUB = Object.assign({}, G.Mapas.SUB), cuenta = { suelo: [0, 0], triangulo: [0, 0], recorte: [0, 0], otro: [0, 0] };
+    for (const [cx, cy] of cand.slice(0, 3)) {
+      const clases = clasesChunk(SUB, (tx, ty) => G.Mapas.codigo(tx, ty, SEMILLA, null), cx, cy);
+      for (const bi of [0, 1, 2, G.Tiles.arenaBiome('fire')]) {
+        const pinta = () => G.Tiles.paintChunk(cx, cy, 16, at, df, bi, SEMILLA);
+        const con = bytes(pinta());
+        const otra = bytes(pinta());
+        const E = G.Entorno; G.Entorno = null; const sin = bytes(pinta()); G.Entorno = E;
+        if (!iguales(con, otra)) determinista = false;
+        for (let p = 0; p < 256 * 256; p++) {
+          const o = p * 4, c = cuenta[clases[p]];
+          c[0]++;
+          if (con[o] !== sin[o] || con[o + 1] !== sin[o + 1] || con[o + 2] !== sin[o + 2] || con[o + 3] !== sin[o + 3]) c[1]++;
+        }
       }
     }
-    t(`gradación: sólo cambia píxeles de suelo, nunca de pared ni de charco (chunks ${cand.slice(0, 3).map(c => c.join(',')).join(' ')}, en 3 biomas y una arena de lava), y gradúa casi todo el suelo (${Math.round(100 * cambiados / Math.max(1, sueloTotal))} %)`,
-      cand.length >= 3 && soloSuelo && cambiados / sueloTotal > 0.6);
+    const pct = c => Math.round(100 * c[1] / Math.max(1, c[0]));
+    t(`gradación con los mapas propios (mapas-pintar.js), por píxel con su máscara de suelo: el ${pct(cuenta.suelo)} % del suelo (> 60) y el ${pct(cuenta.recorte)} % de los ${cuenta.recorte[0]} píxeles de los recortes de las esquinas de paredes y charcos, que enseñan el suelo de al lado (> 90), y ${cuenta.triangulo[1]} de los ${cuenta.triangulo[0]} de los triángulos de charco de las orillas y ${cuenta.otro[1]} de los ${cuenta.otro[0]} del resto de paredes y charcos (0) (chunks ${cand.slice(0, 3).map(c => c.join(',')).join(' ')}, en 3 biomas y una arena de lava)`,
+      cand.length >= 3 && cuenta.suelo[1] / cuenta.suelo[0] > 0.6 && cuenta.recorte[0] > 0 && cuenta.recorte[1] / cuenta.recorte[0] > 0.9 &&
+      cuenta.triangulo[0] > 0 && !cuenta.triangulo[1] && !cuenta.otro[1], cuenta);
     t('gradación determinista: dos horneados del mismo chunk dan los mismos bytes', determinista);
+    // Sin los mapas propios (mapasPropios = false), tiles.js no trae máscara: la gradación sigue como antes, por casilla.
+    {
+      const Gf = mundo({ mapas: false }).G, Wf = Gf.World;
+      Wf.reset(SEMILLA);
+      const atf = (tx, ty) => Wf.kindAt(tx * TS + 1, ty * TS + 1), candf = [];
+      for (let cy = -6; cy <= 6 && candf.length < 3; cy++) for (let cx = -6; cx <= 6 && candf.length < 3; cx++) {
+        let p = 0, l = 0;
+        for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) { const k = atf(cx * 16 + i, cy * 16 + j); if (k === 'wall') p++; else if (k === 'liquid') l++; }
+        if (p > 8 && l > 8) candf.push([cx, cy]);
+      }
+      let fuera = 0, suelo = 0, gradados = 0;
+      for (const [cx, cy] of candf) {
+        const kinds = [];
+        for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) kinds.push(atf(cx * 16 + i, cy * 16 + j));
+        for (const bi of [0, 1, 2]) {
+          const pinta = () => Gf.Tiles.paintChunk(cx, cy, 16, atf, df, bi, SEMILLA);
+          const con = bytes(pinta()), E = Gf.Entorno; Gf.Entorno = null; const sin = bytes(pinta()); Gf.Entorno = E;
+          for (let p = 0; p < 256 * 256; p++) {
+            const o = p * 4, dif = con[o] !== sin[o] || con[o + 1] !== sin[o + 1] || con[o + 2] !== sin[o + 2] || con[o + 3] !== sin[o + 3];
+            if (kinds[(p >> 12) * 16 + ((p & 255) >> 4)] === 'floor') { suelo++; if (dif) gradados++; } else if (dif) fuera++;
+          }
+        }
+      }
+      t(`sin los mapas propios (mapasPropios = false: tiles.js, sin máscara de suelo), la gradación sigue por casilla: ${fuera} píxeles cambiados fuera de las casillas de suelo y el ${Math.round(100 * gradados / Math.max(1, suelo))} % del suelo graduado (chunks ${candf.map(c => c.join(',')).join(' ')}, en los 3 biomas)`,
+        candf.length === 3 && !fuera && gradados / suelo > 0.6, { candf, fuera, gradados, suelo });
+    }
     // Sin trazos: sobre un suelo liso, la diferencia entre dos píxeles de suelo vecinos ≤ 6/255 por canal.
     let lisos = 0;
     for (const bi of [0, 1, 2, G.Tiles.arenaBiome('fire'), G.Tiles.arenaBiome('water')]) for (const [cx, cy] of cand.slice(0, 3)) {
@@ -4049,7 +4179,7 @@ function entornoChecks() {
     G.World.setBiome(1);                                   // lo que hace game.js al cambiar de tramo
     const cambio = fotograma(M, cam);
     const vis = visibles(cam), dibujados = cambio.ctx.imgs.filter((im, i) => i % 2 === 1).map(im => im[0].__bi);
-    t(`precalentado: nada antes de t % 240 = 237 (${antes} a los 236,9 s); desde ahí el bioma siguiente, primero el chunk de tu Pokémon (${primero}); al cambiar, 0 chunks horneados en ese fotograma (${pre && pre.n} precalentados) y el bioma nuevo ya pintado en los ${vis.length} visibles`,
+    t(`precalentado (con los mapas propios): nada antes de t % 240 = 237 (${antes} a los 236,9 s); desde ahí el bioma siguiente, primero el chunk de tu Pokémon (${primero}); al cambiar, 0 chunks horneados en ese fotograma (${pre && pre.n} precalentados) y el bioma nuevo ya pintado en los ${vis.length} visibles`,
       antes === 0 && primero === '0,0' && pre && pre.bioma === 1 && pre.n >= vis.length && cambio.n === 0 && G.Horno.stats.ultimoCambio.horneados === 0 && dibujados.length === vis.length && dibujados.every(b => b === 1),
       { antes, primero, pre, cambio: cambio.n, ultimo: G.Horno.stats.ultimoCambio, dibujados });
     G.Rift.inArena = true; G.Game.st.time = 477;
@@ -5087,7 +5217,7 @@ function trampasChecks() {
 }
 
 function evoPartidaChecks() {
-  console.log('23. Evolución dentro de la partida (js/systems/evo-partida.js): niveles, cartas, cambio de Pokémon y red');
+  console.log('25. Evolución dentro de la partida (js/systems/evo-partida.js): niveles, cartas, cambio de Pokémon y red');
   const r = [];
   const t = (name, cond, detail) => r.push([name, !!cond, detail]);
   /** util.js, mods.js, la Pokédex, evolutions.js y evo-partida.js reales; sprites, efectos y red de mentira. */
@@ -5166,6 +5296,785 @@ function devMenuChecks() {
   if (bien && sal === 'pokeswarm/dev/1\\0' && gancho && !uidEnClaro && /G\.DB\.guest/.test(src) && /DevMenu/.test(rd('js/app.min.js')))
     ok(`menú de pruebas: ${lista.length} cuenta(s) por huella SHA-256 (ningún uid en claro), nunca a invitados, con su gancho en settings-ui.js y en el paquete`);
   else bad(`menú de pruebas: huellas ${bien ? 'bien' : 'mal formadas'}, sal ${JSON.stringify(sal)}, gancho ${gancho}, uid en claro ${uidEnClaro}`);
+}
+
+// ---------------- 23. mapas propios: biomas, terreno, objetos, arenas, pintor y sprites (G.Mapas) ----------------
+/* Sumas de control del generador (caso C): sha1 (12 cifras) de los códigos, los objetos y G.Mapas.huella de 64×64 casillas
+ * de la semilla 1234 (de −32 a 31) y de la arena fire en (5008, 5008). El mundo de una partida es función de la semilla:
+ * si cambian sin querer, dos versiones del juego ya no generan el mismo mapa (en grupo, el invitado vería otro). Si el
+ * cambio del generador es A PROPÓSITO, se ponen aquí las que imprime el FALLO y se vuelve a mirar SEMILLA_MENU (caso M). */
+// 14-10-2026, a propósito, tras la verificación: la vega, por el puente sólo sobre agua (11 casillas de puente sobre el
+// cauce seco pasan a calzada, sin cambiar ningún objeto; antes, a8c439f3b65d), y la fire, por la pared de la arena hasta
+// 36 casillas en vez de 32 (502 casillas de r = 32 a 35,9 pasan a pared de la arena, A_VACIO, sin cambiar ningún objeto;
+// antes, d801989ee1a3). SEMILLA_MENU sigue cumpliendo el caso M.
+const HUELLAS_MAPAS = { vega: '8b0287753a40', fire: '8e4945bb2d41' };
+function mapasChecks() {
+  console.log('23. Mapas propios (js/world/mapas-datos.js, mapas.js, mapas-pintar.js y mapas-sprites.js con tiles.js, world.js y weather.js reales)');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const inicio = Date.now();
+  const faltan = MAPAS.filter(f => !ex(f));
+  if (faltan.length) { bad('mapas: faltan ' + faltan.join(', ') + ' (sin ellos no se puede probar nada más)'); return; }
+  const N = 16, TS = 32, KIND = ['floor', 'wall', 'liquid'];
+  const SOLIDO = new Set(['tree', 'rock', 'chest', 'altar', 'bigchest']), INTER = new Set(['altar', 'spring', 'bigchest', 'trap']);
+  const RADIO = { tree: 13, rock: 12, chest: 12, grass: 14, altar: 9, spring: 22, bigchest: 14, trap: 9 };   // los de PROP de world.js
+  const sha = s => crypto.createHash('sha1').update(s).digest('hex').slice(0, 12);
+  const xorshift = s => { let x = s >>> 0 || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; };
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const bytes = cv => cv && cv._img && cv._img.data;
+  const iguales = (a, b) => !!(a && b && a.length === b.length && a.every((v, i) => v === b[i]));
+  const clave = p => `${p.type}${p.kind || 0}@${p.tx},${p.ty}`;
+  const mediana = a => { const s = a.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
+  /** Una cámara que ve w×h casillas desde (x0, y0) (para visibleProps, que añade un chunk alrededor). */
+  const camaraTodo = (x0, y0, w, h) => ({ left: () => x0 * TS, top: () => y0 * TS, w: w * TS, h: h * TS, sees: () => true });
+
+  /** Lienzo de mentira: guarda el ImageData de putImageData; cualquier otra llamada a su contexto se apunta en `usos`. */
+  const fabrica = usos => () => {
+    const cv = { width: 0, height: 0, _img: null };
+    const base = { createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }), putImageData(img) { cv._img = img; } };
+    const ctx = new Proxy(base, { get: (o, k) => (k in o ? o[k] : typeof k === 'string' ? () => { usos.push(k); } : undefined) });
+    cv.getContext = () => ctx;
+    return cv;
+  };
+  const lanza = que => () => { throw new Error(que + ' al generar o pintar el mapa'); };
+  const mocks = (G, estilo) => {
+    const oyentes = [];
+    G.Estilo = { actual: estilo, get dex() { return this.actual === 'dex'; }, on(fn) { oyentes.push(fn); }, set(v) { this.actual = v; oyentes.forEach(fn => fn(v)); } };
+    G.Settings = { fx: 2, get: () => false };
+    G.Sprites = { PX: 2 };
+    G.Game = { state: 'playing', st: { time: 10 }, player: { x: 0, y: 0 } };
+    G.Rift = { inArena: false, rift: null };
+    G.Coop = { active: false, isHost: false };
+  };
+  /** El juego real en ESTE reino, con new Function como tools/nico/mapas/vista.js (en node:vm cada acceso a G cruza el
+   *  contexto y todo va unas 40 veces más lento): util.js, mods.js, marca.js, tiles.js, los 4 de los mapas con
+   *  G.MODS.mapasPropios = mapas (null = sin cargarlos: el proyecto base tal cual), world.js, weather.js y, si se pide,
+   *  entorno.js. Con `trampa`, Math.random, Date y performance.now lanzan un error. `orig`: lo de tiles.js y G.MARCA antes de
+   *  los mapas. `M.random` se puede cambiar después (caso N). */
+  function reino({ mapas = true, estilo = 'clasico', entorno = false, trampa = false } = {}) {
+    const M = Object.create(Math, { random: { value: trampa ? lanza('Math.random') : Math.random, writable: true } });
+    const D = trampa ? Object.assign(function () { throw new Error('Date al generar o pintar el mapa'); }, { now: lanza('Date.now') }) : Date;
+    const usos = [], c = { console, document: { createElement: fabrica(usos) }, performance: { now: trampa ? lanza('performance.now') : () => 1000 } };
+    c.window = c; c.G = {};
+    const correr = f => new Function('window', 'G', 'document', 'performance', 'Math', 'Date', rd(f) + '\n//# sourceURL=' + f)(c, c.G, c.document, c.performance, M, D);
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js']) correr(f);
+    const G = c.G;
+    mocks(G, estilo);
+    correr('js/world/tiles.js');
+    const T = G.Tiles, orig = { BIOMES: T.BIOMES, temas: T.ARENA_THEMES, fire: T.ARENA_THEMES.fire, biomas: G.MARCA.biomas,
+      paintChunk: T.paintChunk, propSprite: T.propSprite, clearProps: T.clearProps };
+    if (mapas !== null) { G.MODS.mapasPropios = mapas; for (const f of MAPAS) correr(f); }
+    for (const f of ['js/world/world.js', 'js/systems/weather.js'].concat(entorno ? ['js/world/entorno.js'] : [])) correr(f);
+    return { G, M, usos, orig };
+  }
+  /** Arena como la monta world.js (setArena le añade `th`). */
+  const arenaDe = (G, type, tx, ty) => ({ tx, ty, r: 11, type, th: G.Tiles.ARENA_THEMES[type] });
+  /** Códigos (kind | sub << 2) de w×h casillas desde (x0, y0), leídos de las capas de chunk (G.Mapas.capa). */
+  function codigos(G, seed, x0, y0, w, h, arena = null) {
+    const out = new Uint8Array(w * h);
+    for (let cy = Math.floor(y0 / N); cy * N < y0 + h; cy++) for (let cx = Math.floor(x0 / N); cx * N < x0 + w; cx++) {
+      const cod = G.Mapas.capa(cx, cy, seed, arena).cod;
+      for (let j = 0; j < N; j++) {
+        const y = cy * N + j - y0;
+        if (y >= 0 && y < h) for (let i = 0; i < N; i++) { const x = cx * N + i - x0; if (x >= 0 && x < w) out[y * w + x] = cod[j * N + i]; }
+      }
+    }
+    return out;
+  }
+  /** Los objetos del chunk (cx, cy) como los pone world.js (chunkData → placeProps → G.Mapas.props), con un makeProp de mentira. */
+  function objetos(G, seed, cx, cy, arena = null) {
+    const c = { cx, cy, terr: new Uint8Array(N * N), props: [], propAt: new Map(), liquids: [] }, cod = G.Mapas.capa(cx, cy, seed, arena).cod;
+    for (let o = 0; o < N * N; o++) { c.terr[o] = cod[o] & 3; if (c.terr[o] === 2) c.liquids.push(cx * N + o % N, cy * N + (o >> 4)); }
+    G.Mapas.props(c, N, seed, arena, new Set(), (type, tx, ty, kind = 0) => ({ type, tx, ty, kind, solid: SOLIDO.has(type), r: RADIO[type], x: tx * TS + TS / 2, y: ty * TS + TS - 4 }));
+    return c.props;
+  }
+  // Color (los mismos cálculos que midieron la especificación): luminancia relativa, contraste, CIELAB y ΔE2000.
+  const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const lin = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const lumRgb = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  const lumi = h => lumRgb(...hexRgb(h));
+  const contraste = (a, b) => { const y1 = lumi(a), y2 = lumi(b); return (Math.max(y1, y2) + 0.05) / (Math.min(y1, y2) + 0.05); };
+  function lab(h) {
+    const [r, g, b] = hexRgb(h).map(lin);
+    const X = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047, Y = 0.2126 * r + 0.7152 * g + 0.0722 * b, Z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883;
+    const f = v => (v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
+    return [116 * f(Y) - 16, 500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z))];
+  }
+  function de00(h1, h2) {
+    const [L1, a1, b1] = lab(h1), [L2, a2, b2] = lab(h2), R = Math.PI / 180;
+    const Cb = (Math.hypot(a1, b1) + Math.hypot(a2, b2)) / 2, Gk = 0.5 * (1 - Math.sqrt(Cb ** 7 / (Cb ** 7 + 25 ** 7)));
+    const a1p = (1 + Gk) * a1, a2p = (1 + Gk) * a2, C1p = Math.hypot(a1p, b1), C2p = Math.hypot(a2p, b2);
+    const h1p = (Math.atan2(b1, a1p) / R + 360) % 360, h2p = (Math.atan2(b2, a2p) / R + 360) % 360;
+    let dhp = h2p - h1p;
+    if (C1p * C2p === 0) dhp = 0; else if (dhp > 180) dhp -= 360; else if (dhp < -180) dhp += 360;
+    const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(dhp * R / 2), Lbp = (L1 + L2) / 2, Cbp = (C1p + C2p) / 2;
+    let hbp = h1p + h2p;
+    if (C1p * C2p !== 0) hbp = Math.abs(h1p - h2p) > 180 ? (h1p + h2p + 360) / 2 : (h1p + h2p) / 2;
+    const T = 1 - 0.17 * Math.cos((hbp - 30) * R) + 0.24 * Math.cos(2 * hbp * R) + 0.32 * Math.cos((3 * hbp + 6) * R) - 0.2 * Math.cos((4 * hbp - 63) * R);
+    const RC = 2 * Math.sqrt(Cbp ** 7 / (Cbp ** 7 + 25 ** 7)), RT = -Math.sin(2 * 30 * Math.exp(-(((hbp - 275) / 25) ** 2)) * R) * RC;
+    const SL = 1 + 0.015 * (Lbp - 50) ** 2 / Math.sqrt(20 + (Lbp - 50) ** 2), SC = 1 + 0.045 * Cbp, SH = 1 + 0.015 * Cbp * T;
+    return Math.sqrt(((L2 - L1) / SL) ** 2 + ((C2p - C1p) / SC) ** 2 + (dHp / SH) ** 2 + RT * ((C2p - C1p) / SC) * (dHp / SH));
+  }
+
+  let N0, F, T;
+  try { N0 = reino({ mapas: null }); F = reino({ mapas: false }); T = reino(); }
+  catch (e) { bad('mapas: no se pudieron cargar los mapas propios en node: ' + (e && e.stack || e)); return; }
+  const G = T.G, Gm = G.Mapas, SUB = (Gm && Gm.SUB) || {};
+
+  // ---- A. Interruptor: con true, todo lo nuevo en su sitio; con false, el proyecto base tal cual ----
+  try {
+    const TT = G.Tiles, MD = G.MapasDatos, U = N0.G;
+    const tipos = Object.keys(TT.ARENA_THEMES), nombres = TT.BIOMES.slice(0, 3).map(b => b.name);
+    const arenasBien = tipos.every((k, i) => TT.BIOMES[3 + i] && TT.BIOMES[3 + i].name === 'Grieta · ' + MD.ARENAS[k].name && TT.ARENA_THEMES[k].name === MD.ARENAS[k].name &&
+      ['familia', 'variante', 'sueloMat', 'paredMat'].every(c => TT.ARENA_THEMES[k][c] === MD.ARENAS[k][c]));
+    const enSuSitio = TT.BIOMES === T.orig.BIOMES && TT.ARENA_THEMES === T.orig.temas && TT.ARENA_THEMES.fire === T.orig.fire && G.MARCA.biomas === T.orig.biomas;
+    t('interruptor (mapasPropios = true): G.Mapas.activo; los 3 biomas nuevos; las 18 arenas con las mismas claves y en el mismo orden que upstream (con nombre, familia, variante, sueloMat y paredMat de G.MapasDatos); BIOMES de 21 con «Grieta · »; todo mutado en su sitio (los mismos objetos de tiles.js y G.MARCA)',
+      Gm.activo === true && eq(nombres, MD.BIOMAS.map(b => b.name)) && eq(tipos, Object.keys(U.Tiles.ARENA_THEMES)) && tipos.length === 18 && eq(TT.ARENA_TYPES, tipos) &&
+      TT.BIOMES.length === 21 && arenasBien && enSuSitio && TT.arenaBiome('fire') === 4 && Gm.SEMILLA_MENU === MD.SEMILLA_MENU,
+      { activo: Gm.activo, nombres, n: TT.BIOMES.length, arenasBien, enSuSitio, semilla: Gm.SEMILLA_MENU });
+    const rift = [0, 1, 2, 3].every(f => iguales(bytes(TT.propSprite(0, 'rift', f)), bytes(U.Tiles.propSprite(0, 'rift', f))));
+    const marca = G.MARCA.biomas.length === 3 && G.MARCA.biomas.every((b, i) => Object.keys(b).every(k => k === 'nombre' || k === '_g') &&
+      b.nombre === nombres[i] && eq(b._g, MD.MARCA_G[MD.BIOMAS[i].motivo]));
+    const motas = eq(G.MARCA.motas.escarcha, MD.MOTAS.escarcha) && eq(G.MARCA.motas.esporas, MD.MOTAS.esporas) && Object.keys(U.MARCA.motas).every(k => eq(G.MARCA.motas[k], U.MARCA.motas[k]));
+    t('interruptor (true): paintChunk = G.Mapas.pintar; propSprite nuevo (la grieta, «rift», byte a byte la de upstream) y clearProps envuelto; G.MARCA.biomas sólo con { nombre, _g } de G.MapasDatos.MARCA_G y las motas escarcha y esporas (las demás, intactas)',
+      TT.paintChunk === Gm.pintar && typeof Gm.sprite === 'function' && TT.propSprite !== T.orig.propSprite && TT.clearProps !== T.orig.clearProps && rift && marca && motas, { rift, marca, motas });
+    const FG = F.G, FT = FG.Tiles;
+    const igual = eq(FT.BIOMES, U.Tiles.BIOMES) && eq(FT.ARENA_THEMES, U.Tiles.ARENA_THEMES) && eq(FG.MARCA.biomas, U.MARCA.biomas) && eq(FG.MARCA.motas, U.MARCA.motas);
+    const funciones = FT.paintChunk === F.orig.paintChunk && FT.propSprite === F.orig.propSprite && FT.clearProps === F.orig.clearProps;
+    const mundoDe = R => {
+      const W = R.G.World, s = [];
+      W.reset(1234); W.setBiome(0, true);
+      for (let ty = -32; ty < 32; ty++) for (let tx = -32; tx < 32; tx++) s.push(W.kindAt(tx * TS + 1, ty * TS + 1)[0]);
+      return s.join('') + '|' + W.visibleProps(camaraTodo(-32, -32, 64, 64)).map(clave).join(';');
+    };
+    t('interruptor (mapasPropios = false): G.Mapas no activo; BIOMES, ARENA_THEMES y G.MARCA (biomas y motas) iguales a los del proyecto base; paintChunk, propSprite y clearProps, los de tiles.js; y el mismo mundo (64×64 casillas con sus objetos)',
+      !(FG.Mapas && FG.Mapas.activo) && igual && funciones && mundoDe(F) === mundoDe(N0), { activo: FG.Mapas && FG.Mapas.activo, igual, funciones });
+    const min = rd('js/app.min.js');
+    t('el paquete (js/app.min.js) lleva los mapas propios (si no: node tools/build.js --privado)', ['mapasPropios', 'climaAlAzar', 'SEMILLA_MENU', 'Vega Sulfúrea', 'Corro de Hadas'].every(k => min.includes(k)));
+  } catch (e) { t('interruptor', false, String(e && e.stack || e)); }
+
+  // ---- B. Pureza: función de (semilla, casilla, arena), sin azar ni reloj, igual en cualquier orden y en cualquier reino ----
+  try {
+    const sinComentarios = s => s.replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' ')).replace(/(^|[^:\\])\/\/[^\n]*/gm, '$1');
+    /** Quita (con espacios: las líneas no cambian) el cuerpo entre llaves de cada definición de `nombre`. */
+    const sinCuerpo = (s, nombre) => {
+      let out = s;
+      const defs = [];
+      for (const m of s.matchAll(new RegExp('\\b' + nombre + '\\b', 'g'))) {
+        const resto = s.slice(m.index + nombre.length), k = resto.indexOf('{');
+        if (k < 0 || !/^\s*(?:[:=]\s*(?:function\s*[\w$]*\s*)?)?(?:\([^()]*\)|[A-Za-z_$][\w$]*)\s*(?:=>\s*)?$/.test(resto.slice(0, k))) continue;
+        let b = m.index + nombre.length + k, prof = 0;
+        const a = b;
+        for (; b < s.length; b++) { if (s[b] === '{') prof++; else if (s[b] === '}' && --prof === 0) break; }
+        defs.push([a, b + 1]);
+      }
+      for (const [a, b] of defs) out = out.slice(0, a) + out.slice(a, b).replace(/[^\n]/g, ' ') + out.slice(b);
+      return { out, n: defs.length };
+    };
+    const donde = (s, re) => [...s.matchAll(re)].map(m => (s.slice(0, m.index).match(/\n/g) || []).length + 1 + ': ' + m[0]);
+    const gen = sinCuerpo(sinComentarios(rd('js/world/mapas.js')), 'climaAlAzar');
+    const PROHIBIDO = /\bMath\s*\.\s*(?:random|hypot|sqrt|cbrt|sinh?|cosh?|tanh?|asinh?|acosh?|atan2?|atanh|pow|exp|expm1|log1p|log2|log10|log)\b|\bDate\b|\bperformance\b|\*\*|\{[^{}]*\}\s*=\s*Math\b/g;
+    const enGen = donde(gen.out, PROHIBIDO);
+    const enOtros = ['js/world/mapas-datos.js', 'js/world/mapas-pintar.js', 'js/world/mapas-sprites.js'].flatMap(f => donde(sinComentarios(rd(f)), /\bMath\s*\.\s*random\b|\bDate\b|\bperformance\b/g).map(x => f + ':' + x));
+    t('pureza en el código: mapas.js (sin comentarios y salvo climaAlAzar) no usa Math.random, hypot, sqrt, sin, cos, tan, atan, pow ni **, exp, log, Date ni performance; mapas-datos.js, mapas-pintar.js y mapas-sprites.js, ni Math.random, Date ni performance',
+      gen.n >= 1 && !enGen.length && !enOtros.length, { climaAlAzar: gen.n, mapas: enGen.slice(0, 8), otros: enOtros.slice(0, 8) });
+  } catch (e) { t('pureza en el código', false, String(e && e.stack || e)); }
+  try {
+    const lista = [];
+    for (let cy = -5; cy < 5; cy++) for (let cx = -10; cx < 10; cx++) lista.push([cx, cy, null]);           // 200 alrededor del claro
+    for (let cy = 311; cy < 315; cy++) for (let cx = 310; cx < 316; cx++) lista.push([cx, cy, 'fire']);       // la arena fire en (5008, 5008)
+    const firma = (Gx, [cx, cy, tipo]) => {
+      const a = tipo ? arenaDe(Gx, tipo, 5008, 5008) : null, uno = [];
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) uno.push(Gx.Mapas.codigo(cx * N + i, cy * N + j, 1234, a) + ':' + Gx.Mapas.terreno(cx * N + i, cy * N + j, 1234, a));
+      return sha([...Gx.Mapas.capa(cx, cy, 1234, a).cod].join() + '|' + uno.join() + '|' + objetos(Gx, 1234, cx, cy, a).map(clave).sort().join(';') + '|' + Gx.Mapas.huella(1234, cx, cy, 1, 1, a));
+    };
+    // Las capas, lo mismo que casilla a casilla (y terreno = codigo & 3).
+    let incoherentes = 0;
+    for (const [cx, cy, tipo] of lista) {
+      const a = tipo ? arenaDe(G, tipo, 5008, 5008) : null, cod = Gm.capa(cx, cy, 1234, a).cod;
+      for (let o = 0; o < N * N; o++) {
+        const c = Gm.codigo(cx * N + o % N, cy * N + (o >> 4), 1234, a);
+        if (cod[o] !== c || Gm.terreno(cx * N + o % N, cy * N + (o >> 4), 1234, a) !== (c & 3)) incoherentes++;
+      }
+    }
+    t(`capa(cx, cy) da los mismos códigos que codigo() casilla a casilla y terreno() = codigo() & 3 (${lista.length} chunks, ${incoherentes} distintos)`, !incoherentes, incoherentes);
+    const A = reino({ trampa: true }), B = reino({ trampa: true });
+    const fa = lista.map(k => firma(A.G, k));
+    const orden = lista.map((k, i) => i), rnd = xorshift(99);
+    for (let i = orden.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [orden[i], orden[j]] = [orden[j], orden[i]]; }
+    const fb = [];
+    for (const i of orden) fb[i] = firma(B.G, lista[i]);
+    // Y un contexto node:vm (otro reino de verdad), con unos cuantos al revés.
+    const cv = { console, document: { createElement: fabrica([]) }, performance: { now: lanza('performance.now') } };
+    vm.createContext(cv); cv.window = cv; cv.G = {};
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js']) vm.runInContext(rd(f), cv, { filename: f });
+    mocks(cv.G, 'clasico');
+    vm.runInContext(rd('js/world/tiles.js'), cv, { filename: 'js/world/tiles.js' });
+    cargarMapas(cv, true);
+    vm.runInContext(rd('js/world/world.js'), cv, { filename: 'js/world/world.js' });
+    vm.runInContext('Math.random = () => { throw new Error("Math.random al generar el mapa"); }; Date.now = Math.random;', cv);
+    const sub = [];
+    for (let i = lista.length - 1; i >= 0; i -= 8) sub.push(i);
+    const fv = sub.map(i => firma(cv.G, lista[i]));
+    const distintas = fa.filter((h, i) => h !== fb[i]).length, distintasVm = sub.filter((i, k) => fa[i] !== fv[k]).length;
+    t(`determinismo: los ${lista.length} chunks (200 alrededor del claro y 24 con la arena fire) dan la misma huella (códigos, capa, objetos y G.Mapas.huella) en orden, barajados en otro reino y ${sub.length} al revés en un contexto node:vm, con Math.random, Date.now y performance.now lanzando un error`,
+      !distintas && !distintasVm, { distintas, distintasVm });
+    // El pintor y los sprites tampoco: con la trampa puesta, 4 chunks (3 biomas y la arena fire) y todos los objetos de 5 biomas.
+    const AG = A.G, kinds = (tx, ty) => KIND[AG.Mapas.terreno(tx, ty, 1234, AG.World.arena)];
+    AG.World.reset(1234);
+    for (const [bi, cx, cy] of [[0, 0, 0], [1, -3, 2], [2, 5, -4]]) AG.Mapas.pintar(cx, cy, N, kinds, null, bi, 1234);
+    AG.World.setArena({ tx: 5008, ty: 5008, r: 11, type: 'fire' });
+    AG.Mapas.pintar(312, 312, N, kinds, null, AG.Tiles.arenaBiome('fire'), 1234);
+    for (const bi of [0, 1, 2, 4, 15]) for (const [ty, vs] of Object.entries({ tree: [0], rock: [0, 1], grass: [0, 1], chest: [0], bigchest: [0], altar: [0, 1, 2, 3, 4, 5, 6, 7], spring: [0, 1], trap: [0, 1, 2] }))
+      for (const v of vs) AG.Tiles.propSprite(bi, ty, v);
+    t('pureza al pintar: 4 chunks (los 3 biomas y la arena fire) y todos los objetos de 5 biomas sin Math.random, Date ni performance.now', true);
+  } catch (e) { t('determinismo y pureza en marcha', false, String(e && e.stack || e)); }
+
+  // ---- C. Suma de control (se cambia SÓLO a propósito) ----
+  try {
+    const suma = (seed, cx0, cy0, a) => {
+      const partes = [];
+      for (let cy = cy0; cy < cy0 + 4; cy++) for (let cx = cx0; cx < cx0 + 4; cx++)
+        partes.push([...Gm.capa(cx, cy, seed, a).cod].join(), objetos(G, seed, cx, cy, a).map(clave).sort().join(';'));
+      return sha(partes.join('|') + '|' + Gm.huella(seed, cx0, cy0, 4, 4, a));
+    };
+    const vega = suma(1234, -2, -2, null), fire = suma(1234, 311, 311, arenaDe(G, 'fire', 5008, 5008));
+    t(`suma de control del generador (64×64 casillas de la semilla 1234 y la arena fire: ${vega} y ${fire}); si el cambio es a propósito, ponerlas en HUELLAS_MAPAS de check.js y volver a mirar SEMILLA_MENU`,
+      vega === HUELLAS_MAPAS.vega && fire === HUELLAS_MAPAS.fire, { esperadas: HUELLAS_MAPAS, actuales: { vega, fire } });
+  } catch (e) { t('suma de control', false, String(e && e.stack || e)); }
+
+  // ---- D, F y G. Estructura, objetos y aparición en 4 semillas × 384² casillas (147.456, como la tabla del §6) ----
+  const SEMILLAS = [1234, 777, 4242, 31337], RV = 192, WV = 2 * RV;
+  const RANGOS = { tree: [2128, 2584], rock: [862, 1025], chest: [48, 69], trap: [217, 275], spring: [27, 53], altar: [20, 53], bigchest: [23, 39] }, HIERBA = [10.7, 11.5];
+  /** Distancia (chaflán 1 y √2) a la casilla más cercana que cumple `es`. */
+  const distancia = (k, es) => {
+    const W = WV, d = new Float64Array(W * W), b = Math.SQRT2;
+    for (let o = 0; o < W * W; o++) d[o] = es(k[o]) ? 0 : 1e9;
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+      const o = y * W + x; let v = d[o];
+      if (x > 0) v = Math.min(v, d[o - 1] + 1); if (y > 0) v = Math.min(v, d[o - W] + 1);
+      if (x > 0 && y > 0) v = Math.min(v, d[o - W - 1] + b); if (x < W - 1 && y > 0) v = Math.min(v, d[o - W + 1] + b);
+      d[o] = v;
+    }
+    for (let y = W - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
+      const o = y * W + x; let v = d[o];
+      if (x < W - 1) v = Math.min(v, d[o + 1] + 1); if (y < W - 1) v = Math.min(v, d[o + W] + 1);
+      if (x < W - 1 && y < W - 1) v = Math.min(v, d[o + W + 1] + b); if (x > 0 && y < W - 1) v = Math.min(v, d[o + W - 1] + b);
+      d[o] = v;
+    }
+    return d;
+  };
+  /** Lo que se alcanza desde el borde de la ventana sin pasar por lo que `bloquea`. */
+  const alcanzable = bloquea => {
+    const W = WV, vis = new Uint8Array(W * W), q = [];
+    const push = o => { if (!vis[o] && !bloquea(o)) { vis[o] = 1; q.push(o); } };
+    for (let i = 0; i < W; i++) { push(i); push((W - 1) * W + i); push(i * W); push(i * W + W - 1); }
+    while (q.length) { const o = q.pop(), x = o % W, y = (o / W) | 0; if (x > 0) push(o - 1); if (x < W - 1) push(o + 1); if (y > 0) push(o - W); if (y < W - 1) push(o + W); }
+    return vis;
+  };
+  const est = [], ap = { n: 0, esc: 0, mov: 0, grieta: 0, ladron: 0, perdido: 0 }, objMal = [];
+  const OUT_ESC = Math.hypot(768, 480) / 2 + 40, OUT_MOV = Math.hypot(1266, 585) / 2 + 40;   // Camera.outerRadius() en 1440x900 y en un móvil (844x390)
+  try {
+    const CRUCE = new Set([SUB.VADO, SUB.PUENTE, SUB.PUERTO, SUB.CALZADA, SUB.PRETIL, SUB.PLAZA]), SIN_HIERBA = new Set([SUB.LOSA, SUB.ANILLO]);
+    for (const seed of SEMILLAS) {
+      const cod = codigos(G, seed, -RV, -RV, WV, WV), k = new Uint8Array(WV * WV);
+      for (let o = 0; o < k.length; o++) k[o] = cod[o] & 3;
+      const kAt = (tx, ty) => (tx >= -RV && ty >= -RV && tx < RV && ty < RV ? k[(ty + RV) * WV + tx + RV] : Gm.codigo(tx, ty, seed, null) & 3);
+      const props = [];
+      for (let cy = -RV / N; cy < RV / N; cy++) for (let cx = -RV / N; cx < RV / N; cx++) props.push(...objetos(G, seed, cx, cy));
+      const solido = new Uint8Array(WV * WV);
+      for (const p of props) if (SOLIDO.has(p.type)) solido[(p.ty + RV) * WV + p.tx + RV] = 1;
+      // D. Estructura (sin el radio 20 del claro).
+      const dW = distancia(k, v => v === 1);
+      let n = 0, w = 0, l = 0, pas = 0, pasL = 0, fl = 0, lejos = 0;
+      for (let j = 1; j < WV - 1; j++) for (let i = 1; i < WV - 1; i++) {
+        const x = i - RV, y = j - RV;
+        if (x * x + y * y < 400) continue;
+        n++;
+        const o = j * WV + i, v = k[o];
+        if (v === 1) { w++; continue; }
+        if (v === 2) { l++; continue; }
+        fl++;
+        if (dW[o] >= 4) lejos++;
+        const P = (a, b) => k[o + b * WV + a] === 1, O = (a, b) => k[o + b * WV + a] !== 0;
+        if ((P(-1, 0) && P(1, 0) && !P(0, -1) && !P(0, 1)) || (P(0, -1) && P(0, 1) && !P(-1, 0) && !P(1, 0))) pas++;
+        if ((O(-1, 0) && O(1, 0) && !O(0, -1) && !O(0, 1)) || (O(0, -1) && O(0, 1) && !O(-1, 0) && !O(1, 0))) pasL++;
+      }
+      const alc = [alcanzable(o => k[o] === 1), alcanzable(o => k[o] !== 0), alcanzable(o => k[o] !== 0 || solido[o])];
+      // Suelo encerrado (en la 3.ª, la casilla de un sólido no cuenta: es el sólido).
+      const bolsas = alc.map((a, m) => { let b = 0; for (let o = 0; o < k.length; o++) if (k[o] === 0 && !a[o] && !(m === 2 && solido[o])) b++; return b; });
+      // F. Objetos: recuentos y reglas.
+      const cuenta = {};
+      for (const p of props) cuenta[p.type] = (cuenta[p.type] || 0) + 1;
+      const pos = new Set(props.filter(p => SOLIDO.has(p.type)).map(p => p.tx + ',' + p.ty));
+      let vecinos = 0, aDos = 0, sinHueco = 0, enCruce = 0;
+      for (const p of props) {
+        const s = cod[(p.ty + RV) * WV + p.tx + RV] >> 2;
+        if (kAt(p.tx, p.ty) !== 0 || CRUCE.has(s) || (p.type === 'grass' && SIN_HIERBA.has(s))) enCruce++;
+        if (!SOLIDO.has(p.type)) continue;
+        for (let b = -2; b <= 2; b++) for (let a = -2; a <= 2; a++) {
+          if ((!a && !b) || !pos.has((p.tx + a) + ',' + (p.ty + b))) continue;
+          if (Math.abs(a) <= 1 && Math.abs(b) <= 1) vecinos++; else if (!a || !b) aDos++;
+        }
+        if (![-1, 0, 1].every(b => [-1, 0, 1].every(a => kAt(p.tx + a, p.ty + b) === 0))) sinHueco++;
+      }
+      const fueraDeRango = Object.entries(RANGOS).filter(([ty, [lo, hi]]) => (cuenta[ty] || 0) < lo * 0.85 || (cuenta[ty] || 0) > hi * 1.15).map(([ty]) => ty + ' ' + (cuenta[ty] || 0));
+      const hierba = 100 * (cuenta.grass || 0) / (WV * WV);
+      if (hierba < HIERBA[0] * 0.85 || hierba > HIERBA[1] * 1.15) fueraDeRango.push('hierba ' + hierba.toFixed(1) + ' %');
+      if (fueraDeRango.length || vecinos || aDos || sinHueco || enCruce) objMal.push({ seed, fueraDeRango, vecinos: vecinos / 2, aDos: aDos / 2, sinHueco, enCruce });
+      est.push({ seed, pared: 100 * w / n, liq: 100 * l / n, pas, pasL, lejos: 100 * lejos / fl, bolsas, cuenta, hierba });
+      // G. Aparición, con world.js de verdad (isFree con terreno y objetos): el jugador en suelo alcanzable sin objeto sólido.
+      const Wd = G.World, rnd = xorshift(seed * 7 + 1), muestras = [];
+      Wd.reset(seed); Wd.setBiome(0, true);
+      for (let m = 0; m < 1400; m++) {
+        const tx = Math.floor((rnd() - 0.5) * 2 * (RV - 40)), ty = Math.floor((rnd() - 0.5) * 2 * (RV - 40)), o = (ty + RV) * WV + tx + RV;
+        if (k[o] === 0 && alc[0][o] && !solido[o]) muestras.push([tx, ty]);
+      }
+      muestras.sort((a, b) => Math.floor(a[1] / N) - Math.floor(b[1] / N) || Math.floor(a[0] / N) - Math.floor(b[0] / N));   // por chunks: la caché de world.js no da vueltas
+      const anillo = (px, py, outer) => {
+        const ang = rnd() * 6.2832;
+        for (let i = 0; i < 8; i++) { const a = ang + (i === 0 ? 0 : rnd() * 1.8 - 0.9), d = outer + 10 + rnd() * 60; if (Wd.isFree(px + Math.cos(a) * d, py + Math.sin(a) * d * 0.9, 14)) return true; }
+        return false;
+      };
+      for (const [tx, ty] of muestras) {
+        const px = tx * TS + TS / 2, py = ty * TS + TS / 2;
+        ap.n++;
+        if (anillo(px, py, OUT_ESC)) ap.esc++;
+        if (anillo(px, py, OUT_MOV)) ap.mov++;
+        for (let i = 0; i < 24; i++) { const a = rnd() * 6.2832, d = 380 + rnd() * 180; if (Wd.isFree(px + Math.cos(a) * d, py + Math.sin(a) * d * 0.85, 22)) { ap.grieta++; break; } }
+        for (let i = 0; i < 12; i++) { const a = rnd() * 6.2832, d = 230 + rnd() * 70; if (Wd.isFree(px + Math.cos(a) * d, py + Math.sin(a) * d * 0.8, 14)) { ap.ladron++; break; } }
+        let at = null, to = null;
+        for (let i = 0; i < 20 && !at; i++) { const a = rnd() * 6.2832, d = 220 + rnd() * 80, x = px + Math.cos(a) * d, y = py + Math.sin(a) * d * 0.8; if (Wd.isFree(x, y, 16)) at = [x, y]; }
+        for (let i = 0; i < 30 && at && !to; i++) { const a = rnd() * 6.2832, d = 700 + rnd() * 150, x = at[0] + Math.cos(a) * d, y = at[1] + Math.sin(a) * d * 0.85; if (Wd.isFree(x, y, 30)) to = [x, y]; }
+        if (at && to) ap.perdido++;
+      }
+    }
+    const media = c => est.reduce((s, e) => s + e[c], 0) / est.length, f1 = v => v.toFixed(1);
+    t(`estructura en 4 semillas × 384² casillas: pared ${est.map(e => f1(e.pared)).join(' / ')} % (4-9,5; media ${f1(media('pared'))}, 5,5-7,5), líquido ${est.map(e => f1(e.liq)).join(' / ')} % (5-11; media ${f1(media('liq'))}, 6,5-9)`,
+      est.every(e => e.pared >= 4 && e.pared <= 9.5 && e.liq >= 5 && e.liq <= 11) && media('pared') >= 5.5 && media('pared') <= 7.5 && media('liq') >= 6.5 && media('liq') <= 9, est.map(e => [e.seed, f1(e.pared), f1(e.liq)]));
+    t(`estructura: pasillos de 1 casilla (entre paredes / entre paredes o líquido) ${est.map(e => e.pas + '/' + e.pasL).join(', ')} (≤ 2), ningún suelo encerrado por paredes, por paredes y líquido ni por paredes, líquido y objetos sólidos, y suelo a 4 casillas o más de una pared: ${est.map(e => f1(e.lejos)).join(' / ')} % (media ≥ 75)`,
+      est.every(e => e.pas <= 2 && e.pasL <= 2 && e.bolsas.every(b => !b)) && media('lejos') >= 75, est.map(e => ({ seed: e.seed, pas: e.pas, pasL: e.pasL, bolsas: e.bolsas })));
+    t(`objetos por 147.456 casillas dentro de los rangos del §6 ±15 % (árboles ${est.map(e => e.cuenta.tree || 0).join('/')}, hierba ${est.map(e => f1(e.hierba)).join('/')} %, rocas ${est.map(e => e.cuenta.rock || 0).join('/')}, cofres ${est.map(e => e.cuenta.chest || 0).join('/')}, trampas ${est.map(e => e.cuenta.trap || 0).join('/')}, manantiales ${est.map(e => e.cuenta.spring || 0).join('/')}, altares ${est.map(e => e.cuenta.altar || 0).join('/')}, cofres grandes ${est.map(e => e.cuenta.bigchest || 0).join('/')}); ningún sólido junto a otro ni a 2 en línea, todos con 3×3 de suelo, nada en vados, puentes, puertos, calzadas, pretiles ni la plaza (ni hierba en losas)`,
+      !objMal.length, objMal);
+    const pc = v => (100 * v / Math.max(1, ap.n)).toFixed(2);
+    t(`aparición con world.js (isFree con terreno y objetos), ${ap.n} sitios: anillo de spawner.js ${pc(ap.esc)} % en escritorio y ${pc(ap.mov)} % en el móvil (≥ 99,5), grieta ${pc(ap.grieta)} % (≥ 99,9), ladrón ${pc(ap.ladron)} % y Pokémon perdido con destino ${pc(ap.perdido)} % (≥ 99)`,
+      ap.n >= 3000 && ap.esc >= 0.995 * ap.n && ap.mov >= 0.995 * ap.n && ap.grieta >= 0.999 * ap.n && ap.ladron >= 0.99 * ap.n && ap.perdido >= 0.99 * ap.n, ap);
+  } catch (e) { t('estructura, objetos y aparición', false, String(e && e.stack || e)); }
+
+  // ---- E. El claro de salida ----
+  try {
+    const W = G.World, malos = [];
+    for (let k = 0; k < 20; k++) {
+      const seed = 101 + 97 * k;
+      W.reset(seed); W.setBiome(0, true);
+      let suelo = true;
+      for (let ty = -9; ty <= 9; ty++) for (let tx = -9; tx <= 9; tx++) if (tx * tx + ty * ty < 81 && W.kindAt(tx * TS + 16, ty * TS + 16) !== 'floor') suelo = false;
+      const ps = W.visibleProps(camaraTodo(-16, -16, 32, 32));
+      const cerca = ps.filter(p => p.tx * p.tx + p.ty * p.ty < 49).map(clave), inter = ps.filter(p => INTER.has(p.type) && p.tx * p.tx + p.ty * p.ty <= 144).map(clave);
+      const libre = [-51, -17, 17, 51].every(x => W.isFree(x, 0, 26));
+      if (!suelo || cerca.length || inter.length || !libre) malos.push({ seed, suelo, cerca, inter, libre });
+    }
+    t('el claro de salida en 20 semillas: suelo a menos de 9 casillas, ningún objeto a menos de 7, ningún interactivo a 12 o menos y sitio (isFree con radio 26) donde aparecéis, de x = −51 a 51', !malos.length, malos.slice(0, 3));
+  } catch (e) { t('claro de salida', false, String(e && e.stack || e)); }
+
+  // ---- H. Arenas: las 18 en 40 posiciones, sus objetos y el mundo real ----
+  try {
+    const TT = G.Tiles, tipos = TT.ARENA_TYPES, QUEMA = new Set(['lava', 'poison', 'spark']), SEM = 4242, R = 13, D = 2 * R + 1, malos = [], peor = {};
+    const pasillo = (lx, ly) => (Math.abs(lx) <= 2 && ly >= -6 && ly <= 5) || lx * lx + ly * ly < 6.25;
+    // Las mismas 40 posiciones por tipo que midió el prototipo de la especificación (final/arenas.js, por familias).
+    const ORDEN = ['normal', 'fighting', 'steel', 'flying', 'fire', 'water', 'ice', 'electric', 'psychic', 'dragon', 'grass', 'bug', 'fairy', 'poison', 'ground', 'rock', 'ghost', 'dark'];
+    tipos.forEach(type => {
+      const idx = ORDEN.indexOf(type), quema = QUEMA.has(TT.BIOMES[TT.arenaBiome(type)].liquid);
+      const p = { suelo: Infinity, pared: 0, liq: 0, pasillo: 0, fuera: 0, inalcanzable: 0, pinzas: 0, legendario: true, muro: 0 };
+      for (let k = 0; k < 40; k++) {
+        const a = arenaDe(G, type, 5000 + k * 97 + idx * 13, 7000 - k * 53), g = new Uint8Array(D * D);
+        for (let ly = -R; ly <= R; ly++) for (let lx = -R; lx <= R; lx++) g[(ly + R) * D + lx + R] = Gm.codigo(a.tx + lx, a.ty + ly, SEM, a) & 3;
+        const K = (lx, ly) => (Math.abs(lx) > R || Math.abs(ly) > R ? 1 : g[(ly + R) * D + lx + R]);
+        const tapa = (lx, ly) => { const v = K(lx, ly); return v === 1 || (quema && v === 2); };
+        let suelo = 0, pared = 0, liq = 0;
+        for (let ly = -R; ly <= R; ly++) for (let lx = -R; lx <= R; lx++) {
+          const v = K(lx, ly), q = lx * lx + ly * ly;
+          if (pasillo(lx, ly) && v !== 0) p.pasillo++;
+          if (q >= 121) { if (v === 0) p.fuera++; continue; }
+          if (v === 0) {
+            suelo++;
+            if ((tapa(lx - 1, ly) && tapa(lx + 1, ly) && !tapa(lx, ly - 1) && !tapa(lx, ly + 1)) || (tapa(lx, ly - 1) && tapa(lx, ly + 1) && !tapa(lx - 1, ly) && !tapa(lx + 1, ly))) p.pinzas++;
+          } else if (v === 2) liq++; else pared++;
+        }
+        const vistos = new Set(['0,3']), cola = [[0, 3]];
+        while (cola.length) {
+          const [x, y] = cola.pop();
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy, kk = xx + ',' + yy; if (!vistos.has(kk) && !tapa(xx, yy)) { vistos.add(kk); cola.push([xx, yy]); } }
+        }
+        for (let ly = -R; ly <= R; ly++) for (let lx = -R; lx <= R; lx++) if (K(lx, ly) === 0 && !vistos.has(lx + ',' + ly)) p.inalcanzable++;
+        if (!vistos.has('0,-4') || !vistos.has('0,-3')) p.legendario = false;
+        const tot = suelo + pared + liq;
+        p.suelo = Math.min(p.suelo, suelo); p.pared = Math.max(p.pared, 100 * pared / tot); p.liq = Math.max(p.liq, 100 * liq / tot);
+        // Pared desde el borde hasta 32 casillas: ni terreno normal ni nada transitable (en 2 de las 40).
+        if (k < 2) for (let ly = -31; ly <= 31; ly++) for (let lx = -31; lx <= 31; lx++) { const q = lx * lx + ly * ly; if (q >= 121 && q < 1024 && (Gm.codigo(a.tx + lx, a.ty + ly, SEM, a) & 3) !== 1) p.muro++; }
+      }
+      peor[type] = p;
+      if (p.pasillo || p.fuera || p.inalcanzable || p.pinzas || !p.legendario || p.muro || p.suelo < 245 || p.pared > 25 || p.liq > 19) malos.push(Object.assign({ type }, p));
+    });
+    const suelos = Object.values(peor).map(p => p.suelo), maxDe = c => Math.max(...Object.values(peor).map(p => p[c])).toFixed(1);
+    t(`arenas: las 18 en 40 posiciones con el pasillo libre, nada de suelo desde el radio 11 y pared hasta el 32, todo el suelo alcanzable desde la entrada (el líquido que quema, cerrado) con el legendario en (0, −4), sin pasillos de 1, pared ≤ ${maxDe('pared')} % (25), líquido ≤ ${maxDe('liq')} % (19) y ${Math.min(...suelos)}-${Math.max(...suelos)} casillas de suelo (≥ 245)`,
+      !malos.length && tipos.every(ty => ORDEN.includes(ty)), malos.slice(0, 4));
+    // Sus objetos: sólo árboles, rocas y hierba dentro (fuera del pasillo y con 3×3 de suelo los sólidos), nada más hasta r + 40.
+    const objMalos = [], fijos = {};
+    tipos.forEach((type, idx) => {
+      const a = arenaDe(G, type, 6000 + idx * 211, 6400), ps = [];
+      for (let cy = Math.floor((a.ty - 51) / N); cy <= Math.floor((a.ty + 51) / N); cy++) for (let cx = Math.floor((a.tx - 51) / N); cx <= Math.floor((a.tx + 51) / N); cx++)
+        for (const p of objetos(G, SEM, cx, cy, a)) { const lx = p.tx - a.tx, ly = p.ty - a.ty; if (lx * lx + ly * ly < 51 * 51) ps.push([p, lx, ly]); }
+      const mal = ps.filter(([p, lx, ly]) => !['tree', 'rock', 'grass'].includes(p.type) || lx * lx + ly * ly >= 121 || pasillo(lx, ly) ||
+        (SOLIDO.has(p.type) && [-1, 0, 1].some(b => [-1, 0, 1].some(c => (Gm.codigo(p.tx + c, p.ty + b, SEM, a) & 3) !== 0))));
+      fijos[type] = ps.filter(([p]) => p.type !== 'grass').length;
+      if (mal.length) objMalos.push({ type, mal: mal.slice(0, 3).map(([p]) => clave(p)) });
+    });
+    t(`arenas: dentro sólo árboles, rocas y hierba (nunca en el pasillo; los sólidos con 3×3 de suelo) y nada más hasta r + 40; los fijos del §7 salen (claro: ${fijos.grass}/${fijos.fairy} árboles; plataforma, cañones y callejón: ${fijos.flying}/${fijos.ground}/${fijos.rock}/${fijos.dark} rocas)`,
+      !objMalos.length && fijos.grass >= 1 && fijos.fairy >= 1 && fijos.flying >= 1 && fijos.ground >= 1 && fijos.rock >= 1 && fijos.dark >= 1, { objMalos, fijos });
+    // Con world.js de verdad: setArena, kindAt, walkable, isFree y collide, coherentes con G.Mapas.
+    const W = G.World, inco = [];
+    tipos.forEach((type, idx) => {
+      W.reset(SEM); W.setArena({ tx: 9000 + idx * 200, ty: 9000, r: 11, type }); W.setBiome(TT.arenaBiome(type), true);
+      const a = W.arena, ax = a.tx * TS + TS / 2, ay = a.ty * TS + TS / 2;
+      let distinto = 0, transitable = 0, encajado = 0;
+      for (let ly = -31; ly <= 31; ly++) for (let lx = -31; lx <= 31; lx++) {
+        const q = lx * lx + ly * ly;
+        if (q >= 1024) continue;
+        const tx = a.tx + lx, ty = a.ty + ly, kk = KIND[Gm.codigo(tx, ty, SEM, a) & 3];
+        if (W.kindAt(tx * TS + 16, ty * TS + 16) !== kk) distinto++;
+        if (q >= 121 && W.walkable(tx, ty)) transitable++;
+        if (q < 121 && kk === 'floor') { const e = { x: tx * TS + 16, y: ty * TS + 16, r: 12 }; W.collide(e); if (W.kindAt(e.x, e.y) === 'wall') encajado++; }
+      }
+      const sitios = [1, 2, 3, 4].flatMap(n => [...Array(n)].map((_, i) => [ax + (i - (n - 1) / 2) * 34, ay + TS * 3]));
+      const libres = sitios.every(([x, y]) => W.isFree(x, y, 24) && !W.collide({ x, y, r: 24 })) && W.isFree(ax, ay - TS * 3.5, 22);
+      if (distinto || transitable || encajado || !libres) inco.push({ type, distinto, transitable, encajado, libres });
+    });
+    t('arenas en el mundo de verdad (setArena, kindAt, walkable, isFree y collide de world.js): lo mismo que G.Mapas.codigo hasta 31 casillas, nada transitable desde el radio 11, collide nunca deja a nadie dentro de una pared, y sitio para 1-4 jugadores (radio 24) y el legendario donde los pone rift.js',
+      !inco.length, inco.slice(0, 4));
+  } catch (e) { t('arenas', false, String(e && e.stack || e)); }
+
+  // ---- I. Paletas: campos, legibilidad y que no se parezcan ----
+  try {
+    const TT = G.Tiles, U = N0.G.Tiles, B = TT.BIOMES, HEX = /^#[0-9a-f]{6}$/i;
+    const BASE = { name: 's', liquid: 's', prop: 's', floor: 3, dirt: 3, speck: 1, light: 1, flowers: 3, wallTop: 3, wallLight: 1, wallEdge: 1, wallFace: 2, wallFaceDark: 1,
+      liq: 1, liqDeep: 1, foam: 1, shore: 1, leaf: 4, trunk: 2, rock: 3, grass: 3 };
+    const PINTOR = { sueloMat: 's', paredMat: 's', motivo: 's', senda: 3, vado: 3, puente: 3, cauce: 2, losa: 3, ruina: 3, acento: 1 };
+    const mal = (b, campos) => Object.entries(campos).filter(([k, n]) => (n === 's' ? typeof b[k] !== 'string' || !b[k] : n === 1 ? !HEX.test(b[k])
+      : !(Array.isArray(b[k]) && b[k].length === n && b[k].every(h => HEX.test(h))))).map(([k]) => k);
+    const incompletos = B.map((b, i) => [i, mal(b, i < 3 ? Object.assign({}, BASE, PINTOR) : BASE)]).filter(x => x[1].length);
+    const LIQ = [...(/const LIQ = \{([\s\S]*?)\r?\n {2}\};/.exec(rd('js/world/world.js')) || ['', ''])[1].matchAll(/^\s*(\w+):/gm)].map(m => m[1]);
+    const KINDS = G.Weather.KINDS, temas = TT.ARENA_TYPES.map(k => [k, TT.ARENA_THEMES[k]]);
+    const liquidos = B.filter(b => !LIQ.includes(b.liquid)).map(b => b.name), climas = temas.filter(([, a]) => a.weather != null && !(a.weather in KINDS)).map(([k]) => k);
+    const comoAntes = temas.filter(([k, a]) => a.liquid !== U.ARENA_THEMES[k].liquid || (a.weather || null) !== (U.ARENA_THEMES[k].weather || null)).map(([k]) => k);
+    const temasMal = temas.filter(([, a]) => mal(a, { name: 's', liquid: 's', prop: 's', familia: 's', variante: 's', sueloMat: 's', paredMat: 's', floor: 1, wall: 1, liq: 1, leaf: 1, trunk: 1, grass: 1, rock: 1, flowers: 3 }).length).map(([k]) => k);
+    // Y cada campo que tenga el del proyecto base: si upstream añade uno (a un bioma, a una arena o a su tema), hay que llevarlo a mapas-datos.js.
+    // foam es opcional en los temas de upstream (sin él, arenaBiome lo deriva del líquido): las arenas «auto» no lo llevan.
+    const sinCampo = (nuevos, base) => base.map((b, i) => [i, Object.keys(b || {}).filter(k => !(k in (nuevos[i] || {})) && !(k === 'foam' && !('liqDeep' in b)))]).filter(x => x[1].length);
+    const faltan = sinCampo(B, U.BIOMES).concat(sinCampo(TT.ARENA_TYPES.map(k => TT.ARENA_THEMES[k]), U.ARENA_TYPES.map(k => U.ARENA_THEMES[k])).map(([i, ks]) => ['tema ' + TT.ARENA_TYPES[i], ks]));
+    t(`paletas: los 21 BIOMES con todos sus campos en hex válido (los 3 biomas, también los del pintor: senda, vado, puente, cauce, losa, ruina, acento y materiales) y con cada campo de los del proyecto base, las 18 arenas con los suyos (y los de su tema de upstream), líquidos de world.js (${LIQ.join(', ')}), climas de weather.js y, en las arenas, el líquido y el clima del proyecto base (el equilibrio no cambia)`,
+      LIQ.length >= 6 && !incompletos.length && !faltan.length && !temasMal.length && !liquidos.length && !climas.length && !comoAntes.length, { incompletos, faltan, temasMal, liquidos, climas, comoAntes });
+    const DISPARO = '#ff2440', NEGRO = '#181818', sup = [];
+    for (let i = 0; i < 3; i++) {
+      const b = B[i];
+      for (const [k, n] of [['floor', 3], ['dirt', 3], ['senda', 2], ['losa', 2], ['cauce', 1]]) b[k].slice(0, n).forEach(h => sup.push([b.name + ' ' + k, h]));
+    }
+    for (const [k, a] of temas) sup.push(['arena ' + k, a.floor]);
+    const Ls = sup.map(([, h]) => lab(h)[0]), cs = sup.map(([, h]) => contraste(h, NEGRO)), ds = sup.map(([, h]) => de00(h, DISPARO)), dl = B.map(b => de00(b.liq, DISPARO));
+    const fuera = sup.filter((s, i) => Ls[i] < 36 || Ls[i] > 56 || cs[i] < 2.5 || ds[i] < 28).map(([n, h]) => n + ' ' + h);
+    const f1 = v => v.toFixed(1);
+    t(`legibilidad: las ${sup.length} superficies de suelo con L* ${f1(Math.min(...Ls))}-${f1(Math.max(...Ls))} (36-56), contraste frente a #181818 ≥ ${Math.min(...cs).toFixed(2)} (2,5) y ΔE00 frente al disparo #ff2440 ≥ ${f1(Math.min(...ds))} (28); los 21 líquidos a ΔE00 ≥ ${f1(Math.min(...dl))} del disparo (30)`,
+      sup.length === 51 && !fuera.length && Math.min(...dl) >= 30, { fuera, liquidos: B.filter((b, i) => dl[i] < 30).map(b => b.name + ' ' + b.liq) });
+    const sueloOrig = [0, 1, 2].map(i => U.BIOMES[i].floor[0]);
+    const dBio = [0, 1, 2].map(i => Math.min(...sueloOrig.map(o => de00(B[i].floor[0], o))));
+    const dAre = temas.map(([k, a]) => [k, de00(a.floor, U.ARENA_THEMES[k].floor), de00(a.wall, U.ARENA_THEMES[k].wall)]);
+    t(`no se parecen: el suelo de cada bioma a ΔE00 ≥ ${f1(Math.min(...dBio))} de los 3 suelos originales (≥ 15) y el suelo y la pared de cada arena a ≥ ${f1(Math.min(...dAre.map(x => Math.min(x[1], x[2]))))} de los de su arena original (≥ 15)`,
+      dBio.every(d => d >= 15) && dAre.every(x => x[1] >= 15 && x[2] >= 15), dAre.filter(x => x[1] < 15 || x[2] < 15));
+    // El cauce seco no se lee como otra calzada (verificación del 14-10-2026: antes, ΔE00 2,1 / 3,5 / 1,7): las medias de
+    // lo pintado (Clásico, sin los 2 px del borde de cada casilla) en sus casillas, 2 semillas × 36 chunks por bioma.
+    const GC = reino().G, medias = [];
+    for (let bi = 0; bi < 3; bi++) {
+      const acc = { [SUB.CAUCE]: [0, 0, 0, 0], [SUB.CALZADA]: [0, 0, 0, 0] };
+      for (const seed of [1234, 777]) {
+        GC.World.reset(seed);
+        for (let cy = -3; cy < 3; cy++) for (let cx = -3; cx < 3; cx++) {
+          const px = new Uint32Array(bytes(GC.Mapas.pintar(cx, cy, N, null, null, bi, seed)).buffer), cod = GC.Mapas.capa(cx, cy, seed, null).cod;
+          for (let o = 0; o < N * N; o++) {
+            const a = (cod[o] & 3) === 0 && acc[cod[o] >> 2], i = o % N, j = o >> 4;
+            if (a) for (let y = 2; y < 14; y++) for (let x = 2; x < 14; x++) {
+              const v = px[(j * 16 + y) * 256 + i * 16 + x];
+              a[0] += v & 255; a[1] += (v >>> 8) & 255; a[2] += (v >>> 16) & 255; a[3]++;
+            }
+          }
+        }
+      }
+      const media = a => '#' + a.slice(0, 3).map(v => Math.round(v / a[3]).toString(16).padStart(2, '0')).join('');
+      medias.push({ bioma: B[bi].name, cauce: media(acc[SUB.CAUCE]), calzada: media(acc[SUB.CALZADA]), px: [acc[SUB.CAUCE][3], acc[SUB.CALZADA][3]] });
+    }
+    const dCC = medias.map(m => (m.px[0] && m.px[1] ? de00(m.cauce, m.calzada) : 0));
+    t(`el cauce seco no se lee como otra calzada: ΔE00 entre las medias pintadas (Clásico, sin el borde de cada casilla) del cauce y de la calzada de ${dCC.map(f1).join(' / ')} en los 3 biomas (≥ 8)`,
+      dCC.every(d => d >= 8), medias);
+  } catch (e) { t('paletas', false, String(e && e.stack || e)); }
+
+  // ---- J. Nombres ----
+  try {
+    const TT = G.Tiles, nombres = [...TT.BIOMES.slice(0, 3).map(b => b.name), ...TT.ARENA_TYPES.map(k => TT.ARENA_THEMES[k].name)];
+    const VETADAS = ['Bosque', 'Cueva', 'Volcán', 'Pradera', 'Gruta', 'Selva', 'Central', 'Glaciar', 'Dojo', 'Ciénaga', 'Desierto', 'Pico', 'Templo', 'Colmena', 'Cantera',
+      'Cementerio', 'Santuario', 'Callejón', 'Fortaleza', 'Encantado'];
+    const largo = Math.max(...nombres.map(n => [...n].length));
+    const vetados = nombres.filter(n => VETADAS.some(v => new RegExp('(^|[^\\p{L}])' + v, 'iu').test(n)));
+    const c = { console, navigator: { language: 'en-US', languages: ['en-US'] }, location: { pathname: '/' },
+      localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} }, confirm: () => true, alert() {} };
+    c.CanvasRenderingContext2D = function () {};
+    c.CanvasRenderingContext2D.prototype = { fillText() {}, strokeText() {}, measureText() {} };
+    c.window = c; c.G = {};
+    vm.createContext(c);
+    for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
+    const EN = c.G.I18n.t, NE = G.MapasDatos.NOMBRES_EN;
+    const sinIngles = nombres.filter(n => !NE[n] || EN(n) !== NE[n] || EN('Grieta · ' + n) !== 'Rift · ' + NE[n]);
+    t(`nombres: los 21 (3 biomas y 18 arenas) distintos, de 18 caracteres o menos (el más largo, ${largo}), sin palabras de los del proyecto base (Bosque, Cueva, Volcán, Pradera, Gruta, Callejón…) y con su inglés de verdad (i18n.js y lang-en-mod.js; también «Grieta · …»)`,
+      nombres.length === 21 && new Set(nombres).size === 21 && largo <= 18 && !vetados.length && !sinIngles.length, { vetados, sinIngles: sinIngles.map(n => [n, EN(n)]) });
+  } catch (e) { t('nombres', false, String(e && e.stack || e)); }
+
+  // ---- K. Pintor: sólo ImageData, determinista, no más lento que el de upstream y la gradación sólo en el suelo ----
+  try {
+    const Ku = reino({ mapas: null }), Kn = reino();
+    const chunks = [];
+    for (let cy = -2; cy < 3; cy++) for (let cx = -3; cx < 3; cx++) chunks.push([cx, cy]);
+    for (const R of [Ku, Kn]) R.G.World.reset(1234);
+    const pinta = (R, cx, cy, bi) => {
+      R.G.World.setBiome(bi, true); R.G.World.rehornear();
+      const t0 = process.hrtime.bigint(), cv = R.G.World.chunkImage(cx, cy);
+      return [Number(process.hrtime.bigint() - t0) / 1e6, cv];
+    };
+    const hechos = chunks.map(([cx, cy], i) => { pinta(Ku, cx, cy, i % 3); return pinta(Kn, cx, cy, i % 3)[1]; });   // calentar (y la caché de datos)
+    const malHechos = hechos.filter(cv => !cv._img || cv._img.width !== 256 || cv._img.height !== 256 || cv._img.data.some((v, o) => (o & 3) === 3 && v !== 255)).length;
+    t(`pintor: sólo createImageData y putImageData (${Kn.usos.length ? 'usa también ' + [...new Set(Kn.usos)].join(', ') : 'nada más'}); 30 chunks de 256×256 opacos del todo`, !Kn.usos.length && !malHechos, { usos: [...new Set(Kn.usos)], malHechos });
+    const otra = reino();
+    otra.G.World.reset(1234);
+    const repetidos = chunks.slice(0, 6).reverse().map(([cx, cy], i) => iguales(bytes(pinta(otra, cx, cy, (5 - i) % 3)[1]), bytes(pinta(Kn, cx, cy, (5 - i) % 3)[1])));
+    t('pintor determinista: los mismos bytes al repetir y en otro reino, en otro orden', repetidos.every(Boolean), repetidos);
+    let razon = Infinity, medidas = null;
+    for (let ronda = 0; ronda < 3 && razon > 1; ronda++) {
+      const tu = [], tn = [];
+      chunks.forEach(([cx, cy], i) => { tu.push(pinta(Ku, cx, cy, i % 3)[0]); tn.push(pinta(Kn, cx, cy, i % 3)[0]); });
+      const rz = mediana(tn) / mediana(tu);
+      if (rz < razon) { razon = rz; medidas = { upstream: +mediana(tu).toFixed(3), nuevo: +mediana(tn).toFixed(3) }; }
+    }
+    t(`pintor: mediana de 30 chunks ${medidas.nuevo} ms frente a ${medidas.upstream} ms del paintChunk de upstream en este mismo proceso (×${razon.toFixed(2)}, ≤ 1,0)`, razon <= 1, medidas);
+    // Gradación (entorno.js): con Dex, sólo píxeles de casillas de suelo; con Clásico, nada.
+    const Ed = reino({ entorno: true, estilo: 'dex' }), EG = Ed.G;
+    EG.World.reset(1234);
+    const cand = [];
+    for (let cy = -6; cy <= 6 && cand.length < 3; cy++) for (let cx = -6; cx <= 6 && cand.length < 3; cx++) {
+      const cod = EG.Mapas.capa(cx, cy, 1234, null).cod;
+      let p = 0, l = 0;
+      for (let o = 0; o < 256; o++) { if ((cod[o] & 3) === 1) p++; else if ((cod[o] & 3) === 2) l++; }
+      if (p > 8 && l > 8) cand.push([cx, cy]);
+    }
+    const kinds = (tx, ty) => KIND[EG.Mapas.terreno(tx, ty, 1234, null)];
+    const conSin = (cx, cy, bi) => { const con = bytes(EG.Mapas.pintar(cx, cy, N, kinds, null, bi, 1234)); const E = EG.Entorno; EG.Entorno = null; const sin = bytes(EG.Mapas.pintar(cx, cy, N, kinds, null, bi, 1234)); EG.Entorno = E; return [con, sin]; };
+    // Por píxel (clasesChunk): la máscara de suelo del pintor deja gradar el suelo y los recortes de las esquinas de
+    // paredes y líquidos, que enseñan el suelo de al lado, y no los triángulos de líquido de las orillas (casillas de suelo).
+    const cuenta = { suelo: [0, 0], triangulo: [0, 0], recorte: [0, 0], recPared: [0, 0], recLiq: [0, 0], otro: [0, 0] };   // [píxeles, gradados]
+    let mascara = true;
+    for (const [cx, cy] of cand) {
+      const clases = clasesChunk(SUB, (tx, ty) => EG.Mapas.codigo(tx, ty, 1234, null), cx, cy);
+      for (const bi of [0, 1, 2]) {
+        const [con, sin] = conSin(cx, cy, bi);
+        for (let p = 0; p < 256 * 256; p++) {
+          const o = p * 4, dif = con[o] !== sin[o] || con[o + 1] !== sin[o + 1] || con[o + 2] !== sin[o + 2], cl = clases[p];
+          const de = cl !== 'recorte' ? [cuenta[cl]] : [cuenta.recorte, kinds(cx * N + ((p & 255) >> 4), cy * N + (p >> 12)) === 'wall' ? cuenta.recPared : cuenta.recLiq];
+          for (const c of de) { c[0]++; if (dif) c[1]++; }
+        }
+      }
+      // La máscara que entrega el pintor (Pix.suelo, la que lee gradar) dice lo mismo, píxel a píxel.
+      let P = null;
+      const gradar = EG.Entorno.gradar;
+      EG.Entorno.gradar = (px) => { P = px; };
+      try { EG.Mapas.pintar(cx, cy, N, kinds, null, 0, 1234); } finally { EG.Entorno.gradar = gradar; }
+      if (!P || typeof P.suelo !== 'function') mascara = false;
+      else for (let p = 0; p < 256 * 256 && mascara; p++) if (P.suelo(p & 255, p >> 8) !== (clases[p] === 'suelo' || clases[p] === 'recorte')) mascara = false;
+    }
+    EG.Estilo.set('clasico');
+    const clasico = cand.every(([cx, cy]) => { const [con, sin] = conSin(cx, cy, 0); return iguales(con, sin); });
+    const pct = c => Math.round(100 * c[1] / Math.max(1, c[0]));
+    t(`gradación de entorno.js sobre el pintor nuevo, por píxel con su máscara de suelo (Pix.suelo, ${mascara ? 'igual a la esperada' : 'DISTINTA de la esperada'}): con Dex, el ${pct(cuenta.suelo)} % del suelo (> 60), el ${pct(cuenta.recPared)} % y el ${pct(cuenta.recLiq)} % de los ${cuenta.recPared[0]} y ${cuenta.recLiq[0]} píxeles de los recortes de las esquinas de paredes y ríos (> 90), y ${cuenta.triangulo[1]} de los ${cuenta.triangulo[0]} de los triángulos de río y ${cuenta.otro[1]} de los ${cuenta.otro[0]} del resto de paredes y ríos (0), en ${cand.length} chunks con paredes y río y los 3 biomas; con Clásico, ninguno`,
+      cand.length === 3 && mascara && cuenta.suelo[1] / cuenta.suelo[0] > 0.6 && cuenta.recPared[0] > 0 && cuenta.recPared[1] / cuenta.recPared[0] > 0.9 &&
+      cuenta.recLiq[0] > 0 && cuenta.recLiq[1] / cuenta.recLiq[0] > 0.9 && cuenta.triangulo[0] > 0 && !cuenta.triangulo[1] && !cuenta.otro[1] && clasico, { cand, cuenta, mascara, clasico });
+  } catch (e) { t('pintor', false, String(e && e.stack || e)); }
+
+  // ---- L. Sprites de los objetos ----
+  try {
+    const TT = G.Tiles, U = N0.G.Tiles;
+    const VAR = { tree: [0], rock: [0, 1], grass: [0, 1], chest: [0], bigchest: [0], altar: [0, 1, 2, 3, 4, 5, 6, 7], spring: [0, 1], trap: [0, 1, 2] };
+    const img = cv => cv && cv._img;
+    const maxU = {};
+    for (const ty in VAR) {
+      maxU[ty] = [0, 0];
+      for (let bi = 0; bi < U.BIOMES.length; bi++) for (const v of VAR[ty]) { const im = img(U.propSprite(bi, ty, v)); maxU[ty] = [Math.max(maxU[ty][0], im.width), Math.max(maxU[ty][1], im.height)]; }
+    }
+    const grandes = [], sinContorno = [];
+    let n = 0, peorY = 0;
+    for (let bi = 0; bi < TT.BIOMES.length; bi++) for (const ty in VAR) for (const v of VAR[ty]) {
+      const im = img(TT.propSprite(bi, ty, v));
+      n++;
+      if (!im) { grandes.push(`${bi}/${ty}/${v} sin imagen`); continue; }
+      if (im.width > maxU[ty][0] || im.height > maxU[ty][1]) grandes.push(`${bi}/${ty}/${v} ${im.width}×${im.height}`);
+      // Borde de la silueta: lo opaco junto a un píxel transparente o a un lado del lienzo; la fila de abajo es el pie (la
+      // hierba sale del suelo y ahí no lleva contorno, como en el proyecto base).
+      const d = im.data, w = im.width, h = im.height, op = (x, y) => x >= 0 && y >= 0 && x < w && (y >= h || d[(y * w + x) * 4 + 3] > 0);
+      let claros = 0;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        if (!op(x, y) || (op(x + 1, y) && op(x - 1, y) && op(x, y + 1) && op(x, y - 1))) continue;
+        const o = (y * w + x) * 4, Y = lumRgb(d[o], d[o + 1], d[o + 2]);
+        peorY = Math.max(peorY, Y);
+        if (Y > 0.06) claros++;
+      }
+      if (claros) sinContorno.push(`${bi}/${ty}/${v} (${claros} px)`);
+    }
+    t(`sprites: ${n} (los 21 biomas × todos los objetos y variantes) no más grandes que los del proyecto base por tipo (árbol ${maxU.tree.join('×')}, roca ${maxU.rock.join('×')}…) y con contorno oscuro de 1 px (luminancia del borde ≤ 0,06; la más clara, ${peorY.toFixed(3)})`,
+      !grandes.length && !sinContorno.length, { grandes: grandes.slice(0, 6), sinContorno: sinContorno.slice(0, 6) });
+    const cuenta = (im, hex) => { const [rr, gg, bb] = hexRgb(hex); let c = 0; for (let o = 0; o < im.data.length; o += 4) if (im.data[o + 3] && im.data[o] === rr && im.data[o + 1] === gg && im.data[o + 2] === bb) c++; return c; };
+    const ORBE = ['#ff5f6d', '#5fd4ff', '#ff8ad8', '#ffd23f'], TRAMPA = ['#b45ec4', '#8bd94a', '#ff7b3d'], orbes = [];
+    for (const bi of [0, 1, 2, 4]) {
+      const sp = [0, 2, 4, 6].map(v => img(TT.propSprite(bi, 'altar', v))), w = sp[0].width, h = sp[0].height;
+      // El orbe: la mancha conexa más grande de lo que cambia entre el poder 0 y el 1 (la otra es la runa).
+      const dif = new Uint8Array(w * h);
+      for (let o = 0; o < w * h; o++) for (let c = 0; c < 4; c++) if (sp[0].data[o * 4 + c] !== sp[1].data[o * 4 + c]) dif[o] = 1;
+      let mejor = null;
+      const visto = new Uint8Array(w * h);
+      for (let o0 = 0; o0 < w * h; o0++) {
+        if (!dif[o0] || visto[o0]) continue;
+        const pila = [o0], caja = [w, h, -1, -1];
+        let tam = 0;
+        visto[o0] = 1;
+        while (pila.length) {
+          const o = pila.pop(), x = o % w, y = (o / w) | 0;
+          tam++; caja[0] = Math.min(caja[0], x); caja[1] = Math.min(caja[1], y); caja[2] = Math.max(caja[2], x); caja[3] = Math.max(caja[3], y);
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy, oo = yy * w + xx; if (xx >= 0 && yy >= 0 && xx < w && yy < h && dif[oo] && !visto[oo]) { visto[oo] = 1; pila.push(oo); } }
+        }
+        if (!mejor || tam > mejor.tam) mejor = { tam, caja };
+      }
+      const cx = mejor ? (mejor.caja[0] + mejor.caja[2] + 1) / 2 : NaN, cy = mejor ? (mejor.caja[1] + mejor.caja[3] + 1) / 2 : NaN;
+      const colores = sp.every((im, q) => cuenta(im, ORBE[q]) >= 4), gastado = [1, 3, 5, 7].every(v => cuenta(img(TT.propSprite(bi, 'altar', v)), '#6b7380') >= 4);
+      orbes.push({ bi, w, cx, cy, ok: Math.abs(cx - w / 2) <= 1 && Math.abs(cy - 11) <= 1 && colores && gastado, colores, gastado });
+    }
+    const trampas = [0, 1, 2, 4].every(bi => [0, 1, 2].every(v => cuenta(img(TT.propSprite(bi, 'trap', v)), TRAMPA[v]) >= 8));
+    const pozas = [0, 1, 2].every(bi => cuenta(img(TT.propSprite(bi, 'spring', 0)), '#2ba8b8') + cuenta(img(TT.propSprite(bi, 'spring', 0)), '#5fe8d8') >= 8 &&
+      cuenta(img(TT.propSprite(bi, 'spring', 1)), '#2f5f68') + cuenta(img(TT.propSprite(bi, 'spring', 1)), '#3a6f7a') >= 8);
+    const caja = [0, 1, 2].every(bi => { const im = img(TT.propSprite(bi, 'chest', 0)); return cuenta(im, '#d7263d') >= 2 && cuenta(im, '#62e3dd') >= 2 && cuenta(im, '#f2c443') >= 1; });
+    t(`sprites: el orbe del altar centrado donde world.js pinta su halo (x = w/2 ± 1, y = 11 ± 1: ${orbes.map(o => `(${o.cx}, ${o.cy}) de ${o.w}`).join(', ')}) con los 4 colores de interact.js y el gris de gastado; las 3 trampas con su color; el manantial con su agua (cian, y la de agotado); la caja de expedición con su banda roja, la lente de Rotom y el cierre`,
+      orbes.every(o => o.ok) && trampas && pozas && caja, { orbes, trampas, pozas, caja });
+    const distintos = ['tree', 'rock', 'grass', 'chest'].every(ty => [0, 1, 2].every(bi => !iguales(bytes(TT.propSprite(bi, ty, 0)), bytes(U.propSprite(bi, ty, 0)))));
+    const a1 = TT.propSprite(0, 'tree', 0);
+    TT.clearProps();
+    const a2 = TT.propSprite(0, 'tree', 0);
+    t('sprites: árbol, roca, hierba y cofre distintos de los del proyecto base en los 3 biomas; G.Tiles.clearProps vacía también la caché de los nuevos (y vuelve a llenarse igual)',
+      distintos && a1 !== a2 && iguales(bytes(a1), bytes(a2)) && TT.propSprite(0, 'tree', 0) === a2, { distintos });
+  } catch (e) { t('sprites', false, String(e && e.stack || e)); }
+
+  // ---- M. Fondo de los menús ----
+  try {
+    const s = Gm.SEMILLA_MENU, RIO = new Set([SUB.RIO_H, SUB.RIO_V, SUB.RIO_D1, SUB.RIO_D2]), sitios = new Set();
+    let n = 0, w = 0, l = 0, rio = 0, puente = 0, vado = 0, puerto = 0, cresta = 0;
+    for (let y = -16; y <= 16; y++) for (let x = -21; x <= 21; x++) {
+      const c = Gm.codigo(x, y, s, null), k = c & 3, sb = c >> 2;
+      n++;
+      if (k === 1) { w++; if (sb === SUB.CRESTA) cresta++; } else if (k === 2) { l++; if (RIO.has(sb)) rio++; }
+      if (sb === SUB.PUENTE) puente++; else if (sb === SUB.VADO) vado++; else if (sb === SUB.PUERTO) puerto++;
+      const z = Gm.sitio(x, y, s);
+      if (z && z.m <= z.h) sitios.add(z.tipo + '@' + z.cx + ',' + z.cy);
+    }
+    const pw = 100 * w / n, pl = 100 * l / n;
+    t(`fondo de los menús: SEMILLA_MENU = ${s} cumple el criterio del §8 en lo que recorre la cámara (±21 × ±16 casillas): río con agua (${rio}), ${pl.toFixed(1)} % de líquido (5-12) y ${pw.toFixed(1)} % de pared (3-9), puente o vado (${puente}/${vado}), cresta (${cresta}) con puerto (${puerto}) y ${sitios.size} sitio(s)`,
+      rio > 0 && pl >= 5 && pl <= 12 && pw >= 3 && pw <= 9 && (puente || vado) && puerto && cresta >= 8 && sitios.size >= 1, [...sitios]);
+  } catch (e) { t('fondo de los menús', false, String(e && e.stack || e)); }
+
+  // ---- N. Clima al azar ----
+  try {
+    const KINDS = Object.keys(G.Weather.KINDS), CL = G.MapasDatos.CLIMA, malos = [];
+    T.M.random = xorshift(2026);
+    for (let b = 0; b < 3; b++) {
+      const n = 20000, cuenta = {}, pesos = CL[b], total = Object.values(pesos).reduce((a, v) => a + v, 0);
+      for (let i = 0; i < n; i++) { const k = Gm.climaAlAzar(b); cuenta[k] = (cuenta[k] || 0) + 1; }
+      const ajenas = Object.keys(cuenta).filter(k => !(k in pesos) || !KINDS.includes(k));
+      const lejos = Object.keys(pesos).filter(k => !KINDS.includes(k) || Math.abs((cuenta[k] || 0) / n - pesos[k] / total) > 0.03);
+      if (ajenas.length || lejos.length) malos.push({ b, ajenas, lejos, cuenta });
+    }
+    const otros = [3, 4, 20].map(b => Gm.climaAlAzar(b)).filter(k => !KINDS.includes(k));
+    T.M.random = Math.random;
+    t('clima al azar (G.Mapas.climaAlAzar, la primera línea de pick de weather.js): 20.000 tiradas por bioma con Math.random sembrado, sólo climas de G.Weather.KINDS de los pesos de G.MapasDatos.CLIMA y cada uno a ±3 % de su peso; con el índice de una arena, también un clima válido (como upstream, que hace % 3)',
+      !malos.length && !otros.length, { malos, otros });
+  } catch (e) { t('clima al azar', false, String(e && e.stack || e)); }
+
+  // ---- O. El terreno no depende del bioma (el fundido de world.js y el horno lo dan por hecho) ----
+  try {
+    const W = G.World, firmas = [];
+    for (let b = 0; b < 3; b++) {
+      W.reset(1234); W.setBiome(b, true);
+      const s = [];
+      for (let ty = -48; ty < 48; ty++) for (let tx = -48; tx < 48; tx++) s.push(W.kindAt(tx * TS + 1, ty * TS + 1)[0]);
+      firmas.push(s.join('') + '|' + W.visibleProps(camaraTodo(-48, -48, 96, 96)).map(clave).join(';'));
+    }
+    t('el terreno y los objetos no dependen del bioma: 96×96 casillas iguales en la Vega del Alba, la Helada y la Sulfúrea (§16 D, con los mapas: 0 chunks horneados en el cambio)',
+      firmas[0] === firmas[1] && firmas[1] === firmas[2]);
+  } catch (e) { t('terreno y bioma', false, String(e && e.stack || e)); }
+
+  // ---- P. setArena olvida lo que la arena cambia (gancho de world.js: G.Mapas.olvidarArena) ----
+  // La arena cambia el terreno hasta ARENA_CERCA y quita objetos hasta sinObjetos más la ventana de colocar(), más lejos de
+  // lo que olvida upstream (los chunks con el centro a menos de r + 9 + N casillas). Un chunk de esa franja generado antes
+  // de abrirse la grieta se quedaba como estaba, y el anfitrión y el invitado, con cachés distintas, veían otra cosa.
+  try {
+    /** Casillas (kindAt) y objetos (visibleProps) de world.js en w×h casillas desde (x0, y0). */
+    const ventana = (Gx, x0, y0, w, h) => {
+      const W = Gx.World, s = [];
+      for (let ty = y0; ty < y0 + h; ty++) for (let tx = x0; tx < x0 + w; tx++) s.push(W.kindAt(tx * TS + 1, ty * TS + 1)[0]);
+      return { terr: s.join(''), props: W.visibleProps(camaraTodo(x0, y0, w, h)).filter(p => p.tx >= x0 && p.tx < x0 + w && p.ty >= y0 && p.ty < y0 + h).map(clave).sort() };
+    };
+    /** Casillas y objetos distintos entre dos ventanas. */
+    const difs = (a, b) => {
+      let n = 0;
+      for (let i = 0; i < a.terr.length; i++) if (a.terr[i] !== b.terr[i]) n++;
+      return n + a.props.filter(p => !b.props.includes(p)).length + b.props.filter(p => !a.props.includes(p)).length;
+    };
+    // a) ±64 casillas alrededor de la arena, con la zona (±80, cada 8 casillas) generada ANTES de setArena y sin generar.
+    let llamadas = 0;
+    const antesDespues = (mapas, tx) => {
+      const ty = 6002, PRE = reino({ mapas }), POST = reino({ mapas });
+      for (const R of [PRE, POST]) {
+        if (mapas === false) R.G.Mapas.olvidarArena = () => { llamadas++; };   // con false, el gancho no debe llamarla
+        R.G.World.reset(31); R.G.World.setBiome(0, true);
+      }
+      for (let y = ty - 80; y < ty + 80; y += 8) for (let x = tx - 80; x < tx + 80; x += 8) PRE.G.World.kindAt(x * TS, y * TS);
+      for (const R of [PRE, POST]) R.G.World.setArena({ tx, ty, r: 11, type: 'fire' });
+      const a = ventana(PRE.G, tx - 64, ty - 64, 128, 128);
+      return { d: difs(a, ventana(POST.G, tx - 64, ty - 64, 128, 128)), a };
+    };
+    const conMapas = [5008, 5011].map(tx => antesDespues(true, tx).d), sin = antesDespues(false, 5008), base = antesDespues(null, 5008);
+    t(`setArena olvida lo que la arena cambia: ±64 casillas alrededor de la arena generadas antes de abrirse la grieta dan los mismos códigos y objetos que sin generar (${conMapas.join(' y ')} distintos, con la arena en x = 5008 y 5011); con mapasPropios = false, como upstream (${sin.d} distintos, el mismo mundo que el proyecto base y sin llamar a G.Mapas.olvidarArena)`,
+      conMapas.every(d => !d) && !sin.d && !base.d && !difs(sin.a, base.a) && !llamadas, { conMapas, sin: sin.d, base: base.d, igualQueBase: !difs(sin.a, base.a), llamadas });
+    // b) Dos grietas en la misma partida: el anfitrión tenía en caché ±40 casillas de la primera y el invitado ±16. Alrededor
+    //    de la segunda (±60), lo mismo los dos y lo mismo que un mundo sin nada en caché (olvida también la zona de la primera).
+    const A1 = { tx: 6003, ty: 6010, r: 11, type: 'fire' }, dos = [];
+    for (const sep of [40, 56, 70]) {
+      const H = reino(), I = reino(), F = reino();
+      for (const R of [H, I, F]) { R.G.World.reset(777); R.G.World.setArena(Object.assign({}, A1)); }
+      ventana(H.G, A1.tx - 40, A1.ty - 40, 80, 80); ventana(I.G, A1.tx - 16, A1.ty - 16, 32, 32);
+      const A2 = { tx: A1.tx + sep, ty: A1.ty + 3, r: 11, type: 'water' };
+      for (const R of [H, I, F]) R.G.World.setArena(Object.assign({}, A2));
+      const [h, i, f] = [H, I, F].map(R => ventana(R.G, A2.tx - 60, A2.ty - 60, 120, 120));
+      dos.push(difs(h, i) + difs(h, f) + difs(i, f));
+    }
+    t(`setArena con dos grietas en la misma partida (la segunda a 40, 56 y 70 casillas; el anfitrión con ±40 casillas de la primera en caché y el invitado con ±16): alrededor de la segunda ven los mismos códigos y objetos, y los de un mundo sin nada en caché (${dos.join(', ')} distintos)`,
+      dos.every(d => !d), dos);
+  } catch (e) { t('setArena olvida lo que la arena cambia', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  const seg = ((Date.now() - inicio) / 1000).toFixed(1);
+  if (!failed.length) ok(`mapas propios: ${r.length} casos bien (${seg} s)`);
+  else console.log(`  (mapas propios: ${r.length - failed.length} de ${r.length} bien, ${seg} s)`);
+  for (const [name, , detail] of failed) bad(`mapas: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
 function multiversoChecks() {
@@ -5404,6 +6313,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { trampasChecks(); } catch (e) { bad('no se pudo probar las trampas: ' + (e && e.stack || e)); }
   try { evoPartidaChecks(); } catch (e) { bad('no se pudo probar la evolución en partida: ' + (e && e.stack || e)); }
   try { devMenuChecks(); } catch (e) { bad('no se pudo probar el menú de pruebas: ' + (e && e.stack || e)); }
+  try { mapasChecks(); } catch (e) { bad('no se pudo probar los mapas propios: ' + (e && e.stack || e)); }
   try { multiversoChecks(); } catch (e) { bad('no se pudo probar el Multiverso: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);

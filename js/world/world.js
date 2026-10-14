@@ -68,6 +68,7 @@ G.World = (() => {
   }
 
   function terrainRaw(tx, ty) {
+    if (G.Mapas && G.Mapas.activo) return G.Mapas.terreno(tx, ty, seed, arena);   // MOD nico: mapas propios (js/world/mapas.js)
     const ad = arenaDist(tx, ty);
     if (ad < arena_outer()) {
       if (ad >= arena.r) return WALL;
@@ -116,6 +117,7 @@ G.World = (() => {
   const arena_outer = () => (arena ? arena.r + 7 : 0);
 
   function placeProps(c) {
+    if (G.Mapas && G.Mapas.activo) return G.Mapas.props(c, N, seed, arena, broken, makeProp);   // MOD nico: objetos de los mapas propios (js/world/mapas.js)
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       if (c.terr[j * N + i] !== FLOOR) continue;
       const tx = c.cx * N + i, ty = c.cy * N + j;
@@ -592,6 +594,7 @@ G.World = (() => {
       arena = a;
       if (!a) return;
       a.th = G.Tiles.ARENA_THEMES[a.type] || G.Tiles.ARENA_THEMES.normal;
+      if (G.Mapas && G.Mapas.activo) return G.Mapas.olvidarArena(a, data, images, N);   // MOD nico: la arena de los mapas propios llega más lejos (js/world/mapas.js)
       // Olvida los chunks de esa zona (si se hubieran generado antes).
       const R = a.r + 9;
       for (const k of [...data.keys(), ...images.keys()]) {

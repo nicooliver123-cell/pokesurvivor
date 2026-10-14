@@ -154,6 +154,12 @@ G.MODS = {
    * tu propio Pokémon. false = sin borde. */
   vinetaDanio: true,
 
+  /* Mapas propios (petición de Nico del 14-10-2026: «no deben parecerse a los mapas originales»):
+   * biomas, terreno, objetos del escenario y arenas de la grieta nuevos (js/world/mapas.js, G.Mapas),
+   * en los dos estilos. Cada cliente genera el mismo mundo con la semilla de la partida, así que en
+   * grupo los dos tienen que llevar la misma versión. Se lee al cargar. false = los del proyecto base. */
+  mapasPropios: true,
+
   /* Arreglo de un fallo de upstream (desde «Arenas de grieta por tipo», 3f85b87): a partir del
    * minuto 12 el mapa normal se volvía una arena de la grieta («Grieta · …», con su líquido y su
    * daño; y en el 84 se rompía). true = el mapa rota entre sus 3 biomas normales cada 4 min.

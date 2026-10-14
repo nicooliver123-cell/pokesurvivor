@@ -64,6 +64,10 @@
  *      de cada copia que acaba de golpear se ve (la vida le llega por red) y una copia herida cuya
  *      vida no cambia (escudo permanente) no la lleva; y los disparos que A hace salir hacia B (con
  *      'es') se pintan en B con el contorno rojo, que se comprueba en el lienzo de verdad (#ff2440).
+ *  13. Mapas propios (G.MODS.mapasPropios, js/world/mapas.js): al empezar la partida, A y B calculan G.Mapas.huella (códigos
+ *      de casilla y objetos del escenario) de los mismos 50 chunks (10x5) alrededor de A, cada uno con su semilla, y salen
+ *      iguales; y lo mismo en la arena de la grieta garantizada, alrededor de su centro y con la G.World.arena de cada uno.
+ *      (Con mapasPropios = false en los dos, no se comparan.)
  *
  * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
  * desde el último golpe que el propio invitado predijo en ella (lo mide la trampa):
@@ -691,6 +695,27 @@ async function ticketsCoop(A, B) {
   report.tickets = { r1, r2 };
 }
 
+/** Mapas propios (G.MODS.mapasPropios, js/world/mapas.js): los dos clientes calculan G.Mapas.huella (los códigos de cada
+ *  casilla y los objetos del escenario) de la misma zona de 10x5 chunks (50) alrededor del punto (x, y) de A, cada uno con
+ *  su semilla y, en la arena, con su propia G.World.arena: con la misma versión tienen que salir iguales. */
+async function huellasMapa(A, B, nombre, enArena) {
+  const zona = await A.page.evaluate(arena => {
+    const p = arena ? G.Rift.arena : G.Game.player, CW = G.World.CW;
+    return { cx0: Math.floor(p.x / CW) - 5, cy0: Math.floor(p.y / CW) - 2, w: 10, h: 5, arena };
+  }, enArena);
+  const HUELLA = z => {
+    const activo = !!(G.Mapas && G.Mapas.activo), a = z.arena ? G.World.arena : null, t0 = performance.now();
+    const huella = activo ? G.Mapas.huella(G.World.semilla, z.cx0, z.cy0, z.w, z.h, a) : null;
+    return { activo, semilla: G.World.semilla, arena: a && { tx: a.tx, ty: a.ty, r: a.r, type: a.type }, huella, ms: +(performance.now() - t0).toFixed(1) };
+  };
+  const hA = await A.page.evaluate(HUELLA, zona), hB = await B.page.evaluate(HUELLA, zona);
+  (report.huellasMapa = report.huellasMapa || {})[nombre] = { zona, A: hA, B: hB };
+  const n = zona.w * zona.h, iguales = hA.huella === hB.huella && hA.semilla === hB.semilla && JSON.stringify(hA.arena) === JSON.stringify(hB.arena);
+  if (!hA.activo && !hB.activo) { check(`Mapas propios (${nombre}): desactivados en los dos clientes (G.MODS.mapasPropios = false): no se comparan huellas`, true, { A: hA, B: hB }); return; }
+  check(`Mapas propios (${nombre}): A y B calculan la misma huella de ${n} chunks alrededor de ${enArena ? 'la arena' : 'A'} (G.Mapas.huella: códigos de casilla y objetos; semilla ${hA.semilla}${hA.arena ? `, arena ${hA.arena.type} en (${hA.arena.tx}, ${hA.arena.ty})` : ''}): ${hA.huella}`,
+    hA.activo && hB.activo && iguales && new RegExp('^' + n + ':[0-9a-f]{16}:\\d+$').test(hA.huella || ''), { zona, A: hA, B: hB });
+}
+
 async function guaranteedRift(A, B) {
   const LIM = 120, TTL = 45;
   // Lo que ve cada cliente: las grietas que aparecen, las veces que G.MODS pide abrir una y, en el anfitrión,
@@ -756,6 +781,7 @@ async function guaranteedRift(A, B) {
   const arA = await enArena(A), arB = await enArena(B);
   check('Grieta garantizada: entra B y los dos están en la arena, marcada como la de la grieta garantizada',
     arA.dentro && arB.dentro && arA.forzada === 1 && arB.forzada === 1, { A: arA, B: arB });
+  await huellasMapa(A, B, 'arena de la grieta', true);
   const sinMod = Math.round((3200 + leg.t * 9) * (1 + 0.3 * Math.max(0, leg.n - 1)) * (leg.n > 1 ? 1.4 : 1));   // spawnLegend
   const esperada = Math.round(sinMod * 0.6) * (leg.shiny ? 2 : 1);
   check('Grieta garantizada: el legendario tiene el 60 % de la vida que tendría sin el mod (y B recibe la del anfitrión)',
@@ -911,6 +937,9 @@ async function guaranteedRift(A, B) {
     step('Partida en grupo', 'G.Coop.active en los dos clientes');
     await sleep(3500);   // que carguen los sprites y se coloquen
     const rele0 = { A: (await transport(A, uidB)).rele, B: (await transport(B, uidA)).rele };
+
+    // Mapas propios: el mismo mundo en los dos clientes (la semilla la manda el anfitrión).
+    await huellasMapa(A, B, 'mapa', false);
 
     // Tamaños, en cruz
     const sA = await sizes(A), sB = await sizes(B);
