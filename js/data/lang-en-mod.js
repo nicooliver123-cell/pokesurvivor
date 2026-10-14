@@ -186,5 +186,18 @@ G.I18n.add({
   // El menú de pruebas de Nico (js/ui/dev-menu.js).
   'Menú de pruebas': 'Test menu', 'Sólo lo ve tu cuenta. Suma a tu partida guardada; no cuenta para el ranking.': 'Only your account sees this. It adds to your save; it doesn\'t count for the ranking.',
   '+10 tickets': '+10 tickets', '+1 ticket ×10': '+1 ticket ×10', '+1.000 Pokémonedas': '+1,000 PokéCoins', '+10.000 Pokémonedas': '+10,000 PokéCoins',
-  'Siguiente entrenamiento en {x} de juego.': 'Next training after {x} of play.', 'Esta partida no cuenta para la guardería.': 'This run doesn\'t count for the daycare.'
+  'Siguiente entrenamiento en {x} de juego.': 'Next training after {x} of play.', 'Esta partida no cuenta para la guardería.': 'This run doesn\'t count for the daycare.',
+  // El Multiverso (js/data/multiverso.js): el banner, la colección y los ataques propios.
+  'Multiverso': 'Multiverse', 'Otros mundos': 'Other worlds',
+  'Personajes de otros mundos que se cuelan en el enjambre: {x}.': 'Characters from other worlds who slip into the swarm: {x}.',
+  'Llama Bebé': 'Pepper Breath', 'Mega Llama': 'Nova Blast',
+  'Escupe una bola de fuego grande al enemigo más cercano. Quema.': 'Spits a big fireball at the nearest enemy. Burns.',
+  'Cacodemonio': 'Cacodemon', 'Súper Escopeta': 'Super Shotgun', 'Rayo Bola': 'Ball Lightning', 'Tormenta Infernal': 'Hellstorm',
+  'Escopeta de dos cañones: una ráfaga corta de perdigones que empuja.': 'Double-barrelled shotgun: a short burst of pellets that knocks back.',
+  'Escupe una bola de rayos lenta y grande que atraviesa y frena.': 'Spits a big, slow ball of lightning that goes through and slows down.',
+  '· Cada tirada trae a uno de estos personajes, todos con la misma probabilidad.': '· Each pull brings one of these characters, all equally likely.',
+  '· No hay legendarios, así que tampoco pity.': '· There are no legendaries, so there is no pity either.',
+  '· Un repetido da {x} Pokémonedas (un shiny repetido, el triple).': '· A duplicate gives {x} PokéCoins (a shiny duplicate, triple).',
+  '· Nunca salen de enemigos: sólo se consiguen aquí.': '· They never show up as enemies: you can only get them here.',
+  'Sólo sale en el banner del Multiverso, en el gacha.': 'Only in the Multiverse banner of the gacha.'
 });

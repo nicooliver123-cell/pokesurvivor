@@ -2,6 +2,7 @@
 G.MenuUI = (() => {
   const $ = G.UI.$;
   const GEN_NAMES = ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Teselia', 'Kalos', 'Alola', 'Galar', 'Paldea'];
+  if (G.MULTIVERSO) GEN_NAMES.push(G.MULTIVERSO.BANNER.name);   // MOD nico: «Multiverso» en la colección (js/data/multiverso.js)
   let dexFilter = 'all', dexGen = 1, dexSel = null;
 
   function init() {
@@ -208,6 +209,7 @@ G.MenuUI = (() => {
       b.onclick = () => { viewShiny = b.dataset.v === '1'; showDetail(dex); };
     });
     if (G.Guarderia) G.Guarderia.marcarDex(dex);   // MOD nico: uno de la guardería no puede ser tu compañero (js/systems/guarderia.js)
+    if (G.MULTIVERSO) G.MULTIVERSO.ficha(dex);   // MOD nico: los del Multiverso sólo salen en su banner (js/data/multiverso.js)
     const pick = $('dex-pick');
     if (pick) pick.onclick = () => {
       s.partner = dex;

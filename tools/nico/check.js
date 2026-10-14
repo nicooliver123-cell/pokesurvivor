@@ -94,6 +94,12 @@
  *      starters.js de upstream intactos (huella); disposicion() con las medidas de Chromium en 12 pantallas y los dos
  *      estilos (los 29 sin desplazar, píxel de arte entero, nombres y tipos dentro); confirmar() guarda como el test
  *      (personalidad null, el logro «Primer compañero» con achievements.js real); inglés, estilos y paquete.
+ *  24. Multiverso (js/data/multiverso.js): los personajes de otros mundos en G.DEX sin chocar con upstream (gen 10, desde el
+ *      10001), sus hojas con el tamaño de su meta, su ataque propio (escalera de su forma, fuera de los pools de tipo),
+ *      nunca de enemigo (2.000 runs con enemies.js real, con control sin los ganchos; el Pokémon perdido de events.js),
+ *      su banner en el gacha real (siempre uno suyo, sin ser fuente de monedas, los demás banners sin ellos), el cartel y
+ *      la ficha (refresh() real de gacha-ui.js), el inglés, los ganchos, el paquete y CREDITS.md; sus hojas (de PixelLab, montadas por
+ *      tools/nico/multiverso/montar.py) con el tamaño, el radio y la escala de un Pokémon normal.
  * Sale con código 1 si algo falla.
  */
 'use strict';
@@ -5162,6 +5168,226 @@ function devMenuChecks() {
   else bad(`menú de pruebas: huellas ${bien ? 'bien' : 'mal formadas'}, sal ${JSON.stringify(sal)}, gancho ${gancho}, uid en claro ${uidEnClaro}`);
 }
 
+function multiversoChecks() {
+  console.log('24. Multiverso (js/data/multiverso.js): personajes de otros mundos, su banner, su ataque y nunca de enemigo');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  const BASE_FILES = ['js/core/util.js', 'js/core/mods.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/evolutions.js', 'js/core/sprites.js', 'js/data/moves.js'];
+  /** Los ficheros reales en node:vm; `con` = con multiverso.js (en su sitio de dev.html, tras moves.js); `cambia` reescribe un fichero antes de cargarlo. */
+  const montar = ({ con = true, extra = [], cambia = {} } = {}) => {
+    const c = { console }; c.window = c; c.G = {}; vm.createContext(c);
+    for (const f of [...BASE_FILES, ...(con ? ['js/data/multiverso.js'] : []), ...extra]) {
+      vm.runInContext(cambia[f] ? cambia[f](rd(f)) : rd(f), c, { filename: f });
+    }
+    return c;
+  };
+  const semilla = s => () => { s = s + 0x6D2B79F5 | 0; let x = Math.imul(s ^ s >>> 15, 1 | s); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; };
+  const sembrar = (c, s) => { c.__rnd = semilla(s); vm.runInContext('Math.random = () => __rnd()', c); };
+  const pngTam = f => { const b = fs.readFileSync(path.join(ROOT, f)); return b.toString('ascii', 1, 4) === 'PNG' ? [b.readUInt32BE(16), b.readUInt32BE(20)] : null; };
+  let MV = null;
+  // ---- A. Datos: la entrada de la Pokédex, sus hojas y su ataque ----
+  try {
+    const sin = montar({ con: false }).G, c = montar(), G = c.G;
+    MV = G.MULTIVERSO;
+    const lista = MV.lista();
+    t('G.MULTIVERSO: gen 10 «Multiverso» con al menos un personaje, todos con mv, gen 10, número desde 10001 y en G.DEX_BY',
+      MV.GEN === 10 && MV.BANNER.gen === 10 && MV.BANNER.name === 'Multiverso' && lista.length >= 1 &&
+      lista.every(p => p.mv === true && p.gen === 10 && p.dex >= 10001 && G.DEX_BY[p.dex] === p && !('hojasDe' in p)), lista.map(p => p.dex));
+    const rarezas = [...new Set(lista.map(p => p.rarity))];
+    t('todos los del Multiverso con la misma rareza, menor que 5: su banner reparte a partes iguales (lo que dice el cartel) aunque su pity nunca vuelva a 0 (para mezclar rarezas, darle su propio sorteo en gacha.js)',
+      rarezas.length === 1 && rarezas[0] < 5, rarezas);
+    const agu = G.DEX_BY[10001];
+    t('Agumon: 10001, Fuego / Dragón, rareza 2, no es inicial ni legendario y empieza con Llama Bebé',
+      agu && agu.name === 'Agumon' && agu.types.join() === 'fire,dragon' && agu.rarity === 2 && !agu.starter && !agu.leg && G.Moves.startFor(agu) === 'llama-bebe');
+    const sly = G.DEX_BY[10002], caco = G.DEX_BY[10003];
+    t('Doom Slayer (10002, Lucha / Acero, empieza con Súper Escopeta) y Cacodemonio (10003, Siniestro / Eléctrico, empieza con Rayo Bola), los dos de DOOM',
+      sly && sly.name === 'Doom Slayer' && sly.types.join() === 'fighting,steel' && G.Moves.startFor(sly) === 'super-escopeta' && sly.serie === 'DOOM' &&
+      caco && caco.name === 'Cacodemonio' && caco.types.join() === 'dark,electric' && G.Moves.startFor(caco) === 'rayo-bola' && caco.serie === 'DOOM' &&
+      lista.every(p => !p.starter && !p.leg));
+    const choques = sin.DEX.filter(p => p.dex >= 10001 || p.gen === MV.GEN || p.mv).map(p => p.dex);
+    const metaUp = Object.keys(sin.SPRITE_META).map(Number).filter(d => d >= 10001);
+    t('upstream no usa ni la generación 10 ni los números desde 10001 (si un merge los trae, hay que mover el Multiverso)', !choques.length && !metaUp.length, { choques, metaUp });
+    t('G.DEX crece sólo con los del Multiverso y sin repetidos (cargar multiverso.js dos veces no duplica nada)', (() => {
+      const n = G.DEX.length, m = G.Moves.ALL.length;
+      vm.runInContext(rd('js/data/multiverso.js'), c, { filename: 'js/data/multiverso.js (otra vez)' });
+      return n === sin.DEX.length + lista.length && G.DEX.length === n && G.Moves.ALL.length === m && new Set(G.DEX.map(p => p.dex)).size === G.DEX.length;
+    })());
+    const malas = [];
+    for (const p of lista) {
+      const meta = G.SPRITE_META[p.dex];
+      for (const [anim, a] of Object.entries(meta.a)) for (const sub of meta.s ? ['', 's/'] : ['']) {
+        const f = `assets/pokemon/${p.dex}/${sub}${anim}.png`;
+        const tam = ex(f) ? pngTam(f) : null;
+        if (!tam || tam[0] !== a.w * a.n || tam[1] !== a.h * a.r) malas.push(`${f}: ${tam ? tam.join('x') : 'falta'} (meta ${a.w * a.n}x${a.h * a.r})`);
+      }
+    }
+    t('las hojas de cada personaje están en assets/pokemon/{dex}/ (y s/ si tiene variocolor) con el tamaño de su G.SPRITE_META', !malas.length, malas);
+    const S = G.Sprites;
+    const geo = lista.map(p => {
+      const meta = G.SPRITE_META[p.dex], A = Object.entries(meta.a);
+      return { dex: p.dex, idle: !!meta.a.Idle && !!meta.a.Walk, filas: A.every(([, a]) => a.r === 8 && a.d.length === a.n && a.ax > 0 && a.ax < a.w && a.ay > 0 && a.ay < a.h),
+        sh: S.hasShiny(p.dex), radio: S.bodyRadius(p.dex, 1) === S.bodyRadius(4, 1), escala: G.MODS.escalaJugador(p.dex) === 1, flota: S.hovers(p.dex) };
+    });
+    t('geometría propia (META de multiverso.js, la escribe montar.py): las 7 animaciones en 8 direcciones con su ancla dentro, variocolor, el radio y el tamaño de un Pokémon normal (Idle de 32 de ancho, como Charmander), y sólo el Cacodemonio flota',
+      geo.every(g => g.idle && g.filas && g.sh && g.radio && g.escala && g.flota === (g.dex === 10003)) && lista.every(p => Object.keys(G.SPRITE_META[p.dex].a).length === 7), geo);
+    const ESPERA = { 'llama-bebe': ['fire', 'projectile', '["Mega Llama","atk"]'], 'super-escopeta': ['steel', 'cone', '["BFG 9000","cd"]'],
+      'rayo-bola': ['electric', 'projectile', '["Tormenta Infernal","def"]'] };
+    const malAt = Object.entries(ESPERA).filter(([id, [ty, kind, evo]]) => {
+      const m = G.Moves.BY_ID[id], igual = G.Moves.ALL.find(x => x.kind === kind && x.ups && !ESPERA[x.id]);
+      return !m || m.type !== ty || m.kind !== kind || m.ups !== igual.ups || m.maxLvl !== igual.maxLvl || JSON.stringify(G.Moves.EVO[id]) !== evo || 'evo' in m;
+    }).map(([id]) => id);
+    t('ataques propios: Llama Bebé (proyectil de Fuego -> Mega Llama), Súper Escopeta (abanico de Acero -> BFG 9000) y Rayo Bola (proyectil Eléctrico -> Tormenta Infernal), con la escalera de mejoras de su forma',
+      !malAt.length, malAt);
+    const nuevos = G.Moves.ALL.filter(x => !sin.Moves.BY_ID[x.id]).map(x => x.id);
+    const enPool = Object.entries(G.Moves.POOL).filter(([, ids]) => nuevos.some(id => ids.includes(id))).map(([k]) => k);
+    const otros = G.DEX.filter(p => !p.mv && G.Moves.poolFor(p).some(id => nuevos.includes(id))).map(p => p.dex);
+    t('los ataques propios no entran en ningún pool de tipo: ningún Pokémon los aprende (Agumon empieza con el suyo y aprende los de Fuego, Dragón y Normal)',
+      !enPool.length && !otros.length && G.Moves.poolFor(agu).every(id => G.Moves.POOL.normal.includes(id) || G.Moves.POOL.fire.includes(id) || G.Moves.POOL.dragon.includes(id)), { enPool, otros });
+    const inst = G.Moves.instance('llama-bebe', 3), base = G.Moves.instance('llama-bebe', 1);
+    t('Llama Bebé sube de nivel con su escalera (instance() real: nivel 3 distinto del 1, sin la escalera dentro)', inst.lvl === 3 && !('ups' in inst) && JSON.stringify(inst) !== JSON.stringify(base));
+  } catch (e) { t('datos del Multiverso', false, String(e && e.stack || e)); }
+  // ---- B. Nunca de enemigo: elencos, jefes, hordas y el Pokémon perdido ----
+  try {
+    const enemigos = (cambia = {}) => {
+      const c = montar({ extra: ['js/data/starters.js', 'js/data/enemies.js'], cambia });
+      c.G.Events = { bag: () => null };
+      sembrar(c, 23);
+      return c.G;
+    };
+    const cuenta = (G, runs) => {
+      const mv = new Set(G.DEX.filter(p => p.mv).map(p => p.dex)), vistos = [];
+      for (let k = 0; k < runs; k++) {
+        const rr = G.Enemies.rollRun() || {};
+        for (const tier of rr.cast || G.Enemies.cast) for (const d of tier.list) if (mv.has(d.dex)) vistos.push('elenco ' + d.dex);
+        for (const b of rr.bosses || G.Enemies.BOSSES) if (mv.has(b.dex)) vistos.push('jefe ' + b.dex);
+      }
+      for (const tt of [0, 100, 200, 300, 450, 600]) for (const ty of G.Enemies.hordeTypes(tt)) for (let i = 0; i < 10; i++)
+        for (const d of G.Enemies.hordeDefs(ty, tt)) if (mv.has(d.dex)) vistos.push('horda ' + d.dex);
+      for (const tt of [0, 100, 200, 300, 450, 600]) if (G.Enemies.hordeTypes(tt).some(p => mv.has(p.dex))) vistos.push('tipo de horda');
+      return vistos;
+    };
+    const vistos = cuenta(enemigos(), 2000);
+    // Control: sin los ganchos de enemies.js, Agumon sí saldría (la prueba sabe verlo).
+    const sinGancho = s => s.replace(/ && !p\.mv\);(\s*\/\/ MOD nico)/, ');$1').replace(/ && !p\.mv;(\s*\/\/ MOD nico)/, ';$1');
+    const control = cuenta(enemigos({ 'js/data/enemies.js': sinGancho }), 2000);
+    t(`2.000 runs: ningún personaje del Multiverso en elencos, jefes ni hordas (control sin los ganchos: ${control.length} apariciones)`, !vistos.length && control.length > 0, { vistos: vistos.slice(0, 5), control: control.length });
+    const G = enemigos();
+    const linea = (rd('js/systems/events.js').match(/const pool = G\.DEX\.filter\(p => [^\n]*?\);(?=\s*\/\/ MOD nico)/) || [])[0];
+    const perdidos = linea ? vm.runInContext(`(() => { ${linea} return pool; })()`, Object.assign(vm.createContext({ G: Object.assign(G, { Sprites: Object.assign({}, G.Sprites, { hovers: () => false }) }) }))) : null;
+    t('Pokémon perdido (la línea de spawnLost() de events.js, tal cual): sin los del Multiverso', perdidos && perdidos.length > 100 && !perdidos.some(p => p.mv), linea ? perdidos.length : 'no encuentro la línea');
+    const leg = G.DEX.filter(p => p.mv && p.leg).map(p => p.dex);
+    t('ninguno es legendario: el legendario de la grieta (rift.js, sólo p.leg) nunca es uno de ellos', !leg.length, leg);
+  } catch (e) { t('nunca de enemigo', false, String(e && e.stack || e)); }
+  // ---- C. El gacha real: su banner y los demás ----
+  try {
+    const c = montar({ extra: ['js/systems/gacha.js'] }), G = c.G, Ga = G.Gacha;
+    sembrar(c, 5);
+    t('BANNERS: los 9 de upstream y el Multiverso al final, cada uno en su índice (gacha-ui.js usa BANNERS[gen - 1])',
+      Ga.BANNERS.length === 10 && Ga.BANNERS.every((b, i) => b.gen === i + 1) && Ga.BANNERS[9] === G.MULTIVERSO.BANNER, Ga.BANNERS.map(b => b.gen));
+    const save = { tickets: { t1: 20000, t10: 0 }, owned: {}, shiny: {}, coins: 0, stats: {}, pity: {} };
+    const res = [];
+    for (let i = 0; i < 1000; i++) res.push(...Ga.pull(save, 10, 10));
+    const fuera = res.filter(x => !G.DEX_BY[x.dex].mv);
+    const sh = res.filter(x => x.shiny).length / res.length * 100;
+    const nuevos = res.filter(x => x.isNew).length, monedas = res.reduce((a, x) => a + x.refund, 0) / res.length;
+    const mvs = G.MULTIVERSO.lista().map(p => p.dex), cuantos = mvs.map(d => res.filter(x => x.dex === d).length);
+    t(`10.000 tiradas en el Multiverso: siempre uno suyo, a partes iguales (${cuantos.join(' / ')}); cada uno y su shiny, nuevos una vez; el resto, 30 Pokémonedas (90 un shiny); shiny ${sh.toFixed(2)} % (1,2-1,8)`,
+      !fuera.length && nuevos === 2 * mvs.length && res.every(x => x.isNew ? x.refund === 0 : x.refund === (x.shiny ? 90 : 30)) && sh >= 1.2 && sh <= 1.8 &&
+      mvs.every(d => save.owned[d] && save.shiny[d]) && cuantos.every(k => Math.abs(k / res.length - 1 / mvs.length) < 0.02), { fuera: fuera.length, nuevos, sh, cuantos });
+    // Una tirada en un banner normal vale de media 38,25 Pokémonedas si todo es repetido (las rarezas de RATES por REFUND): el Multiverso, menos.
+    const media = Ga.RATES.reduce((a, [rr, w]) => a + w / 100 * Ga.REFUND[rr], 0);
+    t(`no es una fuente de monedas: ${monedas.toFixed(2)} Pokémonedas por tirada, menos que los ${media.toFixed(2)} de un banner normal todo repetido`, monedas < media, { monedas, media });
+    const save2 = { tickets: { t1: 20000, t10: 0 }, owned: {}, shiny: {}, coins: 0, stats: {}, pity: {} };
+    const otros = [];
+    for (let i = 0; i < 900; i++) otros.push(...Ga.pull(save2, 10, 1 + (i % 9)));
+    t('9.000 tiradas en los banners de upstream: ninguno del Multiverso', !otros.some(x => G.DEX_BY[x.dex].mv));
+    const evo = G.MODS.evolucionDeRepetido({ owned: { 10001: { at: 1 } }, shiny: {} }, 10001, false);
+    t('repetido -> evolución: Agumon no evoluciona (sin entrada en G.EVO), así que da sus Pokémonedas', !evo && !(G.EVO && G.EVO[10001]));
+  } catch (e) { t('gacha', false, String(e && e.stack || e)); }
+  // ---- D. El cartel del banner y la ficha de la colección (refresh() real de gacha-ui.js con un DOM mínimo) ----
+  try {
+    const c = montar({ extra: ['js/systems/gacha.js'] }), G = c.G;
+    const els = {}, tabs = [];
+    const el = id => els[id] || (els[id] = { id, innerHTML: '', textContent: '', disabled: false, style: {}, children: [], dataset: {},
+      classList: { toggle() {}, add() {}, remove() {}, contains: () => false }, appendChild(x) { this.children.push(x); if (id === 'gacha-gens') tabs.push(x); return x; },
+      get lastChild() { return this.children[this.children.length - 1]; } });
+    G.UI = { $: el, show() {}, stars: n => '★'.repeat(n), spriteCanvas: dex => ({ dex }), refreshCoins() {} };
+    G.Icons = { html: k => `[${k}]` };
+    G.DB = { save: { owned: {}, shiny: {}, pity: {}, tickets: { t1: 0, t10: 0 } }, ownsShiny: () => false };
+    const small = { textContent: 'Gen 10' };
+    c.document = { getElementById: el, querySelectorAll: () => [], querySelector: q => (/gen-tab\[data-gen="10"\] small/.test(q) ? small : q === '#dex-detail p.center' ? el('nota') : null),
+      createElement: () => ({ dataset: {}, className: '', innerHTML: '' }) };
+    vm.runInContext(rd('js/ui/gacha-ui.js'), c, { filename: 'js/ui/gacha-ui.js' });
+    G.GachaUI.init();
+    G.GachaUI.open();
+    const enKanto = small.textContent;
+    els['gacha-feat'].innerHTML = ''; els['gacha-feat'].children = [];
+    tabs.find(b => +b.dataset.gen === 10).onclick();
+    const rates = els['gacha-rates'].innerHTML;
+    t('pestaña del gacha: «Otros mundos» en vez de «Gen 10» desde que se abre el gacha (en Kanto)', enKanto === 'Otros mundos', enKanto);
+    t('cartel del Multiverso: título, la lista de personajes con su serie, sin el pity de la legendaria y los tres de destacados',
+      els['banner-title'].textContent === 'Multiverso' && els['banner-desc'].textContent === 'Personajes de otros mundos que se cuelan en el enjambre: Agumon (Digimon), Doom Slayer (DOOM), Cacodemonio (DOOM).' &&
+      els['gacha-pity'].textContent === '' && [10001, 10002, 10003].every(d => els['gacha-feat'].children.some(x => x.dex === d)), { titulo: els['banner-title'].textContent, desc: els['banner-desc'].textContent });
+    const pct = +(100 / G.MULTIVERSO.lista().length).toFixed(2) + '%';
+    t(`probabilidades del Multiverso: cada personaje con su ${pct}, el shiny del ajuste (1,5 %), los repetidos a 30 y sin la Épica de la ×10 ni la Legendaria`,
+      G.MULTIVERSO.lista().every(p => rates.includes(`${p.name}</span>\n      <span>${pct}</span>`)) &&
+      /\[shiny\] Shiny<\/span><span>1\.5%<\/span>/.test(rates) && rates.includes('· Un repetido da 30 Pokémonedas (un shiny repetido, el triple).') &&
+      !/Épica|Legendaria|Común/.test(rates), rates);
+    // La ficha de la colección.
+    el('nota').innerHTML = 'Aún no lo tienes.<br>Consíguelo en el banner de <b class="gold">Multiverso</b> o derrotándolo cuando salga shiny.';
+    G.MULTIVERSO.ficha(10001);
+    const sinTener = el('nota').innerHTML;
+    el('nota').innerHTML = 'x'; G.MULTIVERSO.ficha(4);
+    const pokemon = el('nota').innerHTML;
+    G.DB.save.owned[10001] = { at: 1 }; G.MULTIVERSO.ficha(10001);
+    t('ficha de la colección: sin tenerlo, «Sólo sale en el banner del Multiverso» (no «derrotándolo cuando salga shiny»); un Pokémon o uno que ya tienes, como upstream',
+      sinTener === 'Aún no lo tienes.<br>Sólo sale en el banner del Multiverso, en el gacha.' && pokemon === 'x' && el('nota').innerHTML === 'x', { sinTener, pokemon });
+  } catch (e) { t('cartel y ficha', false, String(e && e.stack || e)); }
+  // ---- E. Inglés, ganchos, paquete y créditos ----
+  try {
+    const c = { console, navigator: { language: 'en-US', languages: ['en-US'] }, location: { pathname: '/' },
+      localStorage: { getItem: () => null, setItem() {} }, document: { documentElement: {} }, confirm: () => true, alert() {} };
+    c.CanvasRenderingContext2D = function () {}; c.CanvasRenderingContext2D.prototype = { fillText() {}, strokeText() {}, measureText() {} };
+    c.window = c; c.G = {}; vm.createContext(c);
+    for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
+    const EN = c.G.I18n.t;
+    const casos = { 'Multiverso': 'Multiverse', 'Otros mundos': 'Other worlds', 'Llama Bebé': 'Pepper Breath', 'Mega Llama': 'Nova Blast',
+      'Personajes de otros mundos que se cuelan en el enjambre: Agumon (Digimon), Doom Slayer (DOOM), Cacodemonio (DOOM).': 'Characters from other worlds who slip into the swarm: Agumon (Digimon), Doom Slayer (DOOM), Cacodemon (DOOM).',
+      'Cacodemonio': 'Cacodemon', 'Súper Escopeta': 'Super Shotgun', 'Rayo Bola': 'Ball Lightning', 'Tormenta Infernal': 'Hellstorm',
+      'Escopeta de dos cañones: una ráfaga corta de perdigones que empuja.': 'Double-barrelled shotgun: a short burst of pellets that knocks back.',
+      'Escupe una bola de rayos lenta y grande que atraviesa y frena.': 'Spits a big, slow ball of lightning that goes through and slows down.',
+      '· Cada tirada trae a uno de estos personajes, todos con la misma probabilidad.': '· Each pull brings one of these characters, all equally likely.',
+      '· No hay legendarios, así que tampoco pity.': '· There are no legendaries, so there is no pity either.',
+      '· Un repetido da 30 Pokémonedas (un shiny repetido, el triple).': '· A duplicate gives 30 PokéCoins (a shiny duplicate, triple).',
+      '· Nunca salen de enemigos: sólo se consiguen aquí.': '· They never show up as enemies: you can only get them here.',
+      'Sólo sale en el banner del Multiverso, en el gacha.': 'Only in the Multiverse banner of the gacha.',
+      'Escupe una bola de fuego grande al enemigo más cercano. Quema.': 'Spits a big fireball at the nearest enemy. Burns.' };
+    const mal = Object.entries(casos).filter(([es, en]) => EN(es) !== en).map(([es]) => [es, EN(es)]);
+    t('inglés (i18n.js real): el banner, la pestaña, la descripción, las notas de las probabilidades, la ficha y el ataque', !mal.length, mal);
+  } catch (e) { t('inglés', false, String(e && e.stack || e)); }
+  try {
+    const gancho = (f, re) => rd(f).split(/\r?\n/).some(l => re.test(l) && /MOD nico/.test(l));
+    const ui = rd('js/ui/gacha-ui.js');
+    t('ganchos de una línea: el banner en gacha.js, el cartel en gacha-ui.js tras las notas, «Multiverso» y la ficha en menu.js, fuera de los enemigos en enemies.js (elenco y jefes) y events.js',
+      gancho('js/systems/gacha.js', /BANNERS\.push\(G\.MULTIVERSO\.BANNER\)/) && gancho('js/ui/gacha-ui.js', /G\.MULTIVERSO\.cartel\(gen\)/) &&
+      ui.indexOf('G.MULTIVERSO.cartel(gen)') > ui.indexOf('G.MODS.notasGacha($(') && gancho('js/ui/menu.js', /GEN_NAMES\.push\(G\.MULTIVERSO\.BANNER\.name\)/) &&
+      gancho('js/ui/menu.js', /G\.MULTIVERSO\.ficha\(dex\)/) && gancho('js/data/enemies.js', /p\.bst <= tier\.bst\[1\] && G\.SPRITE_META\[p\.dex\] && !p\.mv\)/) &&
+      gancho('js/data/enemies.js', /const ok = p => [^\n]*&& !p\.mv;/) && gancho('js/systems/events.js', /!G\.Sprites\.hovers\(p\.dex\) && !p\.mv\)/));
+    t('dev.html carga multiverso.js justo después de moves.js (y antes de achievements.js, gacha.js y menu.js); el paquete lo lleva',
+      /src="js\/data\/moves\.js"><\/script>\r?\n<script defer src="js\/data\/multiverso\.js">/.test(rd('dev.html')) && /MULTIVERSO/.test(rd('js/app.min.js')));
+    const cred = rd('CREDITS.md');
+    t('CREDITS.md cuenta de dónde salen las hojas del Multiverso (PixelLab y tools/nico/multiverso/montar.py) y que Digimon y DOOM son de sus dueños',
+      ['Agumon', 'Doom Slayer', 'Cacodemonio', 'PixelLab', 'tools/nico/multiverso/montar.py', 'Bandai', 'id Software'].every(x => cred.includes(x)));
+    const DIRS = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'west', 'south-west'];
+    const faltan = ['agumon', 'slayer', 'caco'].flatMap(k => DIRS.map(d => `tools/nico/multiverso/fuentes/${k}/rot-${d}.png`)).filter(f => !ex(f));
+    t('lo que dibujó PixelLab está en tools/nico/multiverso/fuentes/ (las 8 rotaciones de cada uno) junto a montar.py, que rehace las hojas; multiverso.js y montar.py, nuevos, en LF',
+      !faltan.length && ex('tools/nico/multiverso/montar.py') && !/\r/.test(rd('js/data/multiverso.js')) && !/\r/.test(rd('tools/nico/multiverso/montar.py')), faltan);
+  } catch (e) { t('ganchos y paquete', false, String(e && e.stack || e)); }
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`multiverso: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`multiverso: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -5178,6 +5404,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { trampasChecks(); } catch (e) { bad('no se pudo probar las trampas: ' + (e && e.stack || e)); }
   try { evoPartidaChecks(); } catch (e) { bad('no se pudo probar la evolución en partida: ' + (e && e.stack || e)); }
   try { devMenuChecks(); } catch (e) { bad('no se pudo probar el menú de pruebas: ' + (e && e.stack || e)); }
+  try { multiversoChecks(); } catch (e) { bad('no se pudo probar el Multiverso: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

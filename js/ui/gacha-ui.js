@@ -66,6 +66,7 @@ G.GachaUI = (() => {
        · Los tickets se consiguen jugando: algunos Pokémon los sueltan al caer, y
          los jefes y los legendarios de las grietas dan tickets ×10.</p>`;
     if (G.MODS && G.MODS.notasGacha) $('gacha-rates').innerHTML = G.MODS.notasGacha($('gacha-rates').innerHTML);   // MOD nico: % de shiny del ajuste
+    if (G.MULTIVERSO) G.MULTIVERSO.cartel(gen);   // MOD nico: cartel y probabilidades del banner «Multiverso» (js/data/multiverso.js)
 
     const t = s.tickets;
     $('cost-1').innerHTML = `${G.Icons.html('ticket', 18)} 1`;

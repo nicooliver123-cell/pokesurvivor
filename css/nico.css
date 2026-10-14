@@ -179,8 +179,9 @@ html.pantalla-dividida.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: c
     display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: 44px minmax(0, 1fr); column-gap: 8px; row-gap: 6px; }
   #scr-gacha > .box:not(#gacha-prob-capa) > .row.between { display: contents; }
   #scr-gacha > .box:not(#gacha-prob-capa) > .row.between > h2 { grid-column: 1; grid-row: 1; align-self: center; margin: 0; }
-  /* Pestañas de región: en la fila del título, sin barra de desplazamiento (el degradado, en el bloque de arriba). */
-  #scr-gacha #gacha-gens { grid-column: 2; grid-row: 1; margin: 0; padding: 0; align-items: stretch; scrollbar-width: none; }
+  /* Pestañas de región: en la fila del título, sin barra de desplazamiento (el degradado, en el bloque de arriba). Con 1 px a
+     cada lado: una pestaña de ancho fraccionario al final (la del Multiverso, con Dex) se recortaba menos de un píxel. */
+  #scr-gacha #gacha-gens { grid-column: 2; grid-row: 1; margin: 0; padding: 0 1px; align-items: stretch; scrollbar-width: none; }
   #scr-gacha #gacha-gens::-webkit-scrollbar { display: none; }
   #scr-gacha #gacha-gens .gen-tab { min-height: 44px; justify-content: center; padding: 2px 10px; }
   #gacha-prob { display: inline-flex; align-items: center; grid-column: 3; grid-row: 1; min-height: 44px; }
