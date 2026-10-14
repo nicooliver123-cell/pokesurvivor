@@ -1,5 +1,5 @@
 {
-  "name": "pokesurvivor-nico-pruebas",
+  "name": "pokeswarm-nico-pruebas",
   "version": "1.0.0",
   "private": true,
   "description": "Pruebas de PokéSwarm: comprobación del fork, E2E del cooperativo contra el emulador de Firebase y E2E de la identidad visual.",
