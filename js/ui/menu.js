@@ -205,6 +205,7 @@ G.MenuUI = (() => {
     box.querySelectorAll('.seg button').forEach(b => {
       b.onclick = () => { viewShiny = b.dataset.v === '1'; showDetail(dex); };
     });
+    if (G.Guarderia) G.Guarderia.marcarDex(dex);   // MOD nico: uno de la guardería no puede ser tu compañero (js/systems/guarderia.js)
     const pick = $('dex-pick');
     if (pick) pick.onclick = () => {
       s.partner = dex;

@@ -10,11 +10,13 @@
  * Mi criterio, no venía en el encargo:
  *   - no reparte en una run que G.Guard da por sospechosa (como los récords);
  *   - no cuenta «Repertorio» (empezar con 2 movimientos): no es una estadística y vale 1.500 Pokémonedas;
- *   - un Pokémon de la guardería puede seguir siendo tu compañero (la guardería sólo le suma niveles).
+ * Y (Nico, 14-10-2026) un Pokémon de la guardería no puede ser tu compañero: no se puede dejar al compañero, y en la
+ * Pokédex el de la guardería dice «Está en la guardería» en vez de «Elegir de compañero».
  *
  * Datos en la partida: save.guarderia = { mons: [dex…], resto: segundos }. Las mejoras van a save.pupg, como las
  * compradas, así que la fusión de partidas (DB.merge: el máximo de cada mejora) no pierde nada.
- * Ganchos de una línea: game.js (endRun, alAcabar), menu.js (renderUpgrades, pintar) y run-ui.js (showOver, enFin).
+ * Ganchos de una línea: game.js (endRun, alAcabar), menu.js (renderUpgrades, pintar; showDetail, marcarDex) y
+ * run-ui.js (showOver, enFin).
  */
 G.Guarderia = (() => {
   const M = () => G.MODS || {};
@@ -42,6 +44,7 @@ G.Guarderia = (() => {
     if (!activa()) return { ok: false, error: 'La guardería está cerrada' };
     if (!save.owned || !save.owned[dex]) return { ok: false, error: 'No tienes ese Pokémon' };
     if (g.mons.includes(dex)) return { ok: false, error: 'Ya está en la guardería' };
+    if (save.partner === dex) return { ok: false, error: 'Es tu compañero: elige otro antes' };
     if (g.mons.length >= plazas()) return { ok: false, error: 'La guardería está llena: saca a alguno antes' };
     if ((save.coins || 0) < precio()) return { ok: false, error: `Necesitas ${precio()} Pokémonedas` };
     save.coins -= precio();
@@ -94,6 +97,17 @@ G.Guarderia = (() => {
   }
 
   // ---------------- interfaz ----------------
+
+  /** Gancho de menu.js (showDetail, la ficha de la Pokédex): si `dex` está en la guardería, el botón «Elegir de
+   *  compañero» pasa a «Está en la guardería», desactivado (sin él, menu.js no lo puede elegir). */
+  function marcarDex(dex) {
+    const pick = document.getElementById('dex-pick');
+    if (!pick || !activa() || !G.DB.save || !esta(G.DB.save, dex)) return;
+    const b = document.createElement('button');
+    b.className = 'btn grow'; b.disabled = true; b.style.width = '100%';
+    b.textContent = 'Está en la guardería';
+    pick.replaceWith(b);
+  }
 
   const nombreMejora = id => (G.Upgrades.BY[id] || { name: id }).name;
   const texto = mejoras => Object.entries(mejoras).map(([id, n]) => `+${n} ${nombreMejora(id)}`).join(', ');
@@ -159,11 +173,11 @@ G.Guarderia = (() => {
         rehacer();
       };
     } else {
-      const llena = g.mons.length >= plazas(), pobre = (save.coins || 0) < precio();
+      const llena = g.mons.length >= plazas(), pobre = (save.coins || 0) < precio(), companero = save.partner === dex;
       btn.className = 'btn small gold';
       btn.dataset.sfx = 'none';
       btn.innerHTML = `Dejar a ${mon.name} · <span class="coin"></span> ${precio()}`;
-      btn.disabled = llena || pobre;
+      btn.disabled = llena || pobre || companero;
       if (llena) btn.title = 'La guardería está llena: saca a alguno antes';
       btn.onclick = () => {
         const r = meter(G.DB.save, dex);
@@ -176,8 +190,9 @@ G.Guarderia = (() => {
       };
     }
     pie.appendChild(btn);
-    if (!dentro && g.mons.length >= plazas()) pie.insertAdjacentHTML('beforeend', '<small>Está llena: saca a alguno antes.</small>');
+    if (!dentro && save.partner === dex) pie.insertAdjacentHTML('beforeend', '<small>Es tu compañero: no puede quedarse en la guardería.</small>');
+    else if (!dentro && g.mons.length >= plazas()) pie.insertAdjacentHTML('beforeend', '<small>Está llena: saca a alguno antes.</small>');
   }
 
-  return { estado, esta, meter, sacar, repartir, alAcabar, enFin, pintar, plazas, precio };
+  return { estado, esta, meter, sacar, repartir, alAcabar, enFin, pintar, marcarDex, plazas, precio };
 })();

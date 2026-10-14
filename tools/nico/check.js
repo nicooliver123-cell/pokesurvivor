@@ -4991,6 +4991,8 @@ function guarderiaChecks() {
     t('5 plazas: el sexto no entra y no se cobra', !lleno.ok && s.coins === 500 && GU.estado(s).mons.length === 5, { lleno, coins: s.coins });
     t('sacar es gratis y libera la plaza', GU.sacar(s, 5).ok && s.coins === 500 && GU.meter(s, 6).ok && s.coins === 0);
     t('sin monedas no entra', GU.sacar(s, 6).ok && !GU.meter(s, 6).ok && s.coins === 0);
+    const sp = partida(1000); sp.partner = 3;
+    t('tu compañero no puede entrar (y no se cobra)', !GU.meter(sp, 3).ok && sp.coins === 1000 && GU.meter(sp, 2).ok && sp.coins === 500);
     // Reparto: 250 s = 2 puntos y sobran 10 para la siguiente run; cada uno sube 2 niveles.
     const sumas = () => [1, 2, 3, 4].map(d => Object.values(s.pupg[d] || {}).reduce((a, b) => a + b, 0));
     const g1 = GU.repartir(s, 250);
@@ -5019,6 +5021,9 @@ function guarderiaChecks() {
   } catch (e) { t('lógica de la guardería', false, String(e && e.stack || e)); }
   try {
     const gancho = (f, re) => rd(f).split(/\r?\n/).some(l => re.test(l) && /MOD nico/.test(l));
+    const menu = rd('js/ui/menu.js');
+    t('uno de la guardería no se puede elegir de compañero: marcarDex en showDetail de menu.js, antes del botón de elegir',
+      gancho('js/ui/menu.js', /G\.Guarderia\.marcarDex\(dex\)/) && menu.indexOf('G.Guarderia.marcarDex(dex)') < menu.indexOf("const pick = $('dex-pick')"));
     t('ganchos de una línea: endRun de game.js, renderUpgrades de menu.js y showOver de run-ui.js',
       gancho('js/game.js', /G\.Guarderia\.alAcabar\(save, time, clean\)/) && gancho('js/ui/menu.js', /G\.Guarderia\.pintar\(upgDex, renderUpgrades\)/)
       && gancho('js/ui/run-ui.js', /G\.Guarderia\.enFin\(/));

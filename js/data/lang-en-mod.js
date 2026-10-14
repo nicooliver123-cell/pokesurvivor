@@ -175,5 +175,7 @@ G.I18n.add({
   'La guardería está llena: saca a alguno antes': 'The daycare is full: take one out first', 'Necesitas {x} Pokémonedas': 'You need {x} PokéCoins',
   'Ya está en la guardería': 'Already in the daycare', 'No está en la guardería': 'Not in the daycare', 'No tienes ese Pokémon': 'You don\'t have that Pokémon',
   'La guardería está cerrada': 'The daycare is closed', 'Aún no han subido de nivel.': 'No level-ups yet.',
+  'Está en la guardería': 'In the daycare', 'Es tu compañero: elige otro antes': 'It\'s your partner: pick another one first',
+  'Es tu compañero: no puede quedarse en la guardería.': 'It\'s your partner: it can\'t stay in the daycare.',
   'Siguiente entrenamiento en {x} de juego.': 'Next training after {x} of play.', 'Esta partida no cuenta para la guardería.': 'This run doesn\'t count for the daycare.'
 });
