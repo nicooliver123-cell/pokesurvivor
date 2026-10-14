@@ -136,7 +136,7 @@ G.Entorno = (() => {
         cA[i] = pared[o] * gv + pared[o + S] * fv; cL[i] = liq[o] * gv + liq[o + S] * fv; cR[i] = ruido[o] * gv + ruido[o + S] * fv;
       }
       for (let px = 0; px < W; px++) {
-        if (tipo[fila + TX[px]] !== 0) continue;                       // sólo el suelo
+        if (P.suelo ? !P.suelo(px, py) : tipo[fila + TX[px]] !== 0) continue;   // sólo el suelo (por píxel, si el pintor trae su máscara)
         const i = I0[px], fu = FU[px];
         const ao = cA[i] + (cA[i + 1] - cA[i]) * fu, lq = cL[i] + (cL[i + 1] - cL[i]) * fu;
         const k = (cR[i] + (cR[i + 1] - cR[i]) * fu - 0.5) * GAN;

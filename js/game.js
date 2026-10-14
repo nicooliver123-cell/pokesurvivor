@@ -682,6 +682,7 @@ G.Game = (() => {
 
     function init() {
       G.World.reset(4242);
+      if (G.Mapas && G.Mapas.activo) G.World.reset(G.Mapas.SEMILLA_MENU);   // MOD nico: el fondo de los menús, con una semilla buena para los mapas propios (js/world/mapas.js)
       G.World.setBiome(0, true);
       G.Camera.x = 0; G.Camera.y = 0;
       wanderers = CAST.map(dex => spawn(dex, true));
@@ -755,6 +756,7 @@ G.Game = (() => {
     /** Al volver de una run, recupera el mundo del menú. */
     function restore() {
       G.World.reset(4242);
+      if (G.Mapas && G.Mapas.activo) G.World.reset(G.Mapas.SEMILLA_MENU);   // MOD nico: el fondo de los menús, con una semilla buena para los mapas propios (js/world/mapas.js)
       G.World.setBiome(bi, true);
       G.FX.clear(); G.Projectiles.clear(); G.Combat.clearFields(); G.EnemyMgr.clear(); G.Pickups.clear();
       wanderers = CAST.map(dex => spawn(dex, true));
