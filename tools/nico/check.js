@@ -5025,8 +5025,15 @@ function guarderiaChecks() {
     const menu = rd('js/ui/menu.js');
     t('uno de la guardería no se puede elegir de compañero: marcarDex en showDetail de menu.js, antes del botón de elegir',
       gancho('js/ui/menu.js', /G\.Guarderia\.marcarDex\(dex\)/) && menu.indexOf('G.Guarderia.marcarDex(dex)') < menu.indexOf("const pick = $('dex-pick')"));
-    t('ganchos de una línea: endRun de game.js, renderUpgrades de menu.js y showOver de run-ui.js',
-      gancho('js/game.js', /G\.Guarderia\.alAcabar\(save, time, clean\)/) && gancho('js/ui/menu.js', /G\.Guarderia\.pintar\(upgDex, renderUpgrades\)/)
+    const html = rd('dev.html');
+    t('su pantalla: el botón «Guardería» del menú justo tras «Mejoras», #scr-guarderia en dev.html y en la lista de pantallas de ui.js',
+      /data-go="upgrades"[^\n]*\r?\n\s*<button class="menu-item" data-go="guarderia">Guardería/.test(html) && /<section id="scr-guarderia" class="scr dim hidden">/.test(html)
+      && /id="gd-mon"/.test(html) && /id="gd-panel"/.test(html) && gancho('js/ui/ui.js', /SCREENS\.push\('scr-guarderia'\)/)
+      && gancho('js/ui/menu.js', /ICON\.guarderia = 'luckyegg'/) && gancho('js/ui/menu.js', /go === 'guarderia'.*G\.Guarderia\.abrir\(\)/)
+      && !/G\.Guarderia\.pintar/.test(rd('js/ui/menu.js')));
+    t('Mejoras se abre siempre con tu compañero elegido', gancho('js/ui/menu.js', /if \(s\.partner && s\.owned\[s\.partner\]\) upgDex = s\.partner;/));
+    t('ganchos de una línea: endRun de game.js y showOver de run-ui.js',
+      gancho('js/game.js', /G\.Guarderia\.alAcabar\(save, time, clean\)/)
       && gancho('js/ui/run-ui.js', /G\.Guarderia\.enFin\(/));
     t('dev.html carga guarderia.js y el paquete lo lleva', /src="js\/systems\/guarderia\.js"/.test(rd('dev.html')) && /Guarderia/.test(rd('js/app.min.js')));
     t('inglés de la guardería en lang-en-mod.js', /'Guardería': 'Daycare'/.test(rd('js/data/lang-en-mod.js')));

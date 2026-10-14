@@ -15,8 +15,10 @@
  *
  * Datos en la partida: save.guarderia = { mons: [dex…], resto: segundos }. Las mejoras van a save.pupg, como las
  * compradas, así que la fusión de partidas (DB.merge: el máximo de cada mejora) no pierde nada.
- * Ganchos de una línea: game.js (endRun, alAcabar), menu.js (renderUpgrades, pintar; showDetail, marcarDex) y
- * run-ui.js (showOver, enFin).
+ * Tiene su pantalla (#scr-guarderia de dev.html), con su botón en el menú principal tras «Mejoras» (Nico, 14-10-2026;
+ * antes era un panel dentro de Mejoras): eliges un Pokémon y lo dejas o lo sacas.
+ * Ganchos de una línea: game.js (endRun, alAcabar), menu.js (init: el icono y abrir; showDetail, marcarDex),
+ * run-ui.js (showOver, enFin) y ui.js (la pantalla en la lista de G.UI).
  */
 G.Guarderia = (() => {
   const M = () => G.MODS || {};
@@ -124,23 +126,46 @@ G.Guarderia = (() => {
       ${lineas || '<div>Aún no han subido de nivel.</div>'}<div class="nota">${pie}</div></div>`);
   }
 
-  /** Gancho de menu.js (renderUpgrades): el panel de la guardería en Mejoras. `dex`, el Pokémon elegido;
-   *  `rehacer`, para volver a pintar la pantalla. */
-  function pintar(dex, rehacer) {
-    const lista = document.getElementById('upg-list');
-    if (!lista) return;
-    let panel = document.getElementById('guarderia');
-    if (!activa()) { if (panel) panel.remove(); return; }
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = 'guarderia';
-      panel.className = 'panel guarderia';
-      lista.parentNode.insertBefore(panel, lista);
+  // ---------------- la pantalla (Guardería, en el menú principal) ----------------
+
+  let elegido = null;   // el Pokémon elegido en la pantalla
+
+  /** Gancho de menu.js (init, el botón «Guardería» del menú principal): abre la pantalla. */
+  function abrir() {
+    if (!activa() || !document.getElementById('scr-guarderia')) return;
+    G.UI.show('scr-guarderia', true);
+    const s = G.DB.save, g = estado(s);
+    if (!elegido || !s.owned[elegido]) elegido = g.mons[0] || Object.keys(s.owned).map(Number).find(d => d !== s.partner && G.DEX_BY[d]) || s.partner;
+    const sel = document.getElementById('gd-mon');
+    // Primero los de la guardería; luego el resto por número (el compañero, marcado).
+    const mons = Object.keys(s.owned).map(Number).filter(d => G.DEX_BY[d])
+      .sort((a, b) => g.mons.includes(b) - g.mons.includes(a) || a - b);
+    sel.innerHTML = mons.map(d => `<option value="${d}">${G.DEX_BY[d].name}${g.mons.includes(d) ? ' · en la guardería' : d === s.partner ? ' (compañero)' : ''}</option>`).join('');
+    sel.value = elegido;
+    sel.onchange = () => { elegido = +sel.value; G.Audio.sfx('select'); pantalla(); };
+    pantalla();
+  }
+
+  function pantalla() {
+    const s = G.DB.save;
+    const shiny = elegido === s.partner && !!s.partnerShiny && G.DB.ownsShiny(elegido);
+    const stage = document.getElementById('gd-stage');
+    if (stage) {
+      G.UI.sprite(stage, elegido, { lively: true, scale: 2, hero: true, shiny });
+      stage.style.setProperty('--stage-c', shiny ? '#9ae6ff' : G.U.TYPE_COLOR[G.DEX_BY[elegido].types[0]]);
     }
+    pintar(elegido, abrir);
+  }
+
+  /** El panel: las plazas y el botón de dejar o sacar a `dex`; `rehacer` vuelve a pintar la pantalla. */
+  function pintar(dex, rehacer) {
+    const panel = document.getElementById('gd-panel');
+    if (!panel || !G.DEX_BY[dex]) return;
+    panel.className = 'panel guarderia';
     const save = G.DB.save, g = estado(save), dentro = g.mons.includes(dex);
     const mon = G.DEX_BY[dex];
     panel.innerHTML = `<div class="row between guarderia-cab">
-        <b>Guardería <small>${g.mons.length} / ${plazas()}</small></b>
+        <b>Plazas <small>${g.mons.length} / ${plazas()}</small></b>
         <small>Cada ${Math.round(segPunto() / 60)} min de run, sube 1 nivel una mejora al azar de cada Pokémon que esté aquí.</small>
       </div>
       <div class="guarderia-plazas"></div>
@@ -155,7 +180,9 @@ G.Guarderia = (() => {
         h.insertAdjacentHTML('beforeend', `<small>${G.DEX_BY[d].name}</small>`);
         h.title = G.DEX_BY[d].name;
         h.tabIndex = 0;
-        h.onclick = () => { const sel = document.getElementById('upg-mon'); if (sel && sel.value !== String(d)) { sel.value = d; sel.onchange && sel.onchange(); } };
+        h.setAttribute('role', 'button');
+        h.onclick = () => { const sel = document.getElementById('gd-mon'); if (sel && sel.value !== String(d)) { sel.value = d; sel.onchange && sel.onchange(); } };
+        h.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); h.click(); } };
       } else h.innerHTML = '<small>Libre</small>';
       huecos.appendChild(h);
     }
@@ -194,5 +221,5 @@ G.Guarderia = (() => {
     else if (!dentro && g.mons.length >= plazas()) pie.insertAdjacentHTML('beforeend', '<small>Está llena: saca a alguno antes.</small>');
   }
 
-  return { estado, esta, meter, sacar, repartir, alAcabar, enFin, pintar, marcarDex, plazas, precio };
+  return { estado, esta, meter, sacar, repartir, alAcabar, enFin, abrir, pintar, marcarDex, plazas, precio };
 })();

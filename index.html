@@ -144,6 +144,7 @@
         <button class="menu-item play" data-go="play">Jugar<small>Entra en la mazmorra</small></button>
         <button class="menu-item" data-go="dex">Pokémon<small id="menu-dex-count">Tu colección</small></button>
         <button class="menu-item" data-go="upgrades">Mejoras<small>Haz más fuerte cada run</small></button>
+        <button class="menu-item" data-go="guarderia">Guardería<small>Entrenan mientras juegas</small></button><!-- MOD nico: js/systems/guarderia.js -->
         <button class="menu-item" data-go="gacha">Gacha<small>9 regiones · Pokémon y shinies</small></button>
         <button class="menu-item" data-go="goals">Misiones<small id="menu-goals-sub">Misiones, logros y perfil</small></button>
         <button class="menu-item" data-go="friends">Amigos<small id="menu-friends-sub">Juega en grupo, hasta 4</small></button>
@@ -373,6 +374,24 @@
 </section>
 
 <!-- ====== Mejoras ====== -->
+<!-- MOD nico: la guardería (js/systems/guarderia.js) -->
+<section id="scr-guarderia" class="scr dim hidden">
+  <div class="box wide">
+    <div class="row between"><h2>Guardería</h2><button class="btn small ghost" data-back>Volver</button></div>
+    <div class="upg-head">
+      <canvas id="gd-stage" class="stage" width="120" height="96"></canvas>
+      <div class="grow">
+        <p class="sub" style="margin:0">Deja aquí a los Pokémon que no usas: entrenan mientras juegas con tu compañero.</p>
+        <div class="row" style="margin-top:8px">
+          <label for="gd-mon" style="margin:0">Pokémon</label>
+          <select id="gd-mon" class="field" style="width:auto;min-width:220px"></select>
+        </div>
+      </div>
+    </div>
+    <div id="gd-panel"></div>
+  </div>
+</section>
+
 <section id="scr-upgrades" class="scr dim hidden">
   <div class="box wide">
     <div class="row between"><h2>Mejoras</h2><button class="btn small ghost" data-back>Volver</button></div>
@@ -475,6 +494,6 @@
 </section>
 
 <!-- datos generados -->
-<script defer src="js/app.min.js?v=b88e80f627"></script>
+<script defer src="js/app.min.js?v=a796dd4cfb"></script>
 </body>
 </html>

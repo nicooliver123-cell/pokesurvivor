@@ -284,8 +284,10 @@ html.pantalla-dividida.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: c
   .ec-pie { margin: 0 0 6px; flex-wrap: nowrap; }
 }
 
-/* Guardería (js/systems/guarderia.js), en la pantalla Mejoras: cinco plazas en fila (en un móvil, se reparten el
-   ancho) y el botón de dejar o sacar al Pokémon elegido. Y su fila en el fin de partida. */
+/* Guardería (js/systems/guarderia.js), su pantalla (#scr-guarderia, desde el menú principal): cinco plazas en fila (en
+   un móvil, se reparten el ancho) y el botón de dejar o sacar al Pokémon elegido. Y su fila en el fin de partida.
+   Empieza bajo la barra superior, como las demás pantallas que la dejan a la vista (css/style.css). */
+@media (min-height: 521px) { #scr-guarderia { padding-top: 66px; } }
 .guarderia { margin: 0 0 10px; padding: 10px 12px; }
 .guarderia-cab { gap: 10px; flex-wrap: wrap; align-items: baseline; }
 .guarderia-cab small { color: var(--muted); font-size: 12px; }

@@ -6,6 +6,7 @@ G.MenuUI = (() => {
 
   function init() {
     const ICON = { play: 'ball', dex: 'book', upgrades: 'up', gacha: 'ball4', goals: 'medal3', friends: 'friends', rank: 'trophy', settings: 'gear' };
+    ICON.guarderia = 'luckyegg';   // MOD nico: el botón «Guardería» (js/systems/guarderia.js)
     document.querySelectorAll('#scr-menu [data-go]').forEach(b => {
       b.insertAdjacentHTML('afterbegin', `<span class="mi-ico">${G.Icons.html(ICON[b.dataset.go], 26)}</span>`);
       b.dataset.sfx = b.dataset.go === 'play' ? 'confirm' : 'click';
@@ -14,6 +15,7 @@ G.MenuUI = (() => {
         if (go === 'play') { if (G.Social.room) G.LobbyUI.open(); else G.Flow.play(); }
         else if (go === 'dex') openDex();
         else if (go === 'upgrades') openUpgrades();
+        else if (go === 'guarderia') { if (G.Guarderia) G.Guarderia.abrir(); }   // MOD nico: la guardería (js/systems/guarderia.js)
         else if (go === 'gacha') G.GachaUI.open();
         else if (go === 'goals') G.GoalsUI.open();
         else if (go === 'friends') G.FriendsUI.open();
@@ -224,6 +226,7 @@ G.MenuUI = (() => {
     G.UI.show('scr-upgrades', true);
     const s = G.DB.save;
     if (!upgDex || !s.owned[upgDex]) upgDex = s.partner;
+    if (s.partner && s.owned[s.partner]) upgDex = s.partner;   // MOD nico: Mejoras se abre siempre con tu compañero elegido (petición de Nico, 14-10-2026)
     // Selector con tus Pokémon: el compañero primero, luego los que ya tienen mejoras.
     const sel = $('upg-mon');
     const lv = d => Object.values(s.pupg[d] || {}).reduce((a, b) => a + b, 0);
@@ -274,7 +277,6 @@ G.MenuUI = (() => {
       };
       box.appendChild(el);
     }
-    if (G.Guarderia) G.Guarderia.pintar(upgDex, renderUpgrades);   // MOD nico: la guardería (js/systems/guarderia.js)
   }
 
   return { init, open, GEN_NAMES };

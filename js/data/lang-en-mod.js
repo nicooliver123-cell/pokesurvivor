@@ -168,7 +168,9 @@ G.I18n.add({
   'PokéSwarm es un proyecto personal de Nico, inspirado en': 'PokéSwarm is a personal project by Nico, inspired by',
   ', el juego de fans de': ', the fan game by', ', y desarrollado a partir de su código (licencia MIT).': ', and built from its code (MIT license).',
   // La guardería (js/systems/guarderia.js): su panel en Mejoras, los avisos y su fila en el fin de partida.
-  'Guardería': 'Daycare',
+  'Guardería': 'Daycare', 'Entrenan mientras juegas': 'They train while you play',
+  'Deja aquí a los Pokémon que no usas: entrenan mientras juegas con tu compañero.': 'Leave the Pokémon you don\'t use here: they train while you play with your partner.',
+  '{x} · en la guardería': '{x} · in the daycare', 'Plazas': 'Slots',
   'Cada {x} min de run, sube 1 nivel una mejora al azar de cada Pokémon que esté aquí.': 'Every {x} min of play, each Pokémon here gains 1 level in a random upgrade.',
   'Sacar a {x}': 'Take {x} out', 'Dejar a {x} ·': 'Leave {x} ·', 'Está llena: saca a alguno antes.': 'It\'s full: take one out first.',
   '{x} entra en la guardería': '{x} enters the daycare', '{x} sale de la guardería': '{x} leaves the daycare',

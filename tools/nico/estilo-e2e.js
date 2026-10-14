@@ -12,7 +12,7 @@
  *      exige: nada de desplazamiento horizontal (página, pantalla y caja), la caja dentro de la ventana, el
  *      menú principal oculto detrás de cualquier .scr.dim y la línea de créditos sin pisar la caja. Con Dex, que la piel está puesta en cada una
  *      (borde de la caja y letra y fondo de los botones: si upstream renombra .box o .btn, falla); con
- *      Clásico, que no. Y el menú principal: las 8 opciones a la vista sin desplazar, el logotipo libre de la
+ *      Clásico, que no. Y el menú principal: las 9 opciones a la vista sin desplazar, el logotipo libre de la
  *      barra superior y la línea de créditos sin pisar ninguna caja.
  *   2. Gacha en pantallas bajas y en los plegables: en los 9 banners, cada lienzo destacado dentro del
  *      banner y de la ventana, a su tamaño (alto CSS = alto del lienzo), y los tres botones de tirar a la
@@ -250,6 +250,7 @@ const PANTALLAS = [
     favs: [{ dex: 255 }, { dex: 25, shiny: true }, { dex: 150 }], medals: Object.keys(G.AchDefs.BY).slice(0, 6) });`, 'document.getElementById("prof-close").click();'],
   ['scr-dex', 'G.MenuUI.open(); document.querySelector("#scr-menu [data-go=dex]").click();'],
   ['scr-upgrades', 'G.MenuUI.open(); document.querySelector("#scr-menu [data-go=upgrades]").click();'],
+  ['scr-guarderia', 'G.MenuUI.open(); document.querySelector("#scr-menu [data-go=guarderia]").click();'],   // la guardería (MOD nico)
   ['scr-gacha', 'G.MenuUI.open(); G.GachaUI.open();'],
   // En partida (la run real; las pantallas se abren con sus funciones de run-ui.js).
   ['scr-levelup', `if (G.Game.state === 'ui') G.Flow.play(); G.RunUI.showLevelUp(7, G.LevelUp.offer(G.Game.player), () => {});`],
@@ -339,7 +340,7 @@ async function recorrerPantallas(P) {
   return { malas, piel, acerca };
 }
 
-/** Menú principal: las 8 opciones a la vista sin desplazar nada (ni la pantalla ni una caja), el logotipo libre
+/** Menú principal: las 9 opciones a la vista sin desplazar nada (ni la pantalla ni una caja), el logotipo libre
  *  de la barra superior y la línea de créditos sin pisar ninguna caja (lo que se ve de ella: el menú acaba por encima
  *  de la línea y, si no cabe, se desplaza por encima de ella). sobra: lo que habría que desplazar para verlo todo. */
 const MEDIR_MENU = () => {
@@ -1044,8 +1045,8 @@ async function pruebaArreglos(browser) {
       await sleep(300);
       const m = await page.evaluate(MEDIR_MENU);
       report.medidas[`menu-barra-${e}-${nv}`] = m;
-      check(`${nv} ${e} (plegable con la barra del navegador): menú principal con las 8 opciones a la vista, entero sin desplazar (${m.sobra} px de más) y la línea de créditos sin pisar ninguna caja`,
-        m.opciones === 8 && !m.mal.length && m.sobra <= 1 && !m.logoTapado && !m.creditosPisan, m);
+      check(`${nv} ${e} (plegable con la barra del navegador): menú principal con las 9 opciones a la vista, entero sin desplazar (${m.sobra} px de más) y la línea de créditos sin pisar ninguna caja`,
+        m.opciones === 9 && !m.mal.length && m.sobra <= 1 && !m.logoTapado && !m.creditosPisan, m);
       if (clave === 'v680' || clave === 'g680') await captura(page, `menu-barra-${e}-${nv}`);
       // Los submenús que llegan abajo (gacha, colección, mejoras, misiones y Ajustes): la línea de créditos, que sólo va con
       // el menú principal, no se monta en el pie de su caja (la verificación de PokéSwarm la vio sobre «Probabilidades»).
@@ -2554,8 +2555,8 @@ function hojaDeContactos() {
         await page.evaluate(() => { G.MenuUI.open(); document.getElementById('scr-menu').scrollTop = 0; for (const x of document.querySelectorAll('.ach-pop, .toast')) x.classList.add('hidden'); });
         await sleep(250);
         const m = await page.evaluate(MEDIR_MENU);
-        check(`${nv} ${e}: menú principal con las 8 opciones a la vista sin desplazar, el logotipo libre de la barra superior y los créditos sin pisar ninguna caja`,
-          m.opciones === 8 && !m.mal.length && !m.desplazada && !m.logoTapado && !m.creditosPisan, m);
+        check(`${nv} ${e}: menú principal con las 9 opciones a la vista sin desplazar, el logotipo libre de la barra superior y los créditos sin pisar ninguna caja`,
+          m.opciones === 9 && !m.mal.length && !m.desplazada && !m.logoTapado && !m.creditosPisan, m);
       }
 
       // 4. Fin de partida: «Volver al menú» a la vista y cada panel, entero en algún momento.
