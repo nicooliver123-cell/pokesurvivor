@@ -9,7 +9,7 @@
  * después las mismas luces suman un brillo flojo encima. Al ser un píxel de arte por píxel, con el píxel nítido cada
  * uno mide un número entero de píxeles físicos, como los sprites; con la pantalla dividida el lienzo del juego ya es
  * sólo su mitad (la cámara también). «Menos sacudidas y destellos» o prefers-reduced-motion: sin parpadeo ni pulso y el
- * brillo a la mitad. Sólo con Calidad Media o Alta (G.Settings.fx ≥ 1). Sólo dibuja: nada viaja por la red.
+ * brillo a la mitad. Sólo con Calidad Alta (G.Settings.fx = 2; ver activo()). Sólo dibuja: nada viaja por la red.
  */
 G.Luz = (() => {
   const PX = G.Sprites.PX, TS = G.Tiles.T * PX, N = 16, CW = N * TS;
@@ -28,10 +28,13 @@ G.Luz = (() => {
     try { if (!mq && typeof matchMedia === 'function') mq = matchMedia('(prefers-reduced-motion: reduce)'); } catch (e) { mq = null; }
     return !!(mq && mq.matches);
   }
+  /** Sólo con Calidad Alta (como los halos del jefe y de tus disparos): con la GPU no se nota (medido en Chromium a
+   *  1440x900: 16,7 ms por fotograma con y sin luz), pero sin ella (Chromium sin aceleración) sube el fotograma de 20,5 a
+   *  27 ms, y así la Calidad automática baja a Media, sin luz, y ahí se queda. */
   function activo() {
     if (!G.MODS || !G.MODS.luz) return false;
     const fx = G.Settings && typeof G.Settings.fx === 'number' ? G.Settings.fx : 2;
-    return fx >= 1;
+    return fx >= 2;
   }
   function ambiente() {
     const k = Math.max(0.3, Math.min(1, +(G.MODS && G.MODS.luzAmbiente) || 0.88)), bi = G.World.biome;
@@ -77,7 +80,7 @@ G.Luz = (() => {
     return l;
   }
 
-  /** Las luces de este fotograma: { x, y, r (px de mundo), col, a }. */
+  /** Las luces de este fotograma: { x, y, r (px de mundo), col, a, solo (sólo en el búfer, sin brillo encima) }. */
   function luces(cam, t, red) {
     const out = [];
     // 1. Tus ataques de fuego y eléctricos (disparos y orbes; los enemigos no alumbran: ya llevan su aro rojo).
@@ -102,7 +105,7 @@ G.Luz = (() => {
           const x = l[i], y = l[i + 1];
           if (!cam.sees(x, y, TS)) continue;
           const ph = G.U.hash(Math.floor(x / TS), Math.floor(y / TS), 77) * 6.28;
-          out.push({ x, y, r: 46, col, a: 0.42 + (red ? 0 : Math.sin(t * 1.8 + ph) * 0.06) });
+          out.push({ x, y, r: 46, col, a: 0.42 + (red ? 0 : Math.sin(t * 1.8 + ph) * 0.06), solo: true });   // sin brillo encima: son muchas
         }
       }
     }
@@ -166,6 +169,7 @@ G.Luz = (() => {
     ctx.globalCompositeOperation = 'lighter';
     const k = BRILLO * (red ? 0.5 : 1);
     for (const l of L) {
+      if (l.solo) continue;
       const r = Math.max(2, Math.round(l.r / PX)), d = disco(l.col, r);
       ctx.globalAlpha = Math.max(0, Math.min(1, l.a * k));
       ctx.drawImage(d, (Math.round(l.x / PX) - r) * PX, (Math.round(l.y / PX) - r) * PX, d.width * PX, d.height * PX);

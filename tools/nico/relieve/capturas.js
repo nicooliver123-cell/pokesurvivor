@@ -2,7 +2,8 @@
  *   cd tools/nico && node relieve/capturas.js [--puerto 8097] [--semilla 1234] [--headed]
  * PROTOTIPO de la 2.5D falsa (PLAN.md, punto 10): para que Nico decida. Entra de invitado en dev.html (modo local, sin
  * nube, como estilo-e2e.js), monta dos escenas quietas y saca cada una sin y con el relieve y la luz (G.MODS.relieveAltura
- * y G.MODS.luz, cambiados en caliente), en Dex y en Clásico a 1440x900 y en Dex en un móvil (844x390 a dpr 3):
+ * y G.MODS.luz, cambiados en caliente), con Calidad Alta, en Dex y en Clásico a 1440x900 y en Dex en un móvil (844x390 a
+ * dpr 3):
  *   cresta   Vega del Alba: una cresta de pared con tu Pokémon justo al norte (detrás), un Pokémon salvaje delante y
  *            otro detrás, y tres bolas de fuego tuyas quietas al lado (luz de los ataques).
  *   acido    Vega Sulfúrea: un río de ácido, tres disparos eléctricos tuyos y un aviso de zona de un enemigo encima (que
@@ -40,7 +41,8 @@ async function entrar(page) {
     await page.click('#ec-ok');
   }
   await page.locator('#scr-menu').waitFor({ state: 'visible', timeout: 15000 });
-  await page.evaluate(() => G.Flow.play());
+  // Calidad Alta en las dos (la luz sólo va con Alta; en un móvil, la automática se queda en Media).
+  await page.evaluate(() => { G.Settings.set('quality', 'high'); G.Flow.play(); });
   await page.waitForFunction(() => G.Game.state === 'playing' && G.Game.player, null, { timeout: 15000 });
   await sleep(1500);
 }

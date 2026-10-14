@@ -172,7 +172,8 @@ G.MODS = {
    * arte, con la luz ambiente del bioma (`luzAmbiente`, 0-1: lo que deja cada canal lejos de una luz) y
    * las luces de tus ataques de fuego y eléctricos, del ácido y la lava y de los orbes de los tótems,
    * multiplicado sobre la escena antes de los disparos y los efectos: nunca oscurece un disparo enemigo
-   * ni un aviso del suelo (sus zonas se quedan a 1). Sólo con Calidad Media o Alta. false = sin luz. */
+   * ni un aviso del suelo (sus zonas se quedan a 1). Sólo con Calidad Alta (en un móvil, la automática
+   * se queda en Media: hay que elegir Alta en Ajustes > Gráficos). false = sin luz. */
   luz: true,
   luzAmbiente: 0.88,
 

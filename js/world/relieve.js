@@ -16,10 +16,10 @@
 G.Relieve = (() => {
   const PX = G.Sprites.PX, T = G.Tiles.T, N = 16, TS = T * PX, CW = N * TS;
   const MAX = 64;                          // lienzos guardados (por bioma y chunk)
-  const POR_FOTOGRAMA = 2;                 // lienzos nuevos por fotograma como mucho (los demás, al siguiente)
   let firma = '';
   const geo = new Map();                   // "cx,cy" -> tramos del chunk (el terreno no depende del bioma)
   const lienzos = new Map();               // "bi|cx,cy" -> lienzo del relieve de ese bioma (o null si no hay pared)
+  const ultimo = new Map();                // "cx,cy" -> el último lienzo hecho de ese chunk, de cualquier bioma
   let biAhora = 0, fundido = null;         // el bioma y el fundido de este fotograma (los usa draw de cada tramo)
 
   /** La altura en px de arte (0 = sin relieve: sin el ajuste, sin los mapas propios o sin el pintor). */
@@ -40,6 +40,8 @@ G.Relieve = (() => {
     if (!geo.has(k)) geo.set(k, r.tramos.map(t => tramo(t, cx, cy, H)));
     if (lienzos.size >= MAX) lienzos.delete(lienzos.keys().next().value);
     lienzos.set(bi + '|' + k, r.cv);
+    if (r.cv) ultimo.set(k, r.cv);
+    if (ultimo.size > MAX) ultimo.delete(ultimo.keys().next().value);
     return r.cv;
   }
   function lienzo(bi, cx, cy) { return lienzos.get(bi + '|' + cx + ',' + cy); }
@@ -52,7 +54,8 @@ G.Relieve = (() => {
       relieve: true,
       caja: [x, y, x + w, y + h],
       draw(ctx) {
-        const cv = lienzo(biAhora, cx, cy);
+        // Si el de este bioma aún no está hecho (como mucho un fotograma o dos), el de otro: la forma es la misma.
+        const cv = lienzo(biAhora, cx, cy) || ultimo.get(cx + ',' + cy);
         if (!cv) return;
         // +1 de solape (como los chunks del suelo): con escalas no enteras, sin juntas entre tramos y filas.
         if (fundido && fundido.k < 1) {
@@ -88,20 +91,31 @@ G.Relieve = (() => {
     const H = altura();
     if (!H || !G.World) return;
     const f = firmaMundo(H);
-    if (f !== firma) { firma = f; geo.clear(); lienzos.clear(); }
+    if (f !== firma) { firma = f; geo.clear(); lienzos.clear(); ultimo.clear(); }
     biAhora = G.World.biome;
     fundido = typeof G.World.fundido === 'function' ? G.World.fundido() : null;
     const L = cam.left(), Tp = cam.top(), R = L + cam.w, B = Tp + cam.h;
-    let nuevos = POR_FOTOGRAMA;
+    // Lienzos nuevos: como mucho uno por fotograma, salvo el de un chunk que aún no tiene ninguno (sin él, sus paredes
+    // salen planas; entonces hasta dos). Con lo que sobra, el del bioma del fundido y, desde G.Horno.siguiente() (3 s
+    // antes de cada cambio de bioma; en el fondo de los menús, siempre), el del bioma que viene: al cambiar, ninguno.
+    let nuevos = 1, extra = 1;
+    const sig = G.Horno && typeof G.Horno.siguiente === 'function' ? G.Horno.siguiente() : null;
     // El techo de una fila sube H: la fila de chunks de debajo de la vista también puede asomar.
     const x0 = Math.floor(L / CW), x1 = Math.floor(R / CW), y0 = Math.floor(Tp / CW), y1 = Math.floor((B + H * PX) / CW);
     for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) {
       const k = cx + ',' + cy;
-      if (lienzo(biAhora, cx, cy) === undefined) { if (nuevos-- <= 0) continue; hornear(cx, cy, biAhora, H); }
-      if (fundido && fundido.k < 1 && lienzo(fundido.from, cx, cy) === undefined && nuevos-- > 0) hornear(cx, cy, fundido.from, H);
+      if (lienzo(biAhora, cx, cy) === undefined) {
+        if (nuevos > 0) { nuevos--; hornear(cx, cy, biAhora, H); } else if (!geo.has(k) && extra > 0) { extra--; hornear(cx, cy, biAhora, H); }
+      }
       for (const it of geo.get(k) || []) {
         const c = it.ent.caja;
         if (c[2] > L && c[0] < R && c[3] > Tp && c[1] < B) items.push(it);
+      }
+    }
+    for (const b of [fundido && fundido.k < 1 ? fundido.from : null, sig]) {
+      if (b == null || b === biAhora || nuevos <= 0) continue;
+      for (let cy = y0; cy <= y1 && nuevos > 0; cy++) for (let cx = x0; cx <= x1 && nuevos > 0; cx++) {
+        if (lienzo(b, cx, cy) === undefined) { nuevos--; hornear(cx, cy, b, H); }
       }
     }
     for (const it of items) {
