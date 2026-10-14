@@ -160,6 +160,22 @@ G.MODS = {
    * grupo los dos tienen que llevar la misma versión. Se lee al cargar. false = los del proyecto base. */
   mapasPropios: true,
 
+  /* Relieve, 2.5D falsa sobre los mapas propios (PLAN.md, punto 10; PROTOTIPO pendiente de que Nico lo
+   * apruebe): las paredes y crestas se levantan `relieveAltura` píxeles de arte (8 = la cara pasa de 8 a
+   * 16, la altura de una casilla) y se pintan como un objeto más, ordenado por Y con los Pokémon y los
+   * árboles (js/world/relieve.js, G.Relieve): lo que está al norte de una cresta queda detrás y, si tapa
+   * a tu Pokémon, G.Claridad lo repinta como con un árbol. La colisión, la cámara y la red no cambian.
+   * Sólo con mapasPropios. 0 = paredes planas, como hasta ahora. */
+  relieveAltura: 8,
+
+  /* Búfer de luz (PROTOTIPO, como el relieve; js/world/luz.js, G.Luz): un lienzo a resolución de píxel de
+   * arte, con la luz ambiente del bioma (`luzAmbiente`, 0-1: lo que deja cada canal lejos de una luz) y
+   * las luces de tus ataques de fuego y eléctricos, del ácido y la lava y de los orbes de los tótems,
+   * multiplicado sobre la escena antes de los disparos y los efectos: nunca oscurece un disparo enemigo
+   * ni un aviso del suelo (sus zonas se quedan a 1). Sólo con Calidad Media o Alta. false = sin luz. */
+  luz: true,
+  luzAmbiente: 0.88,
+
   /* Arreglo de un fallo de upstream (desde «Arenas de grieta por tipo», 3f85b87): a partir del
    * minuto 12 el mapa normal se volvía una arena de la grieta («Grieta · …», con su líquido y su
    * daño; y en el 84 se rompía). true = el mapa rota entre sus 3 biomas normales cada 4 min.

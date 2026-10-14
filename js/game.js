@@ -612,6 +612,7 @@ G.Game = (() => {
     const rift = G.Rift.drawable();
     if (rift) items.push({ y: rift.y, ent: rift });
     if (pl && state !== 'ui') for (const d of G.Events.drawables()) items.push({ y: d.y, ent: d });
+    if (G.Relieve) G.Relieve.escena(items, cam);   // MOD nico: paredes con altura, ordenadas por Y como un objeto más (js/world/relieve.js)
     items.sort((a, b) => a.y - b.y);
     if (G.Claridad) G.Claridad.escenaOrdenada(items);   // MOD nico: para saber qué tapa a cada jugador (js/entities/claridad.js)
     for (const it of items) {
@@ -630,6 +631,7 @@ G.Game = (() => {
     G.Camera.apply(ctx);
     drawScene(G.Camera, G.Coop.active ? [pl, ...G.Coop.puppets()] : [pl]);
     if (G.Claridad) G.Claridad.encima(ctx);   // MOD nico: tu Pokémon, encima de lo que lo tapa (js/entities/claridad.js)
+    if (G.Luz) G.Luz.pintar(ctx, G.Camera);   // MOD nico: búfer de luz, antes de los disparos y los efectos (js/world/luz.js)
     G.Projectiles.draw(ctx);
     G.Combat.drawAirFields(ctx);
     G.FX.draw(ctx);

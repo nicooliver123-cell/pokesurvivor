@@ -849,7 +849,78 @@
     return Px.canvas();
   }
 
+  // ===================================================================
+  // Relieve (2.5D falsa, js/world/relieve.js): las paredes, levantadas
+  // ===================================================================
+  const PIE = [1, 0.8, 0.87, 0.93];         // lo que deja cada una de las 3 filas de la cara justo encima de la de abajo
+  /** Un color empaquetado ×k (sin tocar el alfa). */
+  function oscuro(p, k) {
+    const r = Math.round((p & 255) * k), g = Math.round(((p >>> 8) & 255) * k), b = Math.round(((p >>> 16) & 255) * k);
+    return ((p & 0xff000000) | (b << 16) | (g << 8) | r) >>> 0;
+  }
+  /** La casilla de pared (i, j) en el lienzo del relieve: su techo, subido H px (empieza en la fila oy, que es la de
+   *  su pie menos H), y la cara de 8 + H px hasta su pie, con los mismos materiales, bordes y esquinas que pared().
+   *  Las esquinas recortadas quedan transparentes: debajo se ve el chunk, que ya pinta ahí lo de al lado. */
+  function paredAlta(i, j, ox, oy, tx, ty, sub, H) {
+    const n = kd(i, j - 1) === 1, s = kd(i, j + 1) === 1, w = kd(i - 1, j) === 1, e = kd(i + 1, j) === 1;
+    const top = s ? T : T - 8, alto = s ? T : T + H;
+    const mat = !BIA && (sub === S.MURO || sub === S.COLUMNA) ? 3 : C.pared;
+    const bW = !w || kd(i - 1, j + 1) === 1, bE = !e || kd(i + 1, j + 1) === 1;
+    const cNW = !n && !w, cNE = !n && !e, cSW = !s && !w, cSE = !s && !e;
+    const gx0 = tx * T, gy0 = ty * T;
+    if (mat === 0) for (let x = 0; x < T; x++) EST[x] = Math.floor(vnc(kEst, (gx0 + x) / 7, 0.5, SEM + 93) * 4);
+    for (let y = 0; y < alto; y++) {
+      const f = (oy + y) * W + ox, gy = gy0 + y, yb = y - H;              // yb: la fila contada como en pared()
+      for (let x = 0; x < T; x++) {
+        if ((cNW && y < 3 && x < 3 - y) || (cNE && y < 3 && x > 12 + y)) continue;
+        if ((cSW && yb > 13 && x < yb - 13) || (cSE && yb > 13 && x > 28 - yb)) continue;
+        const gx = gx0 + x;
+        let col;
+        if (y >= top) {                                                     // cara
+          const fy = y - top, pie = alto - 1 - y;
+          col = fy === 0 ? C.wallEdge : y === alto - 1 ? (mat === 1 && md(gx, 3) === 1 ? C.acento : C.wallFaceDark) : caraPx(mat, gx, fy);
+          if ((x === 0 && bW) || (x === T - 1 && bE)) col = C.wallEdge;
+          else if (pie >= 1 && pie <= 3 && col !== C.wallFaceDark) col = oscuro(col, PIE[pie]);   // la cara se oscurece al llegar al suelo
+        } else {                                                            // techo
+          col = techoPx(mat, x, gx, gy);
+          if (!n && y < 3) col = y === 0 ? C.wallEdge : bordeNorte(mat, gx, y, col);
+          if ((x === 0 && !w) || (x === T - 1 && !e)) col = C.wallEdge;
+        }
+        buf[f + x] = col;
+      }
+    }
+  }
+
+  /**
+   * Las paredes del chunk (cx, cy), levantadas H px de arte: un lienzo de n·16 × (n·16 + H) (la fila 0 es la de H px
+   * por encima del chunk) transparente salvo en las paredes, y sus tramos: cada fila de casillas de pared seguidas con
+   * cara (al sur no hay pared) o sin ella, { i0, i1, j, cara }. relieve.js pinta cada tramo como un objeto de la escena.
+   * Mismos datos y colores que pintar() (la misma semilla, la arena de G.World y el bioma `bi`).
+   */
+  function pintarRelieve(cx, cy, n, bi, seed = 0, H = 8) {
+    const Px = Pix(n * T, n * T + H);
+    buf = Px.buf; msk = Px.msk; W = n * T; SEM = +seed || 0;
+    C = colores(bi);
+    BIA = bi >= ARENA;
+    const A = G.World ? G.World.arena || null : typeof G.Mapas.arenaActual === 'function' ? G.Mapas.arenaActual() : null;
+    leerCodigos(cx, cy, n, SEM, A, BIA && A ? A : null);
+    const tx0 = cx * n, ty0 = cy * n, tramos = [];
+    for (let j = 0; j < n; j++) {
+      let t = null;
+      for (let i = 0; i < n; i++) {
+        const o = (j + R) * GW + i + R;
+        if (kin[o] !== 1) { t = null; continue; }
+        const cara = kd(i, j + 1) !== 1;
+        if (!t || t.cara !== cara) tramos.push(t = { i0: i, i1: i, j, cara }); else t.i1 = i;
+        paredAlta(i, j, i * T, j * T, tx0 + i, ty0 + j, cod[o] >> 2, H);
+      }
+    }
+    buf = msk = null;
+    return { cv: tramos.length ? Px.canvas() : null, tramos, H };
+  }
+
   G.Mapas.pintar = pintar;
+  G.Mapas.pintarRelieve = pintarRelieve;
   G.Mapas.paintChunkUpstream = G.Tiles.paintChunk;   // el de tiles.js, por si hay que compararlo en el mismo reino (coste, bytes)
   if (G.Mapas.activo) G.Tiles.paintChunk = pintar;
 })();

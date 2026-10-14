@@ -171,6 +171,7 @@ G.Claridad = (() => {
       const it = items[j];
       let q = null;
       if (it.prop) q = rectProp(it.prop);
+      else if (it.ent && it.ent.caja) q = it.ent.caja;   // una pared con altura (js/world/relieve.js): su rectángulo
       else {
         const e = it.ent;
         if (!e || e === p || e.dead || !e.anim || typeof e.x !== 'number') continue;

@@ -450,7 +450,7 @@ const HOOKS = [
   // Claridad en partida (js/entities/claridad.js)
   ['dev.html', /src="js\/entities\/player\.js"><\/script>\r?\n<script defer src="js\/entities\/claridad\.js"><\/script><!-- MOD nico/, 'claridad: claridad.js se carga justo después de player.js'],
   ['js/game.js', /items\.sort\(\(a, b\) => a\.y - b\.y\);\r?\n\s*if \(G\.Claridad\) G\.Claridad\.escenaOrdenada\(items\);\s*\/\/ MOD nico/, 'claridad: drawScene pasa la escena ordenada (qué tapa a cada jugador)'],
-  ['js/game.js', /drawScene\(G\.Camera, [^\n]*\r?\n\s*if \(G\.Claridad\) G\.Claridad\.encima\(ctx\);\s*\/\/ MOD nico[^\n]*\r?\n\s*G\.Projectiles\.draw\(ctx\);/, 'claridad: tu Pokémon tapado, encima de la escena y debajo de disparos y efectos'],
+  ['js/game.js', /drawScene\(G\.Camera, [^\n]*\r?\n\s*if \(G\.Claridad\) G\.Claridad\.encima\(ctx\);\s*\/\/ MOD nico[^\n]*\r?\n(\s*if \(G\.Luz\) G\.Luz\.pintar\(ctx, G\.Camera\);\s*\/\/ MOD nico[^\n]*\r?\n)?\s*G\.Projectiles\.draw\(ctx\);/, 'claridad: tu Pokémon tapado, encima de la escena y debajo de disparos y efectos (entre los dos, como mucho el búfer de luz)'],
   ['js/game.js', /G\.FX\.draw\(ctx\);\r?\n\s*if \(G\.Claridad\) G\.Claridad\.chevron\(ctx\);\s*\/\/ MOD nico/, 'claridad: el chevrón, después de los números'],
   ['js/game.js', /if \(G\.Claridad\) G\.Claridad\.vineta\(ctx, w, h, pl\);\s*\/\/ MOD nico[^\n]*\r?\n\s*G\.HUD\.draw\(ctx, w, h, pl, st\);/, 'claridad: el borde rojo, antes del HUD'],
   ['js/entities/fx.js', /function dmgText\(x, y, value, color = '#ffffff', big = false\) \{\r?\n\s*if \(arguments\[5\] && G\.Claridad && G\.Claridad\.sumar\(arguments\[5\], value, color, big, arguments\[6\]\)\) return;\s*\/\/ MOD nico/, 'claridad: dmgText suma los golpes de cada enemigo'],
@@ -463,6 +463,12 @@ const HOOKS = [
   ['js/entities/player.js', /G\.Camera\.kick\(0\.28\);\r?\n\s*if \(G\.Claridad\) G\.Claridad\.golpe\(this, d\);\s*\/\/ MOD nico/, 'claridad: el golpe recibido, para el borde rojo'],
   ['js/entities/projectile.js', /if \(!p\.friendly && G\.Claridad && G\.Claridad\.disparoHostil\(ctx, shape, v\.pal, p\.x, p\.y - L, angle, a, p\.r >= 8 \? 1\.5 : 1, Math\.floor\(p\.t \* 12\)\)\) continue;\s*\/\/ MOD nico/,
     'claridad: los disparos enemigos, con su contorno rojo'],
+  ['js/entities/claridad.js', /if \(it\.prop\) q = rectProp\(it\.prop\);\r?\n\s*else if \(it\.ent && it\.ent\.caja\) q = it\.ent\.caja;/, 'claridad: una pared con altura tapa con su rectángulo (js/world/relieve.js)'],
+  // Relieve y búfer de luz (PROTOTIPO, js/world/relieve.js y luz.js)
+  ['dev.html', /src="js\/world\/horno\.js"><\/script>[^\n]*\r?\n<script defer src="js\/world\/relieve\.js"><\/script><!-- MOD nico[^\n]*\r?\n<script defer src="js\/world\/luz\.js"><\/script><!-- MOD nico/, 'relieve y luz: relieve.js y luz.js se cargan tras horno.js'],
+  ['js/game.js', /if \(G\.Relieve\) G\.Relieve\.escena\(items, cam\);\s*\/\/ MOD nico[^\n]*\r?\n\s*items\.sort\(\(a, b\) => a\.y - b\.y\);/, 'relieve: las paredes con altura entran en la escena antes de ordenarla'],
+  ['js/game.js', /G\.Claridad\.encima\(ctx\);[^\n]*\r?\n\s*if \(G\.Luz\) G\.Luz\.pintar\(ctx, G\.Camera\);\s*\/\/ MOD nico[^\n]*\r?\n\s*G\.Projectiles\.draw\(ctx\);/, 'luz: el búfer de luz, después de la escena y antes de los disparos (nunca oscurece un disparo enemigo)'],
+  ['js/world/world.js', /fundido\(\) \{ return fade \? \{ from: fade\.from, k: fadeK\(\) \} : null; \},\s*\/\/ MOD nico/, 'relieve: world.js da el fundido de bioma'],
   // Arreglos de upstream
   ['js/game.js', /G\.World\.setBiome\(G\.MODS && G\.MODS\.biomaNormal \? G\.MODS\.biomaNormal\(b\) : b\);\s*\/\/ MOD nico/, 'biomas: desde el minuto 12, el mapa sigue en sus biomas normales'],
   ['js/game.js', /if \(state !== 'playing' && flashT > 0 && G\.MODS && G\.MODS\.destelloSinCongelar\) flashT -= dt;\s*\/\/ MOD nico/, 'fogonazo de la grieta: se apaga también al elegir fusión'],
