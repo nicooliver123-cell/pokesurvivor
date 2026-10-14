@@ -185,6 +185,29 @@ G.MODS = {
   guarderiaPrecio: 500,
   guarderiaSegundosPorPunto: 120,
 
+  /* Trampas del suelo que pisan los enemigos (petición de Nico, 14-10-2026). En el original ya saltan con un enemigo
+   * que anda, pero (a) nunca con un jefe, porque el juego trata a los jefes como voladores, y (b) en cooperativo sólo
+   * cerca del Pokémon del anfitrión: una trampa junto a un invitado no saltaba nunca con enemigos. true = las dos cosas
+   * arregladas (los que flotan siguen pasando por encima); false = como el original. Gancho en interact.js. */
+  trampasPisadas: true,
+
+  /** Trampas que pisan los enemigos cerca de cualquier jugador (lo decide quien manda: solitario o anfitrión). Los
+   *  jefes cuentan aunque el juego los marque como voladores; los demás que flotan, no. */
+  pisarTrampas(pl) {
+    if (!this.trampasPisadas || !pl || (G.Coop.active && !G.Coop.isHost)) return;
+    const jugadores = [pl].concat(G.Coop.active ? G.Coop.puppets() : []);
+    const vistas = new Set();
+    for (const j of jugadores) {
+      if (!j) continue;
+      for (const p of G.World.specialsNear(j.x, j.y, 720)) {
+        const k = p.tx + ',' + p.ty;
+        if (p.type !== 'trap' || vistas.has(k)) continue;
+        vistas.add(k);
+        if (G.EnemyMgr.queryCircle(p.x, p.y - 8, 3).some(e => !e.remote && !e.dead && (!e.flying || e.boss))) G.World.breakProp(p);
+      }
+    }
+  },
+
   /* Menú de pruebas en Ajustes > Cuenta (petición de Nico, 14-10-2026; js/ui/dev-menu.js): las cuentas que lo ven, por la
    * huella SHA-256 de su uid de Firebase (el repositorio es público: el uid no se escribe). [] = nadie. */
   devHuellas: ['b9f8d94bd49b7471e01e9827da437297a0dad61278c0fa80bda2a936b5e1db4c'],   // Nico (su cuenta de Google)

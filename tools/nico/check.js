@@ -5036,6 +5036,42 @@ function guarderiaChecks() {
   for (const [name, , detail] of failed) bad(`guardería: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+function trampasChecks() {
+  console.log('22. Trampas del suelo (G.MODS.pisarTrampas): jefes y cerca de los invitados');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  /** mods.js real con un mundo de mentira: trampas en (0,0) y (5000,0), y los enemigos que se le den. */
+  const montar = ({ host = true, coop = false, enemigos = [], mods = {} } = {}) => {
+    const c = { console }; c.window = c; c.G = {}; vm.createContext(c); vm.runInContext(rd('js/core/mods.js'), c);
+    Object.assign(c.G.MODS, mods);
+    const traps = [{ type: 'trap', tx: 0, ty: 0, x: 0, y: 8 }, { type: 'trap', tx: 100, ty: 0, x: 5000, y: 8 }];
+    const rotas = [];
+    c.G.World = { specialsNear: (x, y, rr) => traps.filter(p => (p.x - x) ** 2 + (p.y - y) ** 2 <= rr * rr), breakProp: p => rotas.push(p.tx) };
+    c.G.EnemyMgr = { queryCircle: (x, y, rr) => enemigos.filter(e => (e.x - x) ** 2 + (e.y - y) ** 2 <= (rr + 10) ** 2) };
+    c.G.Coop = { active: coop, isHost: host, puppets: () => [{ x: 5000, y: 0 }] };
+    return { G: c.G, rotas };
+  };
+  const pl = { x: 0, y: 0 };
+  try {
+    let m = montar({ enemigos: [{ x: 0, y: 0, flying: true, boss: true }] }); m.G.MODS.pisarTrampas(pl);
+    t('un jefe (marcado como volador) hace saltar la trampa', m.rotas.includes(0), m.rotas);
+    m = montar({ enemigos: [{ x: 0, y: 0, flying: true }] }); m.G.MODS.pisarTrampas(pl);
+    t('uno que flota pasa por encima sin activarla', !m.rotas.length, m.rotas);
+    m = montar({ coop: true, enemigos: [{ x: 5000, y: 0 }] }); m.G.MODS.pisarTrampas(pl);
+    t('en grupo, el anfitrión mira también las trampas junto al invitado (a 5.000 px)', m.rotas.includes(100), m.rotas);
+    m = montar({ coop: true, host: false, enemigos: [{ x: 0, y: 0 }] }); m.G.MODS.pisarTrampas(pl);
+    t('el invitado no decide (lo hace el anfitrión)', !m.rotas.length);
+    m = montar({ enemigos: [{ x: 0, y: 0, boss: true, flying: true }], mods: { trampasPisadas: false } }); m.G.MODS.pisarTrampas(pl);
+    t('trampasPisadas: false = como el original', !m.rotas.length);
+    m = montar({ enemigos: [{ x: 0, y: 0, remote: true }] }); m.G.MODS.pisarTrampas(pl);
+    t('las copias de la red no cuentan', !m.rotas.length);
+    t('gancho de una línea al final de update de interact.js', rd('js/systems/interact.js').split(/\r?\n/).some(l => /G\.MODS\.pisarTrampas\(pl\)/.test(l) && /MOD nico/.test(l)));
+  } catch (e) { t('trampas', false, String(e && e.stack || e)); }
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`trampas: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`trampas: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 function devMenuChecks() {
   console.log('21. Menú de pruebas (js/ui/dev-menu.js): sólo con una huella de G.MODS.devHuellas');
   const src = rd('js/ui/dev-menu.js'), mods = rd('js/core/mods.js');
@@ -5064,6 +5100,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { divididaChecks(); } catch (e) { bad('no se pudo probar la pantalla dividida: ' + (e && e.stack || e)); }
   try { companeroChecks(); } catch (e) { bad('no se pudo probar «Elige a tu compañero»: ' + (e && e.stack || e)); }
   try { guarderiaChecks(); } catch (e) { bad('no se pudo probar la guardería: ' + (e && e.stack || e)); }
+  try { trampasChecks(); } catch (e) { bad('no se pudo probar las trampas: ' + (e && e.stack || e)); }
   try { devMenuChecks(); } catch (e) { bad('no se pudo probar el menú de pruebas: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);

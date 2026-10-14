@@ -50,6 +50,7 @@ G.Interact = (() => {
           break;
       }
     }
+    if (G.MODS && G.MODS.pisarTrampas) G.MODS.pisarTrampas(pl);   // MOD nico: también jefes y cerca de los invitados (js/core/mods.js)
   }
 
   function spring(dt, pl, p, d2) {
