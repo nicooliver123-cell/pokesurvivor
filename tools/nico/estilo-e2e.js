@@ -72,7 +72,8 @@
  *      Pokémon contra el suelo (mediana de la silueta, 36 Pokémon) no empeora más de 0,05 frente a Clásico en los tres biomas
  *      ni, con lluvia, más de 0,1 frente a Clásico con lluvia (lo que la lluvia de Dex le quita a Dex, al informe). Horneado, con GPU (otro Chromium, con requestAnimationFrame y G.Tiles.paintChunk
  *      envueltos sólo en la prueba): en el fondo de los menús (el cambio de bioma de cada 30 s), de los 236 a los 244 s de
- *      partida en Dex y en Clásico y al cambiar de estilo en la pausa: ningún fotograma de más de 20 ms, como mucho 1 chunk
+ *      partida en Dex y en Clásico y al cambiar de estilo en la pausa (con el mundo Dex, 0 chunks: el mundo no cambia):
+ *      ningún fotograma de más de 20 ms, como mucho 1 chunk
  *      por fotograma (mediana ≤ 4 ms de horneado; como mucho un 15 % por encima y ninguno de más de 10 ms: un chunk no se
  *      parte) y 0 chunks en el fotograma del cambio; 844x390@3 con la CPU ×4: 1 chunk por fotograma y ningún fotograma de
  *      más de 33 ms (con su p95 en el informe). Rendimiento, minuto 8 con 80 Pokémon y lluvia: Dex frente a Clásico, Δ de
@@ -1798,15 +1799,16 @@ async function pruebaEntornos(browser) {
         report.medidas[`horno-partida-${est}-${nv}`] = { r, enCambio };
         check(`${nv} (GPU), ${est === 'dex' ? 'Dex' : 'Clásico'}: de los 236 a los 244 s de partida (cambio de bioma a los 240): ningún fotograma pasa de 20 ms (máximo ${r.max} ms, p95 ${r.p95}), ${horneadoTxt(r)} y 0 chunks en el fotograma del cambio (${r.cambio && r.cambio.hornos})`,
           r.n > 200 && r.mas20 === 0 && horneadoOk(r) && r.cambio && r.cambio.hornos === 0, { r, enCambio });
-        // Cambiar de estilo en la pausa: el suelo se rehornea de uno en uno.
+        // Cambiar de estilo en la pausa: con el mundo Dex (G.MODS.mundoDex, desde el 14-10-2026), el mundo no cambia y no se
+        // rehornea nada (antes, con Clásico = upstream, se rehorneaba de uno en uno).
         if (est === 'dex') {
           await page.evaluate(() => G.Game.togglePause());
           await apuntar(page);
           for (const e of ['clasico', 'dex']) { await estilo(page, e); await sleep(1500); }
           const rs = await page.evaluate(RESUMEN_PERF, {});
           report.medidas['horno-estilo-pausa-' + nv] = rs;
-          check(`${nv} (GPU): cambiar de estilo en la pausa (a Clásico y otra vez a Dex, 3 s): ningún fotograma pasa de 20 ms (máximo ${rs.max} ms), ${horneadoTxt(rs)}`,
-            rs.n > 60 && rs.mas20 === 0 && horneadoOk(rs) && rs.hornos >= 8, rs);
+          check(`${nv} (GPU): cambiar de estilo en la pausa (a Clásico y otra vez a Dex, 3 s): el mundo es el mismo (mundoDex), así que no se rehornea nada (${rs.hornos} chunks) y ningún fotograma pasa de 20 ms (máximo ${rs.max} ms)`,
+            rs.n > 60 && rs.mas20 === 0 && rs.hornos === 0, rs);
           await page.evaluate(() => G.Game.togglePause());
         }
         await page.evaluate(() => G.Game.quit());
@@ -2969,6 +2971,7 @@ async function pruebaRelieve(browser) {
         const pl = G.Game.player;
         for (const [dx, tipo] of [[-70, 'fire'], [80, 'electric']]) G.Projectiles.spawn({ x: pl.x + dx, y: pl.y - 30, vx: 0, vy: 0, dmg: 0, r: 7, life: 9999, vis: G.VFX.forType(tipo), friendly: true });
         const hud = G.HUD.draw; G.HUD.draw = () => {};
+        const anim = pl.anim.update; pl.anim.update = () => {};      // en la pausa, upstream sigue animando a tu Pokémon (a ×0,25)
         G.Settings.set('calm', true);
         const cv = document.getElementById('game'), now = performance.now.bind(performance), t0 = now(); performance.now = () => t0;
         const foto = async () => { for (let i = 0; i < 4; i++) await new Promise(r => requestAnimationFrame(r)); return cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data.slice(); };
@@ -2988,7 +2991,7 @@ async function pruebaRelieve(browser) {
           G.MODS.mundoDex = true; G.Estilo.set('dex'); if (G.Horno) G.Horno.rehornear();
           let difViejo = 0; for (let i = 0; i < a.length; i += 4) if (a[i] !== c[i] || a[i + 1] !== c[i + 1] || a[i + 2] !== c[i + 2]) difViejo++;
           return { dif, caja, difViejo, n: a.length / 4 };
-        } finally { performance.now = now; G.HUD.draw = hud; G.Settings.set('calm', false); G.Projectiles.clear(); }
+        } finally { performance.now = now; G.HUD.draw = hud; pl.anim.update = anim; G.Settings.set('calm', false); G.Projectiles.clear(); }
       });
       report.medidas['relieve-estilo-' + nv] = st;
       check(`${nv}: el estilo sólo cambia la interfaz: sin el HUD, el lienzo del juego es el mismo con Dex y con Clásico (${st.dif} de ${st.n} píxeles distintos); con mundoDex = false, el de Clásico era otro (${st.difViejo})`,
