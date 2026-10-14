@@ -762,8 +762,8 @@ async function importChecks() {
   const e1 = runExporter(frag, { G: { DB: dbVivo } });
   const hoyLocal = `${hoy.getFullYear()}-${dd(hoy.getMonth() + 1)}-${dd(hoy.getDate())}`;
   const d1 = e1.downloads[0], env1 = d1 && JSON.parse(d1.blob.parts.join(''));
-  t('exportador: descarga pokesurvivor-partida-<nombre>-<fecha local>.json con el envoltorio y una copia exacta de G.DB.save',
-    e1.downloads.length === 1 && d1.nombre === `pokesurvivor-partida-AshOficial-${hoyLocal}.json` && d1.blob.type === 'application/json' &&
+  t('exportador: descarga pokeswarm-partida-<nombre>-<fecha local>.json con el envoltorio y una copia exacta de G.DB.save',
+    e1.downloads.length === 1 && d1.nombre === `pokeswarm-partida-AshOficial-${hoyLocal}.json` && d1.blob.type === 'application/json' &&
     env1.tipo === 'pokesurvivor-partida' && env1.version === 1 && env1.origen === 'juego-oficial.test' && typeof env1.exportado === 'number' &&
     J(env1.save) === ofJSON && !e1.alerts.length && /^Partida exportada: \d+ Pokémon en /.test(e1.logs[0] || ''), d1 && d1.nombre);
   t('exportador: no modifica la partida ni localStorage', J(of) === ofJSON && e1.escrituras === 0);
@@ -772,7 +772,7 @@ async function importChecks() {
     toISOString() { return '2026-10-12T23:30:00.000Z'; } static now() { return Date.UTC(2026, 9, 12, 23, 30); } }
   const eF = runExporter(frag, { G: { DB: dbVivo }, Fecha: Madrugada }), dF = eF.downloads[0];
   t('exportador: la fecha del nombre del archivo es la local (no la UTC de toISOString)',
-    dF && dF.nombre === 'pokesurvivor-partida-AshOficial-2026-10-13.json' && JSON.parse(dF.blob.parts.join('')).exportado === Madrugada.now(), dF && dF.nombre);
+    dF && dF.nombre === 'pokeswarm-partida-AshOficial-2026-10-13.json' && JSON.parse(dF.blob.parts.join('')).exportado === Madrugada.now(), dF && dF.nombre);
   // La versión comentada hace exactamente lo mismo si se pega tal cual.
   const eL = runExporter(legible, { G: { DB: dbVivo } }), dL = eL.downloads[0];
   t('exportador: la versión comentada, pegada tal cual, descarga lo mismo', dL && dL.nombre === d1.nombre && JSON.parse(dL.blob.parts.join('')).save.name === 'AshOficial' && !eL.alerts.length);

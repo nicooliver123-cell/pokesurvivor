@@ -2,7 +2,7 @@
 // Se pega en la consola del navegador (F12 > Consola) con la web donde tienes tu partida abierta y la sesión
 // iniciada; si Chrome pide escribir "permitir pegar" / "allow pasting", se escribe primero.
 // Lee la partida que ya tiene tu navegador (G.DB.save, o la copia de localStorage ps.cloud.* /
-// ps.save.* más reciente si el juego cambia) y la descarga como pokesurvivor-partida-<nombre>-<fecha>.json.
+// ps.save.* más reciente si el juego cambia) y la descarga como pokeswarm-partida-<nombre>-<fecha>.json.
 // No envía nada a ninguna parte ni modifica nada. Si se pega en PokéSwarm (allí existe
 // G.Importar), avisa de que va en la otra web y no hace nada: una partida no se puede traer a sí misma. Como invitado o
 // sin sesión, también avisa y no descarga nada. Los avisos salen en español si el navegador está
@@ -43,7 +43,7 @@
   // en un envoltorio que dice qué es, de qué web sale y cuándo se exportó.
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify({ tipo: 'pokesurvivor-partida', version: 1, origen: location.host, exportado: Date.now(), save: s })], { type: 'application/json' }));
-  a.download = 'pokesurvivor-partida-' + nombre + '-' + fecha + '.json';
+  a.download = 'pokeswarm-partida-' + nombre + '-' + fecha + '.json';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   console.log(T('Partida exportada: ', 'Save exported: ') + Object.keys(s.owned).length + T(' Pokémon en ', ' Pokémon in ') + a.download + T('. Ya puedes cerrar la consola.', '. You can close the console now.'));
