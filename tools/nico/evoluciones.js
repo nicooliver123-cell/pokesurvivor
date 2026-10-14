@@ -1,5 +1,5 @@
 /* ============ tools/nico/evoluciones.js — genera js/data/evolutions.js (MOD nico) ============
- *   node tools/nico/evoluciones.js <ruta/pokemon_species.csv>
+ *   node tools/nico/evoluciones.js <ruta/pokemon_species.csv> [<ruta/pokemon_evolution.csv>]
  *
  * Lee la tabla de especies de PokeAPI (pokemon_species.csv, columnas `id` y
  * `evolves_from_species_id`; se bajó una vez y se guarda FUERA del repo) como DATOS: sólo se
@@ -13,7 +13,12 @@
  * - Las evoluciones de formas regionales cuentan a nivel de especie (Meowth -> Perrserker).
  * - Hijos en orden de número. Sin ciclos (el script lo comprueba y para si hubiera uno).
  *
- * Lo usa el mod «Pokémon repetido» del gacha (js/core/mods.js, repetidoDaEvolucion). Sin red:
+ * Con la segunda tabla (pokemon_evolution.csv: evolved_species_id, evolution_trigger_id y minimum_level) escribe
+ * también G.EVO_NIVEL = { hijo: nivel }: el nivel al que evoluciona en los juegos, sólo las que son por subir de nivel
+ * (trigger 1 con nivel mínimo; si hay varias filas, el más bajo). Las de piedra, intercambio, amistad... no salen.
+ *
+ * Lo usan el mod «Pokémon repetido» del gacha (js/core/mods.js, repetidoDaEvolucion) y la evolución dentro de la
+ * partida (js/systems/evo-partida.js, con G.EVO_NIVEL). Sin red:
  * el juego no pide nada a internet. Si cambia la Pokédex, volver a ejecutarlo con la tabla.
  */
 'use strict';
@@ -23,7 +28,8 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const OUT = path.join(ROOT, 'js', 'data', 'evolutions.js');
 
 const csvPath = process.argv[2];
-if (!csvPath) { console.error('Uso: node tools/nico/evoluciones.js <ruta/pokemon_species.csv>'); process.exit(2); }
+if (!csvPath) { console.error('Uso: node tools/nico/evoluciones.js <ruta/pokemon_species.csv> [<ruta/pokemon_evolution.csv>]'); process.exit(2); }
+const evoPath = process.argv[3] || null;
 
 // ---- CSV: sólo texto -> filas. Campos entre comillas por si acaso; nada se evalúa. ----
 function parseCsv(text) {
@@ -105,6 +111,24 @@ for (const k of Object.keys(EVO)) {
   }
 }
 
+// ---- Nivel de evolución (opcional) ----
+const NIVEL = {};
+if (evoPath) {
+  const t2 = fs.readFileSync(path.resolve(evoPath), 'utf8');
+  if (t2.length > 5e6) { console.error('El CSV es demasiado grande para ser la tabla de evoluciones.'); process.exit(1); }
+  const r2 = parseCsv(t2.replace(/^﻿/, ''));
+  const h2 = r2.shift() || [];
+  const cSp = h2.indexOf('evolved_species_id'), cTr = h2.indexOf('evolution_trigger_id'), cLv = h2.indexOf('minimum_level');
+  if (cSp < 0 || cTr < 0 || cLv < 0) { console.error('Faltan las columnas evolved_species_id, evolution_trigger_id y minimum_level.'); process.exit(1); }
+  const hijos = new Set(Object.values(EVO).flat());
+  for (const r of r2) {
+    const sp = r[cSp], tr = r[cTr], lv = r[cLv];
+    if (!/^\d{1,5}$/.test(sp) || !/^\d{1,3}$/.test(tr) || !(lv === '' || /^\d{1,3}$/.test(lv))) { console.error('Fila no válida: ' + JSON.stringify(r.slice(0, 7))); process.exit(1); }
+    if (!hijos.has(+sp) || +tr !== 1 || lv === '') continue;
+    NIVEL[+sp] = Math.min(NIVEL[+sp] || 999, +lv);
+  }
+}
+
 // ---- Escribir ----
 const padres = Object.keys(EVO).map(Number).sort((a, b) => a - b);
 const aristas = padres.reduce((a, p) => a + EVO[p].length, 0);
@@ -127,7 +151,13 @@ const out = `/* ============ evolutions.js — GENERADO, no editar a mano (MOD n
 G.EVO = {
 ${lineas.join('\n')}
 };
-`;
+` + (evoPath ? `
+/* G.EVO_NIVEL = { hijo: nivel }: al que evoluciona en los juegos, sólo las ${Object.keys(NIVEL).length} que son por subir de
+ * nivel (de ${aristas}; el resto es por piedra, intercambio, amistad...). Lo usa js/systems/evo-partida.js. */
+G.EVO_NIVEL = {
+${Object.keys(NIVEL).map(Number).sort((a, b) => a - b).map(d => `  ${d}: ${NIVEL[d]},`.padEnd(14) + `// ${nombre(d)}`).join('\n')}
+};
+` : '');
 fs.writeFileSync(OUT, out);
 console.log(`js/data/evolutions.js: ${juego.length} especies del juego, ${padres.length} con evolución, ${aristas} evoluciones.`);
 if (saltos.length) console.log(`Estadios intermedios que faltan en el juego (${saltos.length}):\n  ` + saltos.join('\n  '));

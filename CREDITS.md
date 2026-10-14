@@ -132,6 +132,17 @@ uso **no comercial** y con atribución a sus artistas.
 | YoukaiMinori | <@91001329228464128> | 252, 253 |
 | ◥θ┴θ◤ | DC:<@215638650434617345> | 157, 445, 501, 504, 505, 566, 577, 595, 627, 650, 651, 658, 661, 676, 684, 707, 724, 726, 728, 729, 730, 761, 763, 790, 823, 872, 907, 991 |
 
+## Personajes del Multiverso
+
+Personajes de otras franquicias que salen, como guiño, en el banner «Multiverso» del gacha:
+**Agumon** (*Digimon*), el **Doom Slayer** y el **Cacodemonio** (*DOOM*).
+
+Sus sprites se generaron para este proyecto con [PixelLab](https://www.pixellab.ai), una herramienta
+de pixel art por IA (las 8 rotaciones de cada uno y sus pasos al andar), y están en
+`tools/nico/multiverso/fuentes/`; las hojas del
+juego (`assets/pokemon/10001` a `10003`), con las animaciones que faltan y el variocolor, las monta
+`tools/nico/multiverso/montar.py`. No usan sprites de SpriteCollab.
+
 ## Datos
 
 Stats base y nombres en español: [PokeAPI](https://pokeapi.co/),
@@ -160,3 +171,7 @@ Name*): el copyright y la licencia van en la tabla `name` de los propios fichero
 Pokémon y todos los nombres y personajes relacionados son marcas y propiedad de Nintendo,
 Creatures Inc., GAME FREAK y The Pokémon Company. PokéSwarm es un proyecto de fans sin ánimo
 de lucro, no afiliado, patrocinado ni aprobado por ellos.
+
+Digimon, Agumon y los demás personajes de Digimon son propiedad de Bandai Namco y Toei Animation.
+DOOM, el Doom Slayer y el Cacodemonio son marcas y propiedad de id Software (ZeniMax Media, Microsoft).
+PokéSwarm tampoco está afiliado a ellos ni lo aprueban.

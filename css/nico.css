@@ -56,6 +56,16 @@ body:has(.scr.dim:not(.hidden)) #scr-menu { visibility: hidden; }
   #scr-menu .menu-left { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 18px; padding-top: 56px; }
   #scr-menu .menu-left .logo { margin-bottom: 0; }
 }
+/* Menú principal de Clásico en un portátil o plegable algo bajo (de 660 a 740 de alto y más de 760 de ancho: el Magic V6
+   girado con la barra del navegador, 784x700 a 680): con la Guardería (9 opciones, 14-10-2026) la columna de upstream no
+   cabía (27-47 px de más), así que pasa a las dos columnas que upstream usa por debajo de 660. En Dex manda su fila de
+   botones (css/portada.css, reglas más específicas). */
+@media (min-width: 760.02px) and (max-height: 739.98px) and (min-height: 661px) {
+  #scr-menu .menu-right { width: min(500px, 52vw); }
+  #scr-menu .menu-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; }
+  #scr-menu .menu-item.play { grid-column: span 2; }
+  #scr-menu .menu-item small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 /* El menú principal acaba por encima de la línea de créditos (fija abajo, de upstream; uno o dos renglones según el
    ancho): estilo.js mide lo que ocupa en --hueco-creditos. Con la barra del navegador en el plegable (724x740 a 640,
    784x700 a 680) la línea se montaba en la caja de estadísticas; ahora, si no cabe todo, el menú se desplaza por encima
@@ -169,8 +179,9 @@ html.pantalla-dividida.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: c
     display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: 44px minmax(0, 1fr); column-gap: 8px; row-gap: 6px; }
   #scr-gacha > .box:not(#gacha-prob-capa) > .row.between { display: contents; }
   #scr-gacha > .box:not(#gacha-prob-capa) > .row.between > h2 { grid-column: 1; grid-row: 1; align-self: center; margin: 0; }
-  /* Pestañas de región: en la fila del título, sin barra de desplazamiento (el degradado, en el bloque de arriba). */
-  #scr-gacha #gacha-gens { grid-column: 2; grid-row: 1; margin: 0; padding: 0; align-items: stretch; scrollbar-width: none; }
+  /* Pestañas de región: en la fila del título, sin barra de desplazamiento (el degradado, en el bloque de arriba). Con 1 px a
+     cada lado: una pestaña de ancho fraccionario al final (la del Multiverso, con Dex) se recortaba menos de un píxel. */
+  #scr-gacha #gacha-gens { grid-column: 2; grid-row: 1; margin: 0; padding: 0 1px; align-items: stretch; scrollbar-width: none; }
   #scr-gacha #gacha-gens::-webkit-scrollbar { display: none; }
   #scr-gacha #gacha-gens .gen-tab { min-height: 44px; justify-content: center; padding: 2px 10px; }
   #gacha-prob { display: inline-flex; align-items: center; grid-column: 3; grid-row: 1; min-height: 44px; }
@@ -284,8 +295,10 @@ html.pantalla-dividida.hud-dex-logro body:has(#topbar.hidden) .toast { bottom: c
   .ec-pie { margin: 0 0 6px; flex-wrap: nowrap; }
 }
 
-/* Guardería (js/systems/guarderia.js), en la pantalla Mejoras: cinco plazas en fila (en un móvil, se reparten el
-   ancho) y el botón de dejar o sacar al Pokémon elegido. Y su fila en el fin de partida. */
+/* Guardería (js/systems/guarderia.js), su pantalla (#scr-guarderia, desde el menú principal): cinco plazas en fila (en
+   un móvil, se reparten el ancho) y el botón de dejar o sacar al Pokémon elegido. Y su fila en el fin de partida.
+   Empieza bajo la barra superior, como las demás pantallas que la dejan a la vista (css/style.css). */
+@media (min-height: 521px) { #scr-guarderia { padding-top: 66px; } }
 .guarderia { margin: 0 0 10px; padding: 10px 12px; }
 .guarderia-cab { gap: 10px; flex-wrap: wrap; align-items: baseline; }
 .guarderia-cab small { color: var(--muted); font-size: 12px; }

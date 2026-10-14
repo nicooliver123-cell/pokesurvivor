@@ -12,9 +12,9 @@
  *      exige: nada de desplazamiento horizontal (página, pantalla y caja), la caja dentro de la ventana, el
  *      menú principal oculto detrás de cualquier .scr.dim y la línea de créditos sin pisar la caja. Con Dex, que la piel está puesta en cada una
  *      (borde de la caja y letra y fondo de los botones: si upstream renombra .box o .btn, falla); con
- *      Clásico, que no. Y el menú principal: las 8 opciones a la vista sin desplazar, el logotipo libre de la
+ *      Clásico, que no. Y el menú principal: las 9 opciones a la vista sin desplazar, el logotipo libre de la
  *      barra superior y la línea de créditos sin pisar ninguna caja.
- *   2. Gacha en pantallas bajas y en los plegables: en los 9 banners, cada lienzo destacado dentro del
+ *   2. Gacha en pantallas bajas y en los plegables: en los 10 banners (los 9 de upstream y el Multiverso), cada lienzo destacado dentro del
  *      banner y de la ventana, a su tamaño (alto CSS = alto del lienzo), y los tres botones de tirar a la
  *      vista sin desplazar; si las pestañas no caben, la elegida entera (fuera del degradado) y el
  *      degradado sólo donde hay más; en pantallas bajas, la capa «Probabilidades» (la tabla debajo del título, «Cerrar» entero
@@ -59,7 +59,7 @@
  *      y zonas seguras simuladas (cada env(safe-area-inset-*) de lo que se sirve, cambiado por píxeles: 844x390 con
  *      47/24/47/21).
  *  12. Portada «Tarjeta de entrenador» (--solo-portada), con Dex, en 10 tamaños: «Pulsa para empezar», el inicio de
- *      sesión, el test, su resultado y el menú, cada cara entera; los 8 botones del menú de 44 px o más, sin textos
+ *      sesión, el test, su resultado y el menú, cada cara entera; los 9 botones del menú de 44 px o más, sin textos
  *      cortados ni desbordados en vertical (el icono y la caja de la letra del nombre dentro del borde); el compañero a
  *      ×4 en el móvil; la pantalla opaca del menú ≤ 25 % en el móvil y el plegable; y Clásico.
  *  13. Entornos del Gremio, clima y horneado escalonado (--solo-entornos; lote 3). Capturas por pares de los tres biomas
@@ -265,6 +265,7 @@ const PANTALLAS = [
     favs: [{ dex: 255 }, { dex: 25, shiny: true }, { dex: 150 }], medals: Object.keys(G.AchDefs.BY).slice(0, 6) });`, 'document.getElementById("prof-close").click();'],
   ['scr-dex', 'G.MenuUI.open(); document.querySelector("#scr-menu [data-go=dex]").click();'],
   ['scr-upgrades', 'G.MenuUI.open(); document.querySelector("#scr-menu [data-go=upgrades]").click();'],
+  ['scr-guarderia', 'G.MenuUI.open(); document.querySelector("#scr-menu [data-go=guarderia]").click();'],   // la guardería (MOD nico)
   ['scr-gacha', 'G.MenuUI.open(); G.GachaUI.open();'],
   // En partida (la run real; las pantallas se abren con sus funciones de run-ui.js).
   ['scr-levelup', `if (G.Game.state === 'ui') G.Flow.play(); G.RunUI.showLevelUp(7, G.LevelUp.offer(G.Game.player), () => {});`],
@@ -354,7 +355,7 @@ async function recorrerPantallas(P) {
   return { malas, piel, acerca };
 }
 
-/** Menú principal: las 8 opciones a la vista sin desplazar nada (ni la pantalla ni una caja), el logotipo libre
+/** Menú principal: las 9 opciones a la vista sin desplazar nada (ni la pantalla ni una caja), el logotipo libre
  *  de la barra superior y la línea de créditos sin pisar ninguna caja (lo que se ve de ella: el menú acaba por encima
  *  de la línea y, si no cabe, se desplaza por encima de ella). sobra: lo que habría que desplazar para verlo todo. */
 const MEDIR_MENU = () => {
@@ -470,19 +471,23 @@ const MEDIR_GACHA = () => {
   return { lienzos, botones, desplaza: box.scrollHeight - box.clientHeight, banner: [Math.round(b.width), Math.round(b.height)] };
 };
 
+/** [banner, destacados que pinta]: los 3 legendarios más fuertes de cada generación; en el Multiverso, sus personajes
+ *  (hasta 3: js/data/multiverso.js). */
+const DESTACADOS = `G.Gacha.BANNERS.map(b => [b.gen, G.Gacha.featured(b.gen).length || (G.MULTIVERSO && b.gen === G.MULTIVERSO.GEN ? G.MULTIVERSO.lista().slice(0, 3).length : 0)])`;
+
 async function gachaBanners(P) {
   const { page } = P, malos = [], innerAlto = P.v.h, tiras = [];
   for (const e of ESTILOS) {
     await estilo(page, e);
     await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
     await sleep(350);   // la caja entra con una animación de escala (pop, 0,22 s)
-    for (let g = 1; g <= 9; g++) {
+    for (const [g, esperados] of await page.evaluate(DESTACADOS)) {
       await page.click(`#gacha-gens .gen-tab[data-gen="${g}"]`);
       await sleep(60);
       { const t = await page.evaluate(MEDIR_TIRA); if (!t.entera || !t.clases) tiras.push({ estilo: e, ...t }); }
       const m = await page.evaluate(MEDIR_GACHA);
       // En pantallas bajas cabe todo sin desplazar; con más alto (un plegable), las probabilidades van debajo y se llega desplazando.
-      const ok = m.lienzos.length === 3 && m.lienzos.every(l => l.dentroBanner && l.dentroVentana && Math.abs(l.altoCss - l.alto) < 0.01 && Math.abs(l.anchoCss - l.ancho) < 0.01) &&
+      const ok = m.lienzos.length === esperados && m.lienzos.every(l => l.dentroBanner && l.dentroVentana && Math.abs(l.altoCss - l.alto) < 0.01 && Math.abs(l.anchoCss - l.ancho) < 0.01) &&
         m.botones.every(Boolean) && (m.desplaza <= 1 || innerAlto >= 520);
       if (!ok) malos.push({ estilo: e, banner: g, ...m });
     }
@@ -1059,8 +1064,8 @@ async function pruebaArreglos(browser) {
       await sleep(300);
       const m = await page.evaluate(MEDIR_MENU);
       report.medidas[`menu-barra-${e}-${nv}`] = m;
-      check(`${nv} ${e} (plegable con la barra del navegador): menú principal con las 8 opciones a la vista, entero sin desplazar (${m.sobra} px de más) y la línea de créditos sin pisar ninguna caja`,
-        m.opciones === 8 && !m.mal.length && m.sobra <= 1 && !m.logoTapado && !m.creditosPisan, m);
+      check(`${nv} ${e} (plegable con la barra del navegador): menú principal con las 9 opciones a la vista, entero sin desplazar (${m.sobra} px de más) y la línea de créditos sin pisar ninguna caja`,
+        m.opciones === 9 && !m.mal.length && m.sobra <= 1 && !m.logoTapado && !m.creditosPisan, m);
       if (clave === 'v680' || clave === 'g680') await captura(page, `menu-barra-${e}-${nv}`);
       // Los submenús que llegan abajo (gacha, colección, mejoras, misiones y Ajustes): la línea de créditos, que sólo va con
       // el menú principal, no se monta en el pie de su caja (la verificación de PokéSwarm la vio sobre «Probabilidades»).
@@ -1413,8 +1418,8 @@ async function pruebaPortada(browser) {
     await captura(page, `portada-menu-dex-${nv}`);
     const pMenu = await opaco(page);
     report.medidas[`portada-opaco-${nv}`] = { menu: pMenu, login: pLogin };
-    check(`${nv} Dex: menú «Tarjeta de entrenador»: la tarjeta y los 8 botones dentro de la ventana, de 44 px o más, sin textos cortados ni desbordados en vertical (icono y nombre dentro del borde) ni la barra superior encima; el Rotom-Dex delante del nombre, sin lengüeta; el compañero a ×${m.escalaMax}${movil ? ' (retoque a: ×4)' : ''}; ${pMenu} % de pantalla opaca${movil || plegable ? ' (≤ 25 %)' : ''}`,
-      m.tarjeta && m.izquierda === 'none' && m.rotom && !m.lengueta && m.botones === 8 && !m.fuera.length && !m.bajos.length && !m.cortados.length && !m.desbordan.length && !m.pisaBarra &&
+    check(`${nv} Dex: menú «Tarjeta de entrenador»: la tarjeta y los 9 botones dentro de la ventana, de 44 px o más, sin textos cortados ni desbordados en vertical (icono y nombre dentro del borde) ni la barra superior encima; el Rotom-Dex delante del nombre, sin lengüeta; el compañero a ×${m.escalaMax}${movil ? ' (retoque a: ×4)' : ''}; ${pMenu} % de pantalla opaca${movil || plegable ? ' (≤ 25 %)' : ''}`,
+      m.tarjeta && m.izquierda === 'none' && m.rotom && !m.lengueta && m.botones === 9 && !m.fuera.length && !m.bajos.length && !m.cortados.length && !m.desbordan.length && !m.pisaBarra &&
       m.escala === m.escalaMax && (!movil || m.escala === 4) && (!(movil || plegable) || pMenu <= 25) && m.pagina <= 0, { m, pMenu });
     if (movil) {
       // El peor caso: un compañero grande (Dragonite) a ×4 y un nombre largo con dos tipos (Crabominable, tan ancho que va a
@@ -2811,8 +2816,8 @@ function hojaDeContactos() {
         await page.evaluate(() => { G.MenuUI.open(); document.getElementById('scr-menu').scrollTop = 0; for (const x of document.querySelectorAll('.ach-pop, .toast')) x.classList.add('hidden'); });
         await sleep(250);
         const m = await page.evaluate(MEDIR_MENU);
-        check(`${nv} ${e}: menú principal con las 8 opciones a la vista sin desplazar, el logotipo libre de la barra superior y los créditos sin pisar ninguna caja`,
-          m.opciones === 8 && !m.mal.length && !m.desplazada && !m.logoTapado && !m.creditosPisan, m);
+        check(`${nv} ${e}: menú principal con las 9 opciones a la vista sin desplazar, el logotipo libre de la barra superior y los créditos sin pisar ninguna caja`,
+          m.opciones === 9 && !m.mal.length && !m.desplazada && !m.logoTapado && !m.creditosPisan, m);
       }
 
       // 4. Fin de partida: «Volver al menú» a la vista y cada panel, entero en algún momento.
@@ -2837,6 +2842,7 @@ function hojaDeContactos() {
             await estilo(page, e);
             await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
             await sleep(350);
+            await page.click('#gacha-gens .gen-tab[data-gen="1"]');   // la tabla más larga (el gacha recuerda el último banner, el del Multiverso)
             const aviso = await page.evaluate(AVISO_GACHA);
             await page.click('#gacha-prob');
             await sleep(250);
@@ -2965,21 +2971,21 @@ function hojaDeContactos() {
         }
       }
 
-      // 3. Que no se corte ningún sprite: destacados de los 9 banners, compañero del menú (y el premio, en las tiradas).
+      // 3. Que no se corte ningún sprite: destacados de los 10 banners, compañero del menú (y el premio, en las tiradas).
       if (clave === 'pc' || clave === 'movil') {
         await estilo(page, 'dex');
         await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
-        const feat = [], vivos = [];
-        for (let g = 1; g <= 9; g++) {
+        const feat = [], vivos = [], banners = await page.evaluate(DESTACADOS), total = banners.reduce((a, [, n]) => a + n, 0);
+        for (const [g] of banners) {
           await page.click(`#gacha-gens .gen-tab[data-gen="${g}"]`);
           feat.push(...(await page.evaluate(BORDES, '#gacha-feat canvas')).map(x => ({ banner: g, ...x })));
           vivos.push(...(await page.evaluate(BORDES_VIVOS, '#gacha-feat canvas')).map((x, j) => ({ banner: g, j, ...x })));
         }
         const malos = feat.filter(x => x.sinColocar || x.toca);
-        check(`${nv}: destacados del gacha: ningún fotograma que pueden pintar (Idle y las animaciones que caben) de los 27 legendarios toca el borde de su lienzo de 170x190 (${feat.reduce((s, x) => s + (x.fotogramas || 0), 0)} fotogramas), ni en 30 fotogramas de verdad`,
-          feat.length === 27 && !malos.length && vivos.every(x => !x.toca && !x.vacios), malos.length ? malos : vivos.filter(x => x.toca || x.vacios));
+        check(`${nv}: destacados del gacha: ningún fotograma que pueden pintar (Idle y las animaciones que caben) de los ${total} destacados (27 legendarios y los del Multiverso) toca el borde de su lienzo de 170x190 (${feat.reduce((s, x) => s + (x.fotogramas || 0), 0)} fotogramas), ni en 30 fotogramas de verdad`,
+          feat.length === total && total >= 27 && !malos.length && vivos.every(x => !x.toca && !x.vacios), malos.length ? malos : vivos.filter(x => x.toca || x.vacios));
         report.medidas['destacados-' + nv] = feat.map(x => ({ banner: x.banner, nombre: x.nombre, k: x.k, vida: x.vida, margen: x.peor && x.peor.margen }));
-        if (clave === 'pc') console.log('[INFO] destacados a ×2: ' + feat.filter(x => x.k === 2).length + ' de 27; a ×1: ' + feat.filter(x => x.k === 1).map(x => x.nombre).join(', '));
+        if (clave === 'pc') console.log('[INFO] destacados a ×2: ' + feat.filter(x => x.k === 2).length + ' de ' + total + '; a ×1: ' + feat.filter(x => x.k === 1).map(x => x.nombre).join(', '));
         const comp = await page.evaluate(() => [...new Set([...G.STARTERS.map(s => s.dex), 25, 133, 799, 321, 890, 384, 6, 150])]);
         const res = [];
         for (const dex of comp) {

@@ -168,7 +168,9 @@ G.I18n.add({
   'PokéSwarm es un proyecto personal de Nico, inspirado en': 'PokéSwarm is a personal project by Nico, inspired by',
   ', el juego de fans de': ', the fan game by', ', y desarrollado a partir de su código (licencia MIT).': ', and built from its code (MIT license).',
   // La guardería (js/systems/guarderia.js): su panel en Mejoras, los avisos y su fila en el fin de partida.
-  'Guardería': 'Daycare',
+  'Guardería': 'Daycare', 'Entrenan mientras juegas': 'They train while you play',
+  'Deja aquí a los Pokémon que no usas: entrenan mientras juegas con tu compañero.': 'Leave the Pokémon you don\'t use here: they train while you play with your partner.',
+  '{x} · en la guardería': '{x} · in the daycare', 'Plazas': 'Slots',
   'Cada {x} min de run, sube 1 nivel una mejora al azar de cada Pokémon que esté aquí.': 'Every {x} min of play, each Pokémon here gains 1 level in a random upgrade.',
   'Sacar a {x}': 'Take {x} out', 'Dejar a {x} ·': 'Leave {x} ·', 'Está llena: saca a alguno antes.': 'It\'s full: take one out first.',
   '{x} entra en la guardería': '{x} enters the daycare', '{x} sale de la guardería': '{x} leaves the daycare',
@@ -177,10 +179,27 @@ G.I18n.add({
   'La guardería está cerrada': 'The daycare is closed', 'Aún no han subido de nivel.': 'No level-ups yet.',
   'Está en la guardería': 'In the daycare', 'Es tu compañero: elige otro antes': 'It\'s your partner: pick another one first',
   'Es tu compañero: no puede quedarse en la guardería.': 'It\'s your partner: it can\'t stay in the daycare.',
+  // Evolución dentro de la partida (js/systems/evo-partida.js).
+  'Evolucionar en {x}': 'Evolve into {x}', 'EVOLUCIÓN': 'EVOLUTION',
+  'Hasta el final de la partida. Vida {x} → {x}, ataque ×{x} → ×{x}, velocidad {x} → {x}.': 'Until the end of the run. HP {x} → {x}, attack ×{x} → ×{x}, speed {x} → {x}.',
+  '¡{x} ha evolucionado en {x}!': '{x} evolved into {x}!',
   // El menú de pruebas de Nico (js/ui/dev-menu.js).
   'Menú de pruebas': 'Test menu', 'Sólo lo ve tu cuenta. Suma a tu partida guardada; no cuenta para el ranking.': 'Only your account sees this. It adds to your save; it doesn\'t count for the ranking.',
   '+10 tickets': '+10 tickets', '+1 ticket ×10': '+1 ticket ×10', '+1.000 Pokémonedas': '+1,000 PokéCoins', '+10.000 Pokémonedas': '+10,000 PokéCoins',
   'Siguiente entrenamiento en {x} de juego.': 'Next training after {x} of play.', 'Esta partida no cuenta para la guardería.': 'This run doesn\'t count for the daycare.',
+  // El Multiverso (js/data/multiverso.js): el banner, la colección y los ataques propios.
+  'Multiverso': 'Multiverse', 'Otros mundos': 'Other worlds',
+  'Personajes de otros mundos que se cuelan en el enjambre: {x}.': 'Characters from other worlds who slip into the swarm: {x}.',
+  'Llama Bebé': 'Pepper Breath', 'Mega Llama': 'Nova Blast',
+  'Escupe una bola de fuego grande al enemigo más cercano. Quema.': 'Spits a big fireball at the nearest enemy. Burns.',
+  'Cacodemonio': 'Cacodemon', 'Súper Escopeta': 'Super Shotgun', 'Rayo Bola': 'Ball Lightning', 'Tormenta Infernal': 'Hellstorm',
+  'Escopeta de dos cañones: una ráfaga corta de perdigones que empuja.': 'Double-barrelled shotgun: a short burst of pellets that knocks back.',
+  'Escupe una bola de rayos lenta y grande que atraviesa y frena.': 'Spits a big, slow ball of lightning that goes through and slows down.',
+  '· Cada tirada trae a uno de estos personajes, todos con la misma probabilidad.': '· Each pull brings one of these characters, all equally likely.',
+  '· No hay legendarios, así que tampoco pity.': '· There are no legendaries, so there is no pity either.',
+  '· Un repetido da {x} Pokémonedas (un shiny repetido, el triple).': '· A duplicate gives {x} PokéCoins (a shiny duplicate, triple).',
+  '· Nunca salen de enemigos: sólo se consiguen aquí.': '· They never show up as enemies: you can only get them here.',
+  'Sólo sale en el banner del Multiverso, en el gacha.': 'Only in the Multiverse banner of the gacha.',
   // Mapas propios (js/world/mapas-datos.js: los mismos que G.MapasDatos.NOMBRES_EN): los 3 biomas y las 18 arenas de la
   // grieta. «Grieta · {x}», «— {x} —» y las mayúsculas del HUD clásico salen de estas claves (i18n.js).
   'Vega del Alba': 'Dawn Vale', 'Vega Helada': 'Frozen Vale', 'Vega Sulfúrea': 'Sulfur Vale',

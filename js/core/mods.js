@@ -213,6 +213,16 @@ G.MODS = {
    * arregladas (los que flotan siguen pasando por encima); false = como el original. Gancho en interact.js. */
   trampasPisadas: true,
 
+  /* Evolución dentro de la partida (decisión de Nico, 14-10-2026; js/systems/evo-partida.js): al subir de nivel sale la
+   * carta «Evolucionar en X» cuando tu Pokémon ya puede; dura hasta el final de esa partida. Nivel de la partida: el real
+   * de los juegos × evoNivelFactor, redondeado hacia arriba (Charmander 16 -> 8, Dragonite 55 -> 28); las que no son
+   * por nivel (piedra, intercambio, amistad), a evoNivelSinNivel. Con varias ramas, como mucho evoCartasMax cartas.
+   * false = sin evolución en partida. */
+  evoEnPartida: true,
+  evoNivelFactor: 0.5,
+  evoNivelSinNivel: 20,
+  evoCartasMax: 2,
+
   /** Trampas que pisan los enemigos cerca de cualquier jugador (lo decide quien manda: solitario o anfitrión). Los
    *  jefes cuentan aunque el juego los marque como voladores; los demás que flotan, no. */
   pisarTrampas(pl) {

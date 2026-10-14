@@ -267,7 +267,13 @@ html.estilo-dex #scr-menu .menu-item.play.tc-sala small {
   position: static; width: auto; height: auto; clip-path: none; grid-column: 2;
   font-size: var(--fs-1); font-weight: var(--font-peso-normal); color: #fff; opacity: .92;
 }
-/* Ventana estrecha (menos de 560): «Jugar» en su fila y los otros siete en dos filas de cuatro. */
+/* Plegable abierto y tabletas (sección 1): con la Guardería (9 botones, 14-10-2026) su nombre no cabía en la fila a 724
+   de ancho; menos separación y relleno lateral (van aquí, detrás de las reglas generales de la fila). */
+@media (max-width: 920px) and (min-height: 520px) {
+  html.estilo-dex #scr-menu .menu-list { gap: var(--space-1); }
+  html.estilo-dex #scr-menu .menu-item { padding-left: 2px; padding-right: 2px; }
+}
+/* Ventana estrecha (menos de 560): «Jugar» en su fila y los otros ocho en dos filas de cuatro. */
 @media (max-width: 559.98px) and (min-height: 520px) {
   html.estilo-dex #scr-menu .menu-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
   html.estilo-dex #scr-menu .menu-item.play { grid-column: 1 / -1; }
@@ -369,8 +375,10 @@ html.estilo-dex #scr-result .row { margin-top: var(--space-4) !important; gap: v
      opaca con un compañero grande en la mitad del plegable (784x362): sin margen. */
   html.estilo-dex #scr-menu > .menu-right { width: auto; max-width: 100%; }
   html.estilo-dex #scr-menu .menu-list { gap: var(--space-2); }
-  html.estilo-dex #scr-menu .menu-item { flex: 0 1 auto; min-width: var(--tap-min); gap: 0; padding: 0 var(--space-1); line-height: 1.1; }
-  html.estilo-dex #scr-menu .menu-item.play { flex: 0 1 auto; padding: 0 var(--space-4); font-size: var(--fs-3); }
+  /* Con la Guardería (9 botones, 14-10-2026), Dragonite en la mitad del plegable llegaba al 25,4 %: relleno lateral de
+     3 px (era 4) y «Jugar» con 8 (era 16). */
+  html.estilo-dex #scr-menu .menu-item { flex: 0 1 auto; min-width: var(--tap-min); gap: 0; padding: 0 3px; line-height: 1.1; }
+  html.estilo-dex #scr-menu .menu-item.play { flex: 0 1 auto; padding: 0 var(--space-2); font-size: var(--fs-3); }
   html.estilo-dex #scr-menu .menu-item.play .mi-ico img { width: 24px; height: 24px; }
   html.estilo-dex #scr-menu .menu-item:has(> small.gold)::after { top: var(--space-1); right: var(--space-1); }
   html.estilo-dex .pill { min-height: 28px; }

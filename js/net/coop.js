@@ -259,6 +259,7 @@ G.Coop = (() => {
         case 'he': holdOff(from); break;
         case 're': G.Rift.enterRequest(); break;
         case 'bye': mateGone(from); break;
+        case 'evo': if (G.EvoPartida) G.EvoPartida.deRed(ev, from); break;   // MOD nico: un invitado ha evolucionado (js/systems/evo-partida.js)
       }
     }
   }
@@ -325,6 +326,7 @@ G.Coop = (() => {
       case 'wx': G.Weather.onEvent(ev); break;
       case 'ev': G.Events.onNet(ev); break;
       case 'hz': G.Hazards.add(ev[1], true); break;
+      case 'evo': if (G.EvoPartida) G.EvoPartida.deRed(ev); break;   // MOD nico: un compañero ha evolucionado (js/systems/evo-partida.js)
       case 'fxr': G.FX.ring(ev[1], ev[2], 8, ev[3], ev[4], 0.5, 3); break;
     }
   }
