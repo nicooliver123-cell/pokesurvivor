@@ -170,7 +170,7 @@ const COSTE = async () => {
             filas.push({ escena, est, nv, cuando, f: base + '.png', r: base + '-recorte.png' });
           }
         }
-        await page.evaluate(() => { Object.assign(G.MODS, { relieveAltura: ALTURA, luz: true, sombras: true, mundoDex: true }); if (G.Game.state === 'paused') G.Game.togglePause(); });
+        await page.evaluate(A => { Object.assign(G.MODS, { relieveAltura: A, luz: true, sombras: true, mundoDex: true }); if (G.Game.state === 'paused') G.Game.togglePause(); }, ALTURA);
       }
       if (errores.length) console.log(`[AVISO] ${nv}: errores en la página: ${errores.slice(0, 5).join(' | ')}`);
       await ctx.close();
