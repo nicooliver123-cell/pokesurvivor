@@ -41,6 +41,7 @@ G.Gacha = (() => {
     { gen: 8, name: 'Galar',   color: ['#4a1a5a', '#1a3a6a', '#6a1a3a'] },
     { gen: 9, name: 'Paldea',  color: ['#6a2a1a', '#4a1a5a', '#1a4a6a'] }
   ];
+  if (G.MULTIVERSO) BANNERS.push(G.MULTIVERSO.BANNER);   // MOD nico: banner «Multiverso» (js/data/multiverso.js)
 
   function inBanner(p, gen) { return p.gen === gen && !!G.SPRITE_META[p.dex]; }
 

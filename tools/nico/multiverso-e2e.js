@@ -1,0 +1,188 @@
+/* ============ tools/nico/multiverso-e2e.js — el Multiverso jugando (Playwright, modo local) ============
+ *   node tools/nico/multiverso-e2e.js [carpeta de salida]     (por defecto tools/nico/out/multiverso)
+ *
+ * Un invitado sin nube (G.FIREBASE_CONFIG en null, como estilo-e2e.js) en 1440x900 y en un móvil (844x390@3,
+ * táctil), con Dex y con Clásico: la pestaña «Multiverso» de la colección y la ficha de uno que no tienes; el
+ * banner del gacha (pestaña «Otros mundos», cartel, probabilidades y destacados); tiradas ×1, un shiny forzado
+ * y ×10 por la interfaz (cada repetido paga 30, 90 un shiny, y los nuevos nada); los tres de compañero desde la
+ * colección; y una partida con cada uno (1440x900 Dex, los tres; los demás, uno): eres él, dispara su ataque,
+ * ningún enemigo es del Multiverso y su ataque evoluciona al máximo. Consola sin errores y nada pedido fuera de
+ * 127.0.0.1. Deja capturas en la carpeta de salida. Unos 4 min. No va en npm test.
+ */
+'use strict';
+const path = require('path'), fs = require('fs');
+const REPO = path.resolve(__dirname, '..', '..');
+const { chromium } = require('playwright');
+const { startServer } = require('./serve.js');
+const OUT = process.argv[2] || path.join(__dirname, 'out', 'multiverso');
+const PORT = 8093;
+fs.mkdirSync(OUT, { recursive: true });
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const res = [];
+const t = (name, ok, det) => { res.push({ name, ok: !!ok, det }); console.log(`[${ok ? 'OK' : 'FALLO'}] ${name}${ok ? '' : ' :: ' + JSON.stringify(det).slice(0, 800)}`); };
+const SIN_NUBE = () => {
+  window.G = window.G || {};
+  Object.defineProperty(window.G, 'FIREBASE_CONFIG', { get: () => null, set() {}, configurable: true, enumerable: true });
+};
+
+async function jugador(browser, v, estilo) {
+  const ctx = await browser.newContext({ viewport: { width: v.w, height: v.h }, deviceScaleFactor: v.dpr, hasTouch: !!v.tactil, isMobile: !!v.tactil,
+    serviceWorkers: 'block', locale: 'es-ES' });
+  await ctx.addInitScript(SIN_NUBE);
+  await ctx.addInitScript(x => { try { localStorage.setItem('ps.settings', JSON.stringify({ estilo: x })); } catch (e) { /* nada */ } }, estilo);
+  const page = await ctx.newPage();
+  const P = { ctx, page, errores: [], fuera: [] };
+  page.on('console', m => { if (m.type() === 'error') P.errores.push(m.text()); });
+  page.on('pageerror', e => P.errores.push('pageerror: ' + e.message));
+  page.on('request', r => { if (!r.url().startsWith(`http://127.0.0.1:${PORT}/`) && !/^(data|blob):/.test(r.url())) P.fuera.push(r.url()); });
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'load' });
+  await page.waitForFunction(() => document.getElementById('boot') && document.getElementById('boot').classList.contains('hidden'), null, { timeout: 30000 });
+  await sleep(200);
+  if (await page.locator('#tap-start').isVisible().catch(() => false)) await page.click('#tap-start');
+  await page.locator('#btn-guest').click();
+  await page.waitForFunction(() => ['scr-starters', 'scr-test', 'scr-menu'].some(id => !document.getElementById(id).classList.contains('hidden')), null, { timeout: 15000 });
+  if (await page.locator('#scr-starters.sin-test').isVisible().catch(() => false)) {
+    await page.locator('#starter-grid .ec-celda').nth(3).click();
+    await page.click('#ec-ok');
+  }
+  await page.locator('#scr-menu').waitFor({ state: 'visible', timeout: 15000 });
+  await page.evaluate(() => { G.DB.save.tickets = { t1: 60, t10: 6 }; });
+  return P;
+}
+const foto = async (page, nombre) => { await page.screenshot({ path: path.join(OUT, nombre + '.png') }); };
+
+async function tirar(page, boton, nombre) {
+  await page.click(boton);
+  for (let i = 0; i < 60; i++) {
+    if (await page.locator('#pull-close').isVisible().catch(() => false)) break;
+    await page.locator('#slot').click({ force: true }).catch(() => {});
+    await sleep(250);
+  }
+  await sleep(500);
+  await foto(page, nombre);
+  const cartas = await page.evaluate(() => [...document.querySelectorAll('#pull-fx .card, #pull-fx .pull-card, #pull-cards > *')].map(c => c.textContent.replace(/\s+/g, ' ').trim()).slice(0, 12));
+  await page.click('#pull-close');
+  await sleep(300);
+  return cartas;
+}
+
+const PJS = [[10001, 'Agumon', 'llama-bebe', 'Llama Bebé', 'Mega Llama'], [10002, 'Doom Slayer', 'super-escopeta', 'Súper Escopeta', 'BFG 9000'],
+  [10003, 'Cacodemonio', 'rayo-bola', 'Rayo Bola', 'Tormenta Infernal']];
+
+async function caso(browser, v, estilo, partidas) {
+  const tag = `${v.n}-${estilo}`;
+  const P = await jugador(browser, v, estilo), { page } = P;
+  // 1. La colección antes de tenerlos: pestaña Multiverso (0/3) y la ficha.
+  await page.evaluate(() => document.querySelector('#scr-menu [data-go=dex]').click());
+  await page.locator('#scr-dex').waitFor({ state: 'visible' });
+  const tabDex = page.locator('#dex-gens .gen-tab', { hasText: 'Multiverso' });
+  t(`${tag}: la colección tiene la pestaña «Multiverso» (0/3)`, await tabDex.count() === 1 && /0\/3/.test(await tabDex.textContent()), await page.locator('#dex-gens').textContent());
+  await tabDex.click();
+  await page.locator('#dex-grid .cell').first().click();
+  await sleep(200);
+  const ficha = await page.locator('#dex-detail').textContent();
+  t(`${tag}: ficha sin tenerlo: «???», N.º 10001 y «Sólo sale en el banner del Multiverso»`, /Sólo sale en el banner del Multiverso/.test(ficha) && !/shiny\./.test(ficha) && /10001/.test(ficha), ficha.replace(/\s+/g, ' '));
+  await foto(page, `${tag}-1-coleccion-sin`);
+  await page.evaluate(() => { G.UI.hideAll(); G.MenuUI.open(); });
+  // 2. El gacha: la pestaña dice «Otros mundos» desde que se abre; el banner del Multiverso.
+  await page.evaluate(() => { G.GachaUI.open(); });
+  await sleep(300);
+  const pest = await page.locator('#gacha-gens .gen-tab[data-gen="10"]').textContent();
+  t(`${tag}: pestaña del gacha «Multiverso · Otros mundos» al abrir (en Kanto)`, /Multiverso/.test(pest) && /Otros mundos/.test(pest) && !/Gen 10/.test(pest), pest);
+  await page.locator('#gacha-gens .gen-tab[data-gen="10"]').click();
+  await sleep(700);
+  const cartel = await page.evaluate(() => ({ titulo: document.getElementById('banner-title').textContent, desc: document.getElementById('banner-desc').textContent,
+    rates: document.getElementById('gacha-rates').textContent.replace(/\s+/g, ' '), feat: document.querySelectorAll('#gacha-feat canvas').length,
+    pity: document.getElementById('gacha-pity').textContent, scrollX: document.documentElement.scrollWidth > innerWidth + 1 }));
+  t(`${tag}: cartel del Multiverso (título, los tres con su serie, cada uno al 33,33 %, shiny 1,5 %, sin Legendaria, tres destacados)`, cartel.titulo === 'Multiverso' &&
+    /Agumon \(Digimon\), Doom Slayer \(DOOM\), Cacodemonio \(DOOM\)/.test(cartel.desc) && ['Agumon', 'Doom Slayer', 'Cacodemonio'].every(n => cartel.rates.includes(n + ' 33.33%')) &&
+    /Shiny\s*1\.5%/.test(cartel.rates) && !/Legendaria|Épica/.test(cartel.rates) && cartel.feat === 3 && !cartel.pity && !cartel.scrollX, cartel);
+  await foto(page, `${tag}-2-banner`);
+  // 3. Tiradas: ×1, un shiny forzado (para ver su carta) y ×10.
+  const c1 = await tirar(page, '#pull-1', `${tag}-3-tirada1`);
+  const mv1 = await page.evaluate(() => Object.keys(G.DB.save.owned).map(Number).filter(d => G.DEX_BY[d] && G.DEX_BY[d].mv));
+  t(`${tag}: la ×1 da uno del Multiverso, nuevo, y queda en la colección`, mv1.length === 1, { mv1, c1 });
+  await page.evaluate(() => G.Gacha.debugForceShiny(1));
+  const cs = await tirar(page, '#pull-1', `${tag}-4-shiny`);
+  t(`${tag}: el shiny forzado es uno del Multiverso en su variocolor`, await page.evaluate(() => Object.keys(G.DB.save.shiny || {}).some(d => G.DEX_BY[d] && G.DEX_BY[d].mv)), cs);
+  await page.evaluate(() => { const o = G.Gacha.pull; G.Gacha.pull = (...x) => { const r = o(...x); window.__ult = r; return r; }; });
+  const antes = await page.evaluate(() => G.DB.save.coins);
+  const c10 = await tirar(page, '#pull-10', `${tag}-5-tirada10`);
+  const r10 = await page.evaluate(() => ({ coins: G.DB.save.coins, res: (window.__ult || []).map(x => ({ dex: x.dex, mv: !!G.DEX_BY[x.dex].mv, shiny: x.shiny, isNew: x.isNew, refund: x.refund })) }));
+  const pagado = r10.res.reduce((sum, x) => sum + x.refund, 0);
+  t(`${tag}: la ×10 son 10 del Multiverso; los nuevos (también un shiny nuevo) no pagan y cada repetido da 30 Pokémonedas (90 un shiny), lo que suben las monedas`,
+    r10.res.length === 10 && r10.res.every(x => x.mv && (x.isNew ? x.refund === 0 : x.refund === (x.shiny ? 90 : 30))) && r10.coins - antes === pagado, { r10, antes, c10 });
+  // Los tres en la colección, pase lo que pase con el azar, para probarlos todos.
+  await page.evaluate(() => { for (const d of [10001, 10002, 10003]) G.DB.save.owned[d] = G.DB.save.owned[d] || { at: Date.now(), from: 'gacha' }; G.DB.commit(); });
+  for (const [dex, nombre, mid, ataque, evoNombre] of PJS) {
+    const corto = nombre.split(' ')[0].toLowerCase();
+    // 4. Colección: elegirlo de compañero.
+    await page.evaluate(() => { G.UI.hideAll(); G.MenuUI.open(); document.querySelector('#scr-menu [data-go=dex]').click(); });
+    await page.locator('#scr-dex').waitFor({ state: 'visible' });
+    await page.locator('#dex-gens .gen-tab', { hasText: 'Multiverso' }).click();
+    await page.locator('#dex-grid .cell', { hasText: nombre }).click();
+    await sleep(300);
+    await foto(page, `${tag}-6-coleccion-${corto}`);
+    const fichaYa = (await page.locator('#dex-detail').textContent()).replace(/\s+/g, ' ');
+    t(`${tag}: ficha de ${nombre}: su nombre y «Empieza con ${ataque}»`, fichaYa.includes(nombre) && fichaYa.includes('Empieza con ' + ataque), fichaYa);
+    await page.click('#dex-pick');
+    t(`${tag}: ${nombre} es tu compañero`, await page.evaluate(d => G.DB.save.partner === d, dex));
+    await page.evaluate(() => { G.UI.hideAll(); G.MenuUI.open(); });
+    await sleep(600);
+    await foto(page, `${tag}-7-menu-${corto}`);
+    if (!partidas.includes(dex)) continue;
+    // 5. Una partida con él.
+    await page.evaluate(() => G.Flow.play());
+    await page.waitForFunction(() => G.Game.state === 'playing' && G.Game.player, null, { timeout: 20000 });
+    let disparos = 0, enemigosMv = 0, enemigos = 0, cerca = Infinity;
+    for (let i = 0; i < 80 && !(i >= 24 && disparos > 0); i++) {
+      await sleep(250);
+      const m = await page.evaluate(() => {
+        const pl = G.Game.player, mv = new Set(G.DEX.filter(p => p.mv).map(p => p.dex));
+        const es = G.EnemyMgr.all();
+        return { d: G.Projectiles.all().filter(p => p.owner === pl).length, e: es.length, emv: es.filter(e => mv.has(e.dex)).length,
+          c: Math.min(Infinity, ...es.map(e => Math.hypot(e.x - pl.x, e.y - pl.y))) };
+      });
+      disparos = Math.max(disparos, m.d); enemigos = Math.max(enemigos, m.e); enemigosMv += m.emv; cerca = Math.min(cerca, m.c);
+    }
+    const pl = await page.evaluate(() => { const p = G.Game.player; return { dex: p.dex, move: p.moves[0] && p.moves[0].id, scale: p.scale, r: p.r, anim: p.anim && p.anim.dex, hv: G.Sprites.hovers(p.dex) }; });
+    t(`${tag}: en partida eres ${nombre} con ${ataque} y dispara (${disparos} a la vez como mucho; enemigo más cercano a ${Math.round(cerca)} px)`,
+      pl.dex === dex && pl.move === mid && pl.anim === dex && pl.scale === 1 && disparos > 0, { pl, disparos });
+    t(`${tag}: con ${nombre}, ningún enemigo es del Multiverso (${enemigos} enemigos como mucho)`, enemigosMv === 0 && enemigos > 0, { enemigosMv, enemigos });
+    await foto(page, `${tag}-8-partida-${corto}`);
+    const c = await page.evaluate(() => { const r = document.getElementById('game').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    await page.screenshot({ path: path.join(OUT, `${tag}-9-${corto}.png`), clip: { x: Math.max(0, c.x - 120), y: Math.max(0, c.y - 110), width: 240, height: 200 } });
+    const evo = await page.evaluate(() => {
+      const pl = G.Game.player, m = pl.moves[0];
+      while (m.lvl < m.def.maxLvl) G.Moves.levelUp ? G.Moves.levelUp(m) : m.lvl++;
+      const need = G.Moves.EVO[m.id][1];
+      const info = G.Moves.evoInfo(m, { [need]: 1 });
+      const okE = G.Moves.evolve(m);
+      return { lvl: m.lvl, max: m.def.maxLvl, info: info && info.name, ready: info && info.ready, okE, name: m.name };
+    });
+    t(`${tag}: ${ataque} sube a su nivel máximo y evoluciona a «${evoNombre}»`, evo.lvl === evo.max && evo.info === evoNombre && evo.ready && evo.okE && evo.name === evoNombre, evo);
+    await sleep(1200);
+    await foto(page, `${tag}-10-evolucionado-${corto}`);
+    await page.evaluate(() => { G.UI.hideAll(); G.Game.quit(); G.Flow.goMenu(); });
+  }
+  t(`${tag}: sin errores en la consola ni peticiones fuera de 127.0.0.1`, !P.errores.length && !P.fuera.length, { errores: P.errores.slice(0, 5), fuera: P.fuera.slice(0, 5) });
+  await P.ctx.close();
+}
+
+(async () => {
+  const srv = await startServer(REPO, PORT);
+  const browser = await chromium.launch();
+  try {
+    const V = [{ n: '1440x900', w: 1440, h: 900, dpr: 1 }, { n: '844x390', w: 844, h: 390, dpr: 3, tactil: true }];
+    const PLAN = { '1440x900-dex': [10001, 10002, 10003], '1440x900-clasico': [10002], '844x390-dex': [10003], '844x390-clasico': [10001] };
+    for (const v of V) for (const e of ['dex', 'clasico']) {
+      try { await caso(browser, v, e, PLAN[v.n + '-' + e]); } catch (err) { t(`${v.n}-${e}: el recorrido`, false, String(err && err.stack || err)); }
+    }
+  } finally {
+    await browser.close(); srv.close();
+    fs.writeFileSync(path.join(OUT, 'resultado.json'), JSON.stringify(res, null, 2));
+    const f = res.filter(r => !r.ok).length;
+    console.log(`\n${res.length - f}/${res.length} bien`);
+    process.exit(f ? 1 : 0);
+  }
+})();

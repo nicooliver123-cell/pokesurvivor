@@ -14,7 +14,7 @@
  *      (borde de la caja y letra y fondo de los botones: si upstream renombra .box o .btn, falla); con
  *      Clásico, que no. Y el menú principal: las 8 opciones a la vista sin desplazar, el logotipo libre de la
  *      barra superior y la línea de créditos sin pisar ninguna caja.
- *   2. Gacha en pantallas bajas y en los plegables: en los 9 banners, cada lienzo destacado dentro del
+ *   2. Gacha en pantallas bajas y en los plegables: en los 10 banners (los 9 de upstream y el Multiverso), cada lienzo destacado dentro del
  *      banner y de la ventana, a su tamaño (alto CSS = alto del lienzo), y los tres botones de tirar a la
  *      vista sin desplazar; si las pestañas no caben, la elegida entera (fuera del degradado) y el
  *      degradado sólo donde hay más; en pantallas bajas, la capa «Probabilidades» (la tabla debajo del título, «Cerrar» entero
@@ -455,19 +455,23 @@ const MEDIR_GACHA = () => {
   return { lienzos, botones, desplaza: box.scrollHeight - box.clientHeight, banner: [Math.round(b.width), Math.round(b.height)] };
 };
 
+/** [banner, destacados que pinta]: los 3 legendarios más fuertes de cada generación; en el Multiverso, sus personajes
+ *  (hasta 3: js/data/multiverso.js). */
+const DESTACADOS = `G.Gacha.BANNERS.map(b => [b.gen, G.Gacha.featured(b.gen).length || (G.MULTIVERSO && b.gen === G.MULTIVERSO.GEN ? G.MULTIVERSO.lista().slice(0, 3).length : 0)])`;
+
 async function gachaBanners(P) {
   const { page } = P, malos = [], innerAlto = P.v.h, tiras = [];
   for (const e of ESTILOS) {
     await estilo(page, e);
     await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
     await sleep(350);   // la caja entra con una animación de escala (pop, 0,22 s)
-    for (let g = 1; g <= 9; g++) {
+    for (const [g, esperados] of await page.evaluate(DESTACADOS)) {
       await page.click(`#gacha-gens .gen-tab[data-gen="${g}"]`);
       await sleep(60);
       { const t = await page.evaluate(MEDIR_TIRA); if (!t.entera || !t.clases) tiras.push({ estilo: e, ...t }); }
       const m = await page.evaluate(MEDIR_GACHA);
       // En pantallas bajas cabe todo sin desplazar; con más alto (un plegable), las probabilidades van debajo y se llega desplazando.
-      const ok = m.lienzos.length === 3 && m.lienzos.every(l => l.dentroBanner && l.dentroVentana && Math.abs(l.altoCss - l.alto) < 0.01 && Math.abs(l.anchoCss - l.ancho) < 0.01) &&
+      const ok = m.lienzos.length === esperados && m.lienzos.every(l => l.dentroBanner && l.dentroVentana && Math.abs(l.altoCss - l.alto) < 0.01 && Math.abs(l.anchoCss - l.ancho) < 0.01) &&
         m.botones.every(Boolean) && (m.desplaza <= 1 || innerAlto >= 520);
       if (!ok) malos.push({ estilo: e, banner: g, ...m });
     }
@@ -2580,6 +2584,7 @@ function hojaDeContactos() {
             await estilo(page, e);
             await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
             await sleep(350);
+            await page.click('#gacha-gens .gen-tab[data-gen="1"]');   // la tabla más larga (el gacha recuerda el último banner, el del Multiverso)
             const aviso = await page.evaluate(AVISO_GACHA);
             await page.click('#gacha-prob');
             await sleep(250);
@@ -2708,21 +2713,21 @@ function hojaDeContactos() {
         }
       }
 
-      // 3. Que no se corte ningún sprite: destacados de los 9 banners, compañero del menú (y el premio, en las tiradas).
+      // 3. Que no se corte ningún sprite: destacados de los 10 banners, compañero del menú (y el premio, en las tiradas).
       if (clave === 'pc' || clave === 'movil') {
         await estilo(page, 'dex');
         await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
-        const feat = [], vivos = [];
-        for (let g = 1; g <= 9; g++) {
+        const feat = [], vivos = [], banners = await page.evaluate(DESTACADOS), total = banners.reduce((a, [, n]) => a + n, 0);
+        for (const [g] of banners) {
           await page.click(`#gacha-gens .gen-tab[data-gen="${g}"]`);
           feat.push(...(await page.evaluate(BORDES, '#gacha-feat canvas')).map(x => ({ banner: g, ...x })));
           vivos.push(...(await page.evaluate(BORDES_VIVOS, '#gacha-feat canvas')).map((x, j) => ({ banner: g, j, ...x })));
         }
         const malos = feat.filter(x => x.sinColocar || x.toca);
-        check(`${nv}: destacados del gacha: ningún fotograma que pueden pintar (Idle y las animaciones que caben) de los 27 legendarios toca el borde de su lienzo de 170x190 (${feat.reduce((s, x) => s + (x.fotogramas || 0), 0)} fotogramas), ni en 30 fotogramas de verdad`,
-          feat.length === 27 && !malos.length && vivos.every(x => !x.toca && !x.vacios), malos.length ? malos : vivos.filter(x => x.toca || x.vacios));
+        check(`${nv}: destacados del gacha: ningún fotograma que pueden pintar (Idle y las animaciones que caben) de los ${total} destacados (27 legendarios y los del Multiverso) toca el borde de su lienzo de 170x190 (${feat.reduce((s, x) => s + (x.fotogramas || 0), 0)} fotogramas), ni en 30 fotogramas de verdad`,
+          feat.length === total && total >= 27 && !malos.length && vivos.every(x => !x.toca && !x.vacios), malos.length ? malos : vivos.filter(x => x.toca || x.vacios));
         report.medidas['destacados-' + nv] = feat.map(x => ({ banner: x.banner, nombre: x.nombre, k: x.k, vida: x.vida, margen: x.peor && x.peor.margen }));
-        if (clave === 'pc') console.log('[INFO] destacados a ×2: ' + feat.filter(x => x.k === 2).length + ' de 27; a ×1: ' + feat.filter(x => x.k === 1).map(x => x.nombre).join(', '));
+        if (clave === 'pc') console.log('[INFO] destacados a ×2: ' + feat.filter(x => x.k === 2).length + ' de ' + total + '; a ×1: ' + feat.filter(x => x.k === 1).map(x => x.nombre).join(', '));
         const comp = await page.evaluate(() => [...new Set([...G.STARTERS.map(s => s.dex), 25, 133, 799, 321, 890, 384, 6, 150])]);
         const res = [];
         for (const dex of comp) {
