@@ -160,18 +160,26 @@ G.MODS = {
    * grupo los dos tienen que llevar la misma versión. Se lee al cargar. false = los del proyecto base. */
   mapasPropios: true,
 
-  /* Relieve, 2.5D falsa sobre los mapas propios (PLAN.md, punto 10; PROTOTIPO pendiente de que Nico lo
-   * apruebe): las paredes y crestas se levantan `relieveAltura` píxeles de arte (8 = la cara pasa de 8 a
+  /* El mundo, siempre con el aspecto Dex (decisión de Nico del 14-10-2026: «elimina el otro modo visual.
+   * dex se ve mejor. que la opción sólo cambie cómo se ve la interfaz»): la gradación del suelo, el farol,
+   * los halos, las motas, el clima de dos tonos, la viñeta cálida, el iris de las transiciones, el relieve
+   * y la luz salen igual con los dos estilos; Ajustes > Gráficos > Estilo sólo cambia la interfaz (menús,
+   * HUD, letra, portada). false = como antes: con Clásico, el mundo del proyecto base (lo usan las pruebas
+   * para compararlo byte a byte con upstream). */
+  mundoDex: true,
+
+  /* Relieve, 2.5D falsa sobre los mapas propios (PLAN.md, punto 10; aprobado por Nico el 14-10-2026, con
+   * altura 8): las paredes y crestas se levantan `relieveAltura` píxeles de arte (8 = la cara pasa de 8 a
    * 16, la altura de una casilla) y se pintan como un objeto más, ordenado por Y con los Pokémon y los
    * árboles (js/world/relieve.js, G.Relieve): lo que está al norte de una cresta queda detrás y, si tapa
    * a tu Pokémon, G.Claridad lo repinta como con un árbol. La colisión, la cámara y la red no cambian.
-   * Sólo con mapasPropios. 0 = paredes planas, como hasta ahora. */
+   * Sólo con mapasPropios y con el mundo Dex (`mundoDex`). 0 = paredes planas, como hasta ahora. */
   relieveAltura: 8,
 
-  /* Búfer de luz (PROTOTIPO, como el relieve; js/world/luz.js, G.Luz): un lienzo a resolución de píxel de
+  /* Búfer de luz (aprobado por Nico el 14-10-2026; va con el mundo Dex, `mundoDex`; js/world/luz.js, G.Luz): un lienzo a resolución de píxel de
    * arte, con la luz ambiente del bioma (`luzAmbiente`, 0-1: lo que deja cada canal lejos de una luz) y
-   * las luces de tus ataques de fuego y eléctricos, del ácido y la lava y de los orbes de los tótems,
-   * multiplicado sobre la escena antes de los disparos y los efectos: nunca oscurece un disparo enemigo
+   * las luces de tus ataques de fuego y eléctricos, del ácido y la lava, de los orbes de los tótems y de la
+   * grieta, multiplicado sobre la escena antes de los disparos y los efectos: nunca oscurece un disparo enemigo
    * ni un aviso del suelo (sus zonas se quedan a 1). Sólo con Calidad Alta (en un móvil, la automática
    * se queda en Media: hay que elegir Alta en Ajustes > Gráficos). false = sin luz. */
   luz: true,
@@ -379,6 +387,12 @@ G.MODS = {
     const s = typeof screen !== 'undefined' ? screen : null;
     if (!s || !(s.width > 0) || !(s.height > 0)) return true;
     return this.pedirGiro(Math.min(s.width, s.height), Math.max(s.width, s.height));
+  },
+
+  /** ¿Se pinta el mundo con el aspecto Dex (entornos, iris, relieve y luz)? Siempre con `mundoDex`; sin él, sólo con
+   *  el estilo Dex (como antes del 14-10-2026). Lo miran entorno.js, transicion.js, relieve.js y luz.js. */
+  mundoConDex() {
+    return this.mundoDex !== false || !!(G.Estilo && G.Estilo.dex);
   },
 
   /** game.js, update(): el bioma del mapa para el tramo `b` (= minutos / 4). Con biomasEnCiclo,

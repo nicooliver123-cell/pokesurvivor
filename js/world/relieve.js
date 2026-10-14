@@ -1,5 +1,5 @@
 /* ============ relieve.js — 2.5D falsa: paredes y crestas con altura (MOD nico) ============
- * PLAN.md, punto 10 (valoración del 14-10-2026). PROTOTIPO: Nico decide con las capturas si sigue.
+ * PLAN.md, punto 10 (valoración del 14-10-2026; aprobado por Nico con las capturas el mismo día, con altura 8).
  * Con G.MODS.relieveAltura > 0 y los mapas propios, cada pared se levanta H px de arte: su techo sube H y su cara pasa
  * de 8 a 8 + H (lo pinta G.Mapas.pintarRelieve, con los materiales de mapas-pintar.js, en un lienzo aparte por chunk).
  * Cada fila de paredes seguidas es un objeto más de la escena de drawScene (game.js), ordenado por Y con el borde norte
@@ -11,7 +11,8 @@
  * mismo). Lo que vuela por encima de una pared (voladores, fantasmas y jefes ignoran el terreno) se pinta encima de esa
  * cresta: su orden pasa al pie de la última pared que tiene debajo hacia el sur. G.Claridad cuenta cada tramo como un
  * árbol (ent.caja, el rectángulo del tramo): si tapa el 20 % o más de tu Pokémon, lo repinta encima.
- * Gancho de una línea en game.js (drawScene, antes de ordenar) y getter `fundido` en world.js (el fundido de bioma).
+ * Va con el mundo Dex (G.MODS.mundoDex: en los dos estilos). Gancho de una línea en game.js (drawScene, antes de
+ * ordenar) y getter `fundido` en world.js (el fundido de bioma).
  */
 G.Relieve = (() => {
   const PX = G.Sprites.PX, T = G.Tiles.T, N = 16, TS = T * PX, CW = N * TS;
@@ -26,6 +27,7 @@ G.Relieve = (() => {
   function altura() {
     const h = G.MODS && +G.MODS.relieveAltura;
     if (!(h > 0) || !G.Mapas || !G.Mapas.activo || typeof G.Mapas.pintarRelieve !== 'function') return 0;
+    if (typeof G.MODS.mundoConDex === 'function' && !G.MODS.mundoConDex()) return 0;   // va con el mundo Dex (G.MODS.mundoDex)
     return Math.min(16, Math.round(h));
   }
   /** Lo que cambia el terreno: la semilla, la arena de la grieta y la altura. Si cambia, se olvida todo. */

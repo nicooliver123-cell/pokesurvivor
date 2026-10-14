@@ -1,6 +1,9 @@
 /* ============ luz.js — búfer de luz a resolución de píxel de arte (MOD nico) ============
- * PLAN.md, punto 10 (valoración del 14-10-2026). PROTOTIPO, con tres fuentes: tus ataques de fuego y eléctricos (los
- * disparos y los orbes), el ácido y la lava (cada casilla de líquido de peligro) y los orbes de los tótems sin usar.
+ * PLAN.md, punto 10 (valoración del 14-10-2026; aprobado por Nico el mismo día, «luz sólo en Dex»: va con el mundo Dex,
+ * G.MODS.mundoDex, así que con los dos estilos de interfaz). Fuentes: tus ataques de fuego y eléctricos (los disparos,
+ * los orbes y los campos: charcos, minas, torretas y meteoros), el ácido y la lava (cada casilla de líquido de peligro),
+ * los orbes de los tótems sin usar y la grieta abierta. Con la luz, entorno.js no pinta los halos de la grieta ni los
+ * de esos disparos (la luz los sustituye).
  * Cada fotograma, en un lienzo de un píxel por píxel de arte (G.Sprites.PX px de mundo) alineado con la rejilla del
  * mundo: la luz ambiente del bioma (G.MODS.luzAmbiente, con un tinte por bioma), las luces sumadas encima ('lighter',
  * discos con el alfa en escalones de 0,05, como los halos de entorno.js) y, a 1 (blanco), las zonas de los avisos del
@@ -20,6 +23,7 @@ G.Luz = (() => {
   const COLOR = { fire: '#ffae3a', electric: '#fff06a' };
   const ORBE = ['#ff5f6d', '#5fd4ff', '#ff8ad8', '#ffd23f'];   // los poderes del altar (world.js, drawProp)
   const PELIGRO = { lava: '#ff8a2a', poison: '#a8f060', spark: '#ffe45a' };
+  const GRIETA = (G.MARCA && G.MARCA.color && G.MARCA.color.grieta) || '#B48AFF';
   let cv = null, lc = null;
 
   let mq = null;
@@ -33,6 +37,7 @@ G.Luz = (() => {
    *  27 ms, y así la Calidad automática baja a Media, sin luz, y ahí se queda. */
   function activo() {
     if (!G.MODS || !G.MODS.luz) return false;
+    if (typeof G.MODS.mundoConDex === 'function' && !G.MODS.mundoConDex()) return false;   // va con el mundo Dex (G.MODS.mundoDex)
     const fx = G.Settings && typeof G.Settings.fx === 'number' ? G.Settings.fx : 2;
     return fx >= 2;
   }
@@ -109,12 +114,27 @@ G.Luz = (() => {
         }
       }
     }
+    // 2b. Los campos de tus ataques de fuego y eléctricos: charcos, minas, torretas y meteoros (mientras caen).
+    for (const f of (G.Combat && G.Combat.campos) || []) {
+      const tipo = (f.m && f.m.type) || (f.vis && f.vis.pal);
+      if (f.gone || (tipo !== 'fire' && tipo !== 'electric') || !cam.sees(f.x, f.y, 80)) continue;
+      const vivo = f.life ? Math.max(0, Math.min(1, (f.life - f.t) * 2, f.t * 6)) : 1;
+      if (f.kind === 'patch') out.push({ x: f.x, y: f.y, r: Math.max(36, (f.r || 30) * 1.15), col: COLOR[tipo], a: 0.5 * vivo });
+      else if (f.kind === 'meteor') { if (f.t >= 0 && f.t < f.fall) out.push({ x: f.x, y: f.y, r: 40 + 30 * (f.t / f.fall), col: COLOR[tipo], a: 0.6 }); }
+      else out.push({ x: f.x, y: f.y - (f.kind === 'turret' ? 16 : 0), r: 34, col: COLOR[tipo], a: 0.5 * vivo });
+    }
     // 3. Los orbes de los tótems sin usar (donde los pinta drawProp: 11 píxeles de arte desde arriba del sprite).
     for (const p of G.World.visibleProps(cam)) {
       if (p.type !== 'altar' || p.used) continue;
       const img = G.Tiles.propSprite(G.World.biome, 'altar', p.kind * 2);
       const h = img ? img.height * PX : 54;
       out.push({ x: p.x, y: p.y - h + 11 * PX, r: 60, col: ORBE[p.kind] || ORBE[0], a: 0.7 + (red ? 0 : Math.sin(t * 3 + p.wiggle) * 0.1) });
+    }
+    // 4. La grieta abierta: su violeta, latiendo (quieta con «Menos sacudidas»), entra y sale con su vida.
+    const rf = G.Rift && G.Rift.rift;
+    if (rf && cam.sees(rf.x, rf.y, 120)) {
+      const f = Math.max(0, Math.min(1, rf.t * 2, rf.ttl / 1.5));
+      out.push({ x: rf.x, y: rf.y - 20, r: 110, col: GRIETA, a: (0.75 + (red ? 0 : Math.sin(t * 6.2832) * 0.08)) * f });
     }
     return out;
   }
@@ -177,5 +197,5 @@ G.Luz = (() => {
     ctx.restore();
   }
 
-  return { pintar, activo, luces };
+  return { pintar, activo, luces, alumbra: tipo => tipo === 'fire' || tipo === 'electric' };
 })();

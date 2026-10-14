@@ -3989,14 +3989,17 @@ function entornoChecks() {
   /** El mundo real (tiles.js y world.js; `upstream`: sin las líneas «MOD nico») con entorno.js y horno.js si se piden, un reloj
    *  de mentira y un estilo de mentira con la interfaz de G.Estilo (actual, dex, on). paintChunk apunta cada horneado (y lo
    *  alarga `lento` ms en el reloj) y marca el lienzo con su bioma, su estilo y su chunk. `mapas`: los mapas propios entre
-   *  tiles.js y world.js con G.MODS.mapasPropios = mapas (como el juego, true; con false, el mundo del proyecto base). */
-  function mundo({ estilo = 'dex', entorno = true, horno = true, upstream = false, lento = 0, mapas = true } = {}) {
+   *  tiles.js y world.js con G.MODS.mapasPropios = mapas (como el juego, true; con false, el mundo del proyecto base).
+   *  `mundoDex` es G.MODS.mundoDex: aquí, false por omisión (los casos A-F son los del lote 3, con Clásico = el mundo de
+   *  upstream, la red de seguridad frente a upstream); el G mira el del juego (true: el mundo Dex con los dos estilos). */
+  function mundo({ estilo = 'dex', entorno = true, horno = true, upstream = false, lento = 0, mapas = true, mundoDex = false } = {}) {
     const reloj = { t: 1000 };
     const c = { console, performance: { now: () => reloj.t }, document: { createElement: lienzoFalso } };
     vm.createContext(c);
     c.window = c; c.G = {};
     for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/ui/marca.js']) vm.runInContext(rd(f), c, { filename: f });
     const G = c.G, oyentes = [];
+    G.MODS.mundoDex = mundoDex;
     G.Estilo = { actual: estilo, get dex() { return this.actual === 'dex'; }, on(fn) { oyentes.push(fn); }, set(v) { this.actual = v; oyentes.forEach(fn => fn(v)); } };
     G.Settings = { fx: 2, get: () => false };
     G.Sprites = { PX: 2 };
@@ -4051,7 +4054,7 @@ function entornoChecks() {
     const arenas = BD.slice(3).every((b, i) => eq(b, BU[3 + i]));
     D.Estilo.set('clasico');
     const vuelta = [0, 1, 2].every(i => D.Entorno.CAMPOS.every(k => eq(BD[i][k], BU[i][k])) && eq(BD[i], BU[i])) && BD.length === BU.length;
-    t('sin los mapas propios, con Clásico las paletas vuelven a las de upstream (copia ORIG, campo a campo) y las arenas de la grieta no se tocan nunca', arenas && vuelta && D.Entorno.aplicada === 'clasico');
+    t('sin los mapas propios, con Clásico las paletas vuelven a las de upstream (copia ORIG, campo a campo) y las arenas de la grieta no se tocan nunca (con mundoDex = false)', arenas && vuelta && D.Entorno.aplicada === 'clasico');
     // Con los mapas propios (como el juego): G.MARCA.biomas sólo lleva { nombre, _g }, así que Dex no recolorea nada; la
     // gradación, el farol y las motas siguen (aplicada 'dex').
     const MD = mundo().G, MC = mundo({ estilo: 'clasico' }).G, BM = MD.Tiles.BIOMES, DAT = MD.MapasDatos.BIOMAS;
@@ -4060,7 +4063,7 @@ function entornoChecks() {
       deDatos && !MD.Entorno.CAMPOS.length && eq(BM, MC.Tiles.BIOMES) && MD.Entorno.aplicada === 'dex', { CAMPOS: MD.Entorno.CAMPOS, aplicada: MD.Entorno.aplicada });
     const antes = JSON.stringify(BM);
     MD.Estilo.set('clasico');
-    t('con los mapas propios, pasar a Clásico no cambia ningún color (ni de los biomas ni de las arenas)', JSON.stringify(BM) === antes && MD.Entorno.aplicada === 'clasico');
+    t('con los mapas propios, pasar a Clásico (con mundoDex = false) no cambia ningún color (ni de los biomas ni de las arenas)', JSON.stringify(BM) === antes && MD.Entorno.aplicada === 'clasico');
   } catch (e) { t('paletas', false, String(e && e.stack || e)); }
 
   // ---- B. Con Clásico, el chunk es byte a byte el de upstream (también tras ir y volver de Dex); sin los mapas propios ----
@@ -4075,7 +4078,7 @@ function entornoChecks() {
       U.G.World.drawGround(a, cam); C.G.World.drawGround(b, cam);
       a.imgs.forEach((im, i) => { casos++; if (!iguales(bytes(im[0]), bytes(b.imgs[i] && b.imgs[i][0]))) mal.push({ bi, x, y, i }); });
     }
-    t(`sin los mapas propios (mapasPropios = false, con sus 4 ficheros cargados) y con Clásico, cada chunk horneado es byte a byte el de upstream (${casos} chunks: bosque, cueva, volcán y una arena, con paredes y charcos, después de pasar por Dex)`, casos >= 24 && !mal.length, mal.slice(0, 4));
+    t(`sin los mapas propios (mapasPropios = false, con sus 4 ficheros cargados), con mundoDex = false y con Clásico, cada chunk horneado es byte a byte el de upstream (${casos} chunks: bosque, cueva, volcán y una arena, con paredes y charcos, después de pasar por Dex)`, casos >= 24 && !mal.length, mal.slice(0, 4));
   } catch (e) { t('Clásico = upstream', false, String(e && e.stack || e)); }
 
   // ---- C. Gradación: sólo el suelo, determinista y sin trazos ----
@@ -4163,7 +4166,7 @@ function entornoChecks() {
     G.Estilo.set('clasico');
     const buf = new Uint32Array(256 * 256).fill(0xff336699);
     G.Entorno.gradar({ w: 256, h: 256, get: (x, y) => buf[y * 256 + x], set(x, y, v) { buf[y * 256 + x] = v; } }, cand[0][0], cand[0][1], 16, at, 0);
-    t('con Clásico, gradar() no toca ningún píxel', buf.every(v => v === 0xff336699));
+    t('con Clásico, gradar() no toca ningún píxel (con mundoDex = false)', buf.every(v => v === 0xff336699));
   } catch (e) { t('gradación', false, String(e && e.stack || e)); }
 
   // ---- D. Horno ----
@@ -4237,7 +4240,7 @@ function entornoChecks() {
     asentar(M, cam, 40);
     G.Estilo.set('clasico');
     const n3 = G.Horno.precalentado;
-    t(`una grieta, otro mundo (reset con otra semilla) o un cambio de estilo descartan lo precalentado (${n0} → ${n1}, ${n2} y ${n3 && n3.n})`, n0 >= 6 && n1 <= 1 && n2 <= 1 && !n3, { n0, n1, n2, n3 });
+    t(`una grieta, otro mundo (reset con otra semilla) o un cambio de estilo (con mundoDex = false) descartan lo precalentado (${n0} → ${n1}, ${n2} y ${n3 && n3.n})`, n0 >= 6 && n1 <= 1 && n2 <= 1 && !n3, { n0, n1, n2, n3 });
   } catch (e) { t('invalidación del precalentado', false, String(e && e.stack || e)); }
   try {
     // D4. Cambio de estilo (en la pausa): 0 horneados de golpe; el suelo se rehornea de uno en uno desde tu Pokémon.
@@ -4250,7 +4253,7 @@ function entornoChecks() {
     for (let i = 0; i < 30; i++) { const f = fotograma(M, cam, 0); ns.push(f.n); hechos.push(...f.hechos); }
     const vis = visibles(cam), mio = Math.floor(-700 / 512) + ',' + Math.floor(900 / 512);
     const finales = vis.map(k => { const [cx, cy] = k.split(',').map(Number); return G.World.chunkImage(cx, cy).__estilo; });
-    t(`al cambiar de estilo (en la pausa): ningún horneado de golpe, como mucho 1 por fotograma (${ns.slice(0, vis.length + 1).join(',')}), el de tu Pokémon primero (${hechos[0]}) y, en ${vis.length + 1} fotogramas, todo lo visible en Clásico`,
+    t(`al cambiar de estilo (en la pausa, con mundoDex = false): ningún horneado de golpe, como mucho 1 por fotograma (${ns.slice(0, vis.length + 1).join(',')}), el de tu Pokémon primero (${hechos[0]}) y, en ${vis.length + 1} fotogramas, todo lo visible en Clásico`,
       Math.max(...ns) <= 1 && hechos[0] === mio && finales.every(e => e === 'clasico') && !G.Horno.conViejas, { ns: ns.slice(0, 12), hechos: hechos.slice(0, 4), finales });
     // Y si justo después empieza otra partida (otro mundo) o se abre una arena, nada de las imágenes viejas.
     G.World.reset(SEMILLA); G.World.setBiome(0, true); asentar(M, cam);
@@ -4337,7 +4340,7 @@ function entornoChecks() {
     // Con Clásico, nada en la capa del suelo (el horno sigue).
     G.Estilo.set('clasico');
     const cc = pinta(2);
-    t('con Clásico, la capa del suelo no pinta nada (farol, halos, motas ni salpicaduras)', !cc.ops.length && !cc.grads.length);
+    t('con Clásico, la capa del suelo no pinta nada (farol, halos, motas ni salpicaduras) (con mundoDex = false)', !cc.ops.length && !cc.grads.length);
   } catch (e) { t('Calidad', false, String(e && e.stack || e)); }
 
   // ---- F. Viñeta cálida y clima de dos tonos ----
@@ -4349,7 +4352,7 @@ function entornoChecks() {
     const vw = ctxFalso(); G.World.drawVignette(vw, W, Hh);
     G.Estilo.set('clasico');
     const vc = ctxFalso(), noHizo = G.Entorno.vineta(vc, W, Hh); G.World.drawVignette(vc, W, Hh);
-    t('drawVignette (world.js): con Dex, la cálida; con Clásico, vineta() devuelve false y sale la negra de upstream (0,5, desde el 34 %)',
+    t('drawVignette (world.js): con Dex, la cálida; con Clásico, vineta() devuelve false y sale la negra de upstream (0,5, desde el 34 %) (con mundoDex = false)',
       vw.grads.length === 1 && vw.grads[0].args[2] === Hh * 0.46 && !noHizo && vc.grads.length === 1 && vc.grads[0].args[2] === Hh * 0.34 && vc.grads[0].stops[1][1] === 'rgba(0,0,0,.5)');
     G.Estilo.set('dex');
     // El clima, con weather.js real.
@@ -4382,8 +4385,51 @@ function entornoChecks() {
       JSON.stringify(escritorio) === '["4x4"]' && JSON.stringify(movil) === '["2x2"]' && JSON.stringify(sinCamara) === '["2x2"]', { escritorio, movil, sinCamara });
     G.Estilo.set('clasico');
     const cu = clima(3);
-    t(`con Clásico, el clima de upstream (70 gotas de 4 trazos y su tinte: ${cu.rects} rectángulos)`, cu.rects === 1 + 70 * 4, cu.rects);
+    t(`con mundoDex = false y Clásico, el clima de upstream (70 gotas de 4 trazos y su tinte: ${cu.rects} rectángulos)`, cu.rects === 1 + 70 * 4, cu.rects);
   } catch (e) { t('viñeta y clima', false, String(e && e.stack || e)); }
+
+  // ---- G. El mundo Dex con los dos estilos (G.MODS.mundoDex, como el juego desde el 14-10-2026: el estilo sólo cambia la interfaz) ----
+  try {
+    const D = mundo({ mundoDex: true, estilo: 'dex' }), C = mundo({ mundoDex: true, estilo: 'clasico' }), U = mundo({ upstream: true, entorno: false, horno: false });
+    const BD = JSON.stringify(D.G.Tiles.BIOMES);
+    t('con mundoDex, Clásico lleva las mismas paletas que Dex (aplicada «dex» en los dos) y pasar de uno a otro no cambia ningún color',
+      JSON.stringify(C.G.Tiles.BIOMES) === BD && C.G.Entorno.aplicada === 'dex' && (D.G.Estilo.set('clasico'), JSON.stringify(D.G.Tiles.BIOMES) === BD && D.G.Entorno.aplicada === 'dex'));
+    D.G.Estilo.set('dex');
+    // Sin los mapas propios, también las paletas del Gremio con Clásico.
+    const SD = mundo({ mundoDex: true, mapas: false }), SC = mundo({ mundoDex: true, mapas: false, estilo: 'clasico' });
+    t('con mundoDex y sin los mapas propios, Clásico lleva las paletas del Gremio, como Dex', JSON.stringify(SD.G.Tiles.BIOMES) === JSON.stringify(SC.G.Tiles.BIOMES) && SC.G.Entorno.aplicada === 'dex');
+    // Los chunks horneados: byte a byte iguales con Dex y con Clásico, y graduados (distintos de los de upstream sin entorno.js).
+    let casos = 0, distintosUp = 0;
+    const mal = [];
+    for (const bi of [0, 1, 2]) for (const [x, y] of [[0, 0], [2600, -1800]]) {
+      for (const M of [D, C, U]) { M.G.World.reset(SEMILLA); M.G.World.setBiome(bi, true); }
+      const cam = camara(x, y), a = ctxFalso(), b = ctxFalso(), u = ctxFalso();
+      D.G.World.drawGround(a, cam); C.G.World.drawGround(b, cam);
+      a.imgs.forEach((im, i) => { casos++; if (!iguales(bytes(im[0]), bytes(b.imgs[i] && b.imgs[i][0]))) mal.push({ bi, x, y, i }); });
+      const M2 = mundo({ mundoDex: true, entorno: false, horno: false }); M2.G.World.reset(SEMILLA); M2.G.World.setBiome(bi, true); M2.G.World.drawGround(u, cam);
+      a.imgs.forEach((im, i) => { if (!iguales(bytes(im[0]), bytes(u.imgs[i] && u.imgs[i][0]))) distintosUp++; });
+    }
+    t(`con mundoDex, cada chunk horneado es el mismo con Dex y con Clásico (${casos} chunks de los 3 biomas) y lleva la gradación (${distintosUp} distintos del mismo pintor sin entorno.js)`, casos >= 12 && !mal.length && distintosUp === casos, mal.slice(0, 4));
+    // La capa del suelo, la viñeta cálida y el clima de dos tonos, también con Clásico.
+    const cam = camara(0, 0), cs = ctxFalso();
+    C.G.Entorno.suelo(cs, cam, 1);
+    const vc = ctxFalso(), vin = C.G.Entorno.vineta(vc, 1280, 720);
+    C.G.Spawner = { say() {} }; C.G.Audio = { sfx() {} }; C.G.Coop = { active: false, isHost: false }; C.G.EnemyMgr = { all: () => [] };
+    vm.runInContext('Math.random = () => 0.5;', C.c);
+    vm.runInContext(rd('js/systems/weather.js'), C.c, { filename: 'js/systems/weather.js' });
+    C.G.Weather.reset(); C.G.Weather.force('rain', 70); C.G.Weather.update(3, 0, null);
+    const cw = ctxFalso(); C.G.Weather.draw(cw, 1280, 720, 0);
+    t(`con mundoDex y Clásico: la capa del suelo pinta (el farol: ${cs.grads.length} degradado), la viñeta es la cálida y la lluvia, la de dos tonos (#1d4a78 y #e6f2ff)`,
+      cs.grads.length >= 1 && vin && vc.grads.length === 1 && vc.grads[0].stops[1][1] === 'rgba(24,12,5,0.26)' && cw.estilos.includes('#1d4a78') && cw.estilos.includes('#e6f2ff'), { farol: cs.grads.length, vin, estilos: cw.estilos.slice(0, 4) });
+    // Cambiar de estilo no rehornea nada (el mundo no cambia): 0 chunks en los fotogramas siguientes.
+    const H = mundo({ mundoDex: true }), camH = camara(300, 200);
+    H.G.World.reset(SEMILLA); H.G.World.setBiome(0, true);
+    for (let i = 0; i < 40; i++) fotograma(H, camH);
+    H.G.Estilo.set('clasico');
+    const ns = [];
+    for (let i = 0; i < 8; i++) ns.push(fotograma(H, camH).n);
+    t(`con mundoDex, cambiar de estilo no rehornea ni descarta nada (${ns.join(',')} chunks en los 8 fotogramas siguientes)`, ns.every(n => n === 0), ns);
+  } catch (e) { t('mundo Dex con los dos estilos', false, String(e && e.stack || e)); }
 
   const failed = r.filter(x => !x[1]);
   if (!failed.length) ok(`entornos del Gremio: ${r.length} casos bien`);
@@ -4478,10 +4524,12 @@ function juegoChecks() {
 
   // ---- C. Iris: cuándo salta ----
   try {
-    const caso = ({ dex = true, calma = false } = {}) => {
+    // `mundo` es G.MODS.mundoDex: false en los casos de siempre (el iris, sólo con el estilo Dex); con true (el juego), también con Clásico.
+    const caso = ({ dex = true, calma = false, mundo = false } = {}) => {
       const c = nuevo({ ajustes: calma ? { calm: true } : {}, ficheros: ['js/ui/transicion.js'] }), G = c.G, R = c.__reloj;
       const juego = { inArena: false, arena: null, st: { time: 0 } };
       G.Estilo = { dex };
+      G.MODS.mundoDex = mundo;
       G.Game = { get st() { return juego.st; }, state: 'playing' };
       G.Rift = { get inArena() { return juego.inArena; }, get arena() { return juego.arena; } };
       G.Camera.resize(1440, 900, 1); G.Camera.x = 0; G.Camera.y = 0;
@@ -4513,6 +4561,7 @@ function juegoChecks() {
     const I = caso(); I.paso(16, 30); I.juego.inArena = true; I.juego.arena = { phase: 'fight', endT: 0 }; I.paso(16, 30); I.juego.arena = { phase: 'won', endT: 2 }; I.paso(16);
     I.juego.inArena = false; I.paso(16); const invitado = { fase: I.G.Transicion.fase, a: I.apertura() };
     const C = caso({ dex: false }); C.paso(16, 5); C.juego.inArena = true; C.paso(16, 5); const clasico = C.log.every(f => f === null) && !C.ctx.ops.length;
+    const CM = caso({ dex: false, mundo: true }); CM.paso(16, 5); const clasicoMundo = CM.log[0] === 'abriendo';
     const M = caso({ calma: true }); M.paso(16); M.paso(16, 10); const fundido = M.G.Transicion.fase;   // 150 ms: ya abierto a los 176
     // Un diálogo en la arena durante la espera (cambiar de objeto: estado 'choice', la cuenta atrás se para): se abre y no
     // vuelve a cerrarse en bucle (fallo visto en estilo-e2e: cerraba y abría cada 0,8 s detrás del diálogo).
@@ -4521,11 +4570,11 @@ function juegoChecks() {
     D.G.Game.state = 'choice'; D.paso(16, 150);
     const tramos = D.log.slice(-150).filter((f, i, a) => f === 'cerrando' && a[i - 1] !== 'cerrando').length;
     const dialogo = { cerrandoAntes, tramos, fin: D.G.Transicion.fase };
-    t('iris (sólo Dex): salta al empezar (negro y se abre en 280 ms), al entrar en la arena (el fotograma del tirón, negro) y al salir (se cierra con endT ≤ 0,3 s, 80 ms o más de negro y se abre); no en el cambio de bioma ni al volver de la pausa; el invitado que vuelve antes de cerrarse, negro al instante; un diálogo durante la espera lo abre y no se vuelve a cerrar en bucle; con Clásico, nada; con «Menos sacudidas», fundidos de 150 ms',
+    t('iris (sólo Dex): salta al empezar (negro y se abre en 280 ms), al entrar en la arena (el fotograma del tirón, negro) y al salir (se cierra con endT ≤ 0,3 s, 80 ms o más de negro y se abre); no en el cambio de bioma ni al volver de la pausa; el invitado que vuelve antes de cerrarse, negro al instante; un diálogo durante la espera lo abre y no se vuelve a cerrar en bucle; con Clásico, nada si mundoDex = false y lo mismo que con Dex con mundoDex (el juego); con «Menos sacudidas», fundidos de 150 ms',
       alEmpezar.fase === 'abriendo' && alEmpezar.a < 0.1 && abierto === null && bioma && pausa && entrada.fase === 'abriendo' && entrada.a < 0.1 && entrada.negro &&
       abiertaArena === null && vuelta.cierre <= 0.3 && vuelta.cierre > 0.26 && vuelta.negroMs >= 80 && vuelta.fase === 'abriendo' && vuelta.a < 0.1 &&
-      invitado.fase === 'abriendo' && invitado.a < 0.1 && clasico && fundido === null && dialogo.cerrandoAntes === 'cerrando' && dialogo.tramos === 0 && dialogo.fin === null,
-      { alEmpezar, abierto, bioma, pausa, entrada, abiertaArena, vuelta, invitado, clasico, fundido, dialogo });
+      invitado.fase === 'abriendo' && invitado.a < 0.1 && clasico && clasicoMundo && fundido === null && dialogo.cerrandoAntes === 'cerrando' && dialogo.tramos === 0 && dialogo.fin === null,
+      { alEmpezar, abierto, bioma, pausa, entrada, abiertaArena, vuelta, invitado, clasico, clasicoMundo, fundido, dialogo });
   } catch (e) { t('iris', false, String(e && e.stack || e)); }
 
   // ---- D. Golpe final: 140 ms quieto sólo en solitario con jefe o legendario ----
@@ -5902,12 +5951,17 @@ function mapasChecks() {
       if (!P || typeof P.suelo !== 'function') mascara = false;
       else for (let p = 0; p < 256 * 256 && mascara; p++) if (P.suelo(p & 255, p >> 8) !== (clases[p] === 'suelo' || clases[p] === 'recorte')) mascara = false;
     }
+    // Con el mundo Dex (G.MODS.mundoDex, el juego), Clásico gradúa igual que Dex; con mundoDex = false, nada.
+    const conDex = cand.map(([cx, cy]) => conSin(cx, cy, 0)[0]);
     EG.Estilo.set('clasico');
+    const mundoIgual = cand.every(([cx, cy], i) => iguales(conSin(cx, cy, 0)[0], conDex[i]));
+    EG.MODS.mundoDex = false;
     const clasico = cand.every(([cx, cy]) => { const [con, sin] = conSin(cx, cy, 0); return iguales(con, sin); });
+    EG.MODS.mundoDex = true;
     const pct = c => Math.round(100 * c[1] / Math.max(1, c[0]));
-    t(`gradación de entorno.js sobre el pintor nuevo, por píxel con su máscara de suelo (Pix.suelo, ${mascara ? 'igual a la esperada' : 'DISTINTA de la esperada'}): con Dex, el ${pct(cuenta.suelo)} % del suelo (> 60), el ${pct(cuenta.recPared)} % y el ${pct(cuenta.recLiq)} % de los ${cuenta.recPared[0]} y ${cuenta.recLiq[0]} píxeles de los recortes de las esquinas de paredes y ríos (> 90), y ${cuenta.triangulo[1]} de los ${cuenta.triangulo[0]} de los triángulos de río y ${cuenta.otro[1]} de los ${cuenta.otro[0]} del resto de paredes y ríos (0), en ${cand.length} chunks con paredes y río y los 3 biomas; con Clásico, ninguno`,
+    t(`gradación de entorno.js sobre el pintor nuevo, por píxel con su máscara de suelo (Pix.suelo, ${mascara ? 'igual a la esperada' : 'DISTINTA de la esperada'}): con Dex, el ${pct(cuenta.suelo)} % del suelo (> 60), el ${pct(cuenta.recPared)} % y el ${pct(cuenta.recLiq)} % de los ${cuenta.recPared[0]} y ${cuenta.recLiq[0]} píxeles de los recortes de las esquinas de paredes y ríos (> 90), y ${cuenta.triangulo[1]} de los ${cuenta.triangulo[0]} de los triángulos de río y ${cuenta.otro[1]} de los ${cuenta.otro[0]} del resto de paredes y ríos (0), en ${cand.length} chunks con paredes y río y los 3 biomas; con Clásico, los mismos que con Dex (mundoDex) y, con mundoDex = false, ninguno`,
       cand.length === 3 && mascara && cuenta.suelo[1] / cuenta.suelo[0] > 0.6 && cuenta.recPared[0] > 0 && cuenta.recPared[1] / cuenta.recPared[0] > 0.9 &&
-      cuenta.recLiq[0] > 0 && cuenta.recLiq[1] / cuenta.recLiq[0] > 0.9 && cuenta.triangulo[0] > 0 && !cuenta.triangulo[1] && !cuenta.otro[1] && clasico, { cand, cuenta, mascara, clasico });
+      cuenta.recLiq[0] > 0 && cuenta.recLiq[1] / cuenta.recLiq[0] > 0.9 && cuenta.triangulo[0] > 0 && !cuenta.triangulo[1] && !cuenta.otro[1] && clasico && mundoIgual, { cand, cuenta, mascara, clasico, mundoIgual });
   } catch (e) { t('pintor', false, String(e && e.stack || e)); }
 
   // ---- L. Sprites de los objetos ----

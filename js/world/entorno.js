@@ -1,6 +1,8 @@
 /* ============ entorno.js — entornos del Gremio y clima de dos tonos (estilo Dex) (MOD nico) ============
  * Lote 3 de la identidad «Dex de Expedición» (guía de marca §11 y plan U7, U9 y U10, con las correcciones de
- * la revisión cruzada, que mandan). Sólo con Dex; con Clásico, el mundo, la viñeta y el clima son los de
+ * la revisión cruzada, que mandan). Desde el 14-10-2026 (decisión de Nico: «elimina el otro modo visual. dex se ve
+ * mejor. que la opción sólo cambie cómo se ve la interfaz»), con los dos estilos: el estilo sólo cambia la interfaz.
+ * Con G.MODS.mundoDex = false, como antes: sólo con Dex, y con Clásico el mundo, la viñeta y el clima son los de
  * upstream y el chunk horneado es byte a byte el de upstream.
  *
  *   paletas    los colores del Gremio (G.MARCA.biomas) sobre G.Tiles.BIOMES de los 3 biomas que se turnan:
@@ -28,7 +30,8 @@ G.Entorno = (() => {
   const MARCA = () => G.MARCA || null;
   const B = G.Tiles.BIOMES, NORMAL = G.Tiles.NORMAL, T = G.Tiles.T;
   const H = (x, y, s) => G.U.hash(x, y, s);
-  const conDex = () => !!(G.Estilo && G.Estilo.dex && MARCA());
+  // El mundo con el aspecto Dex: siempre (G.MODS.mundoDex, decisión de Nico del 14-10-2026); sin él, sólo con el estilo Dex.
+  const conDex = () => !!(MARCA() && (G.MODS && typeof G.MODS.mundoConDex === 'function' ? G.MODS.mundoConDex() : G.Estilo && G.Estilo.dex));
 
   // ===================================================================
   // 1. Paletas del Gremio (con copia de upstream para volver a Clásico)
@@ -225,7 +228,8 @@ G.Entorno = (() => {
     if (!q.halos.length) return;
     const HL = MARCA().halos, C = MARCA().color;
     ctx.imageSmoothingEnabled = false;
-    if (q.halos.includes('grieta') && G.Rift && G.Rift.rift) {
+    const luz = !!(G.Luz && G.Luz.activo());                       // con el búfer de luz, la grieta y tus disparos de fuego y eléctricos ya alumbran
+    if (q.halos.includes('grieta') && G.Rift && G.Rift.rift && !luz) {
       const r = G.Rift.rift, f = Math.min(1, r.t * 2, r.ttl / 1.5);
       const pulso = reducido() ? 0 : Math.sin(t * 6.2832 * HL.grieta.hz) * HL.grieta.pulso;
       if (cam.sees(r.x, r.y, HL.grieta.radio)) halo(ctx, C.grieta, r.x, r.y, HL.grieta.radio, (HL.grieta.alfa + pulso) * f);
@@ -242,6 +246,7 @@ G.Entorno = (() => {
       for (const p of G.Projectiles.all()) {
         if (n >= HL.disparo.max) break;
         if (!p.friendly && !hostiles) continue;                       // los hostiles ya llevan el contorno rojo
+        if (luz && p.friendly && p.vis && G.Luz.alumbra(p.vis.pal)) continue;
         if (!cam.sees(p.x, p.y, 20)) continue;
         halo(ctx, p.friendly ? String(p.color || '') : C.peligro, p.x, p.y, HL.disparo.radio, HL.disparo.alfa);
         n++;
@@ -422,7 +427,7 @@ G.Entorno = (() => {
   if (G.Estilo && G.Estilo.on) G.Estilo.on(alCambiarEstilo);
 
   return {
-    paletas, gradar, grad, suelo, vineta, clima, calidad, ORIG, CAMPOS,
+    paletas, gradar, grad, suelo, vineta, clima, calidad, ORIG, CAMPOS, mundoDex: conDex,
     get aplicada() { return aplicada; }
   };
 })();
