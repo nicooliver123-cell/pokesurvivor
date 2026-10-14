@@ -1,12 +1,13 @@
 /* ============ tools/nico/multiverso-e2e.js — el Multiverso jugando (Playwright, modo local) ============
- *   node tools/nico/multiverso-e2e.js [carpeta de salida]     (por defecto tools/nico/out/multiverso)
+ *   node tools/nico/multiverso-e2e.js [carpeta de salida] [--puerto 8093]     (por defecto tools/nico/out/multiverso)
  *
  * Un invitado sin nube (G.FIREBASE_CONFIG en null, como estilo-e2e.js) en 1440x900 y en un móvil (844x390@3,
  * táctil), con Dex y con Clásico: la pestaña «Multiverso» de la colección y la ficha de uno que no tienes; el
  * banner del gacha (pestaña «Otros mundos», cartel, probabilidades y destacados); tiradas ×1, un shiny forzado
  * y ×10 por la interfaz (cada repetido paga 30, 90 un shiny, y los nuevos nada); los tres de compañero desde la
  * colección; y una partida con cada uno (1440x900 Dex, los tres; los demás, uno): eres él, dispara su ataque,
- * ningún enemigo es del Multiverso y su ataque evoluciona al máximo. Consola sin errores y nada pedido fuera de
+ * ningún enemigo es del Multiverso, al subir de nivel las cartas de ataque nuevo sólo traen los de su mundo (8
+ * subidas, eligiendo por la interfaz) y su ataque evoluciona al máximo. Consola sin errores y nada pedido fuera de
  * 127.0.0.1. Deja capturas en la carpeta de salida. Unos 4 min. No va en npm test.
  */
 'use strict';
@@ -14,8 +15,10 @@ const path = require('path'), fs = require('fs');
 const REPO = path.resolve(__dirname, '..', '..');
 const { chromium } = require('playwright');
 const { startServer } = require('./serve.js');
-const OUT = process.argv[2] || path.join(__dirname, 'out', 'multiverso');
-const PORT = 8093;
+// --puerto N si el 8093 está ocupado (otra prueba en marcha); el primer argumento suelto, la carpeta de salida.
+const ip = process.argv.indexOf('--puerto');
+const PORT = ip > 0 ? +process.argv[ip + 1] : 8093;
+const OUT = process.argv.slice(2).find((a, i, v) => !a.startsWith('--') && v[i - 1] !== '--puerto') || path.join(__dirname, 'out', 'multiverso');
 fs.mkdirSync(OUT, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const res = [];
@@ -66,7 +69,7 @@ async function tirar(page, boton, nombre) {
   return cartas;
 }
 
-const PJS = [[10001, 'Agumon', 'llama-bebe', 'Llama Bebé', 'Mega Llama'], [10002, 'Doom Slayer', 'super-escopeta', 'Súper Escopeta', 'BFG 9000'],
+const PJS = [[10001, 'Agumon', 'llama-bebe', 'Llama Bebé', 'Mega Llama'], [10002, 'Doom Slayer', 'super-escopeta', 'Súper Escopeta', 'Súper Escopeta Maestra'],
   [10003, 'Cacodemonio', 'rayo-bola', 'Rayo Bola', 'Tormenta Infernal']];
 
 async function caso(browser, v, estilo, partidas) {
@@ -152,6 +155,38 @@ async function caso(browser, v, estilo, partidas) {
     await foto(page, `${tag}-8-partida-${corto}`);
     const c = await page.evaluate(() => { const r = document.getElementById('game').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
     await page.screenshot({ path: path.join(OUT, `${tag}-9-${corto}.png`), clip: { x: Math.max(0, c.x - 120), y: Math.max(0, c.y - 110), width: 240, height: 200 } });
+    // 6. Subir de nivel: las cartas de ataque nuevo sólo traen ataques de su mundo (se anota lo que devuelve
+    //    G.LevelUp.offer() y se mira el texto de las cartas); se elige por la interfaz el primero nuevo de cada vez.
+    await page.evaluate(() => {
+      window.__ofertas = [];
+      if (G.LevelUp.offer.__anota) return;   // envuelto una sola vez por página (cada personaje vacía la lista)
+      const o = G.LevelUp.offer;
+      G.LevelUp.offer = (...a) => { const r = o(...a); window.__ofertas.push(r.map(k => ({ key: k.key, title: k.title }))); return r; };
+      G.LevelUp.offer.__anota = true;
+    });
+    const textos = [];
+    for (let i = 0; i < 8; i++) {
+      await page.evaluate(() => G.Game.debugLevelUp());
+      await page.locator('#scr-levelup').waitFor({ state: 'visible', timeout: 5000 });
+      await sleep(150);
+      if (i === 0) await foto(page, `${tag}-9b-nivel-${corto}`);
+      const nuevo = await page.evaluate(() => {
+        const ult = window.__ofertas[window.__ofertas.length - 1];
+        return ult.findIndex(k => k.key.startsWith('new:'));
+      });
+      textos.push(await page.locator('#cards').textContent());
+      await page.locator('#cards .card').nth(Math.max(0, nuevo)).click();
+      await page.waitForFunction(() => G.Game.state === 'playing', null, { timeout: 5000 });
+    }
+    const niv = await page.evaluate(d => {
+      const p = G.DEX_BY[d], nuevos = window.__ofertas.flat().filter(k => k.key.startsWith('new:')).map(k => k.key.slice(4));
+      const pk = new Set(G.Moves.ALL.filter(m => !G.MULTIVERSO.ATAQUES.some(a => a.id === m.id)).map(m => m.id));
+      return { nuevos: [...new Set(nuevos)], ajenos: nuevos.filter(id => !p.pool.includes(id) || pk.has(id)), nombres: [...new Set(nuevos)].map(id => G.Moves.BY_ID[id].name),
+        tiene: G.Game.player.moves.map(m => m.id), tieneSuyos: G.Game.player.moves.every(m => p.pool.includes(m.id)), subidas: window.__ofertas.length };
+    }, dex);
+    const enCartas = niv.nombres.every(n => textos.some(x => x.includes(n)));
+    t(`${tag}: ${nombre} sube ${niv.subidas} niveles y las cartas de ataque nuevo sólo traen los de su mundo (${niv.nombres.join(', ')}); aprende ${niv.tiene.length}`,
+      niv.subidas >= 8 && niv.nuevos.length >= 3 && !niv.ajenos.length && enCartas && niv.tiene.length >= 3 && niv.tieneSuyos, niv);
     const evo = await page.evaluate(() => {
       const pl = G.Game.player, m = pl.moves[0];
       while (m.lvl < m.def.maxLvl) G.Moves.levelUp ? G.Moves.levelUp(m) : m.lvl++;

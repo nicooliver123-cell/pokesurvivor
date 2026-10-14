@@ -105,7 +105,9 @@
  *      orbe del altar, trampas); la semilla del menú; el clima al azar; y que el terreno no depende del bioma. §12, §15 (M1) y §16
  *      también corren con los mapas propios (§16 B, el «Clásico byte a byte», sin ellos).
  *  24. Multiverso (js/data/multiverso.js): los personajes de otros mundos en G.DEX sin chocar con upstream (gen 10, desde el
- *      10001), sus hojas con el tamaño de su meta, su ataque propio (escalera de su forma, fuera de los pools de tipo),
+ *      10001), sus hojas con el tamaño de su meta, sus ataques (la lista que validó Nico, cada uno con la escalera de su forma y
+ *      su evolución, fuera de los pools de tipo; sólo esos en poolFor(), con control sin el gancho; dentro del rango de daño y
+ *      alcance de los ataques Pokémon de su forma; las cartas de offer() de levelup.js real, «Repertorio» y su aspecto en vfx.js),
  *      nunca de enemigo (2.000 runs con enemies.js real, con control sin los ganchos; el Pokémon perdido de events.js),
  *      su banner en el gacha real (siempre uno suyo, sin ser fuente de monedas, los demás banners sin ellos), el cartel y
  *      la ficha (refresh() real de gacha-ui.js), el inglés, los ganchos, el paquete y CREDITS.md; sus hojas (de PixelLab, montadas por
@@ -6078,7 +6080,7 @@ function mapasChecks() {
 }
 
 function multiversoChecks() {
-  console.log('24. Multiverso (js/data/multiverso.js): personajes de otros mundos, su banner, su ataque y nunca de enemigo');
+  console.log('24. Multiverso (js/data/multiverso.js): personajes de otros mundos, su banner, sus ataques y nunca de enemigo');
   const r = [];
   const t = (name, cond, detail) => r.push([name, !!cond, detail]);
   const BASE_FILES = ['js/core/util.js', 'js/core/mods.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/evolutions.js', 'js/core/sprites.js', 'js/data/moves.js'];
@@ -6139,22 +6141,106 @@ function multiversoChecks() {
     });
     t('geometría propia (META de multiverso.js, la escribe montar.py): las 7 animaciones en 8 direcciones con su ancla dentro, variocolor, el radio y el tamaño de un Pokémon normal (Idle de 32 de ancho, como Charmander), y sólo el Cacodemonio flota',
       geo.every(g => g.idle && g.filas && g.sh && g.radio && g.escala && g.flota === (g.dex === 10003)) && lista.every(p => Object.keys(G.SPRITE_META[p.dex].a).length === 7), geo);
-    const ESPERA = { 'llama-bebe': ['fire', 'projectile', '["Mega Llama","atk"]'], 'super-escopeta': ['steel', 'cone', '["BFG 9000","cd"]'],
-      'rayo-bola': ['electric', 'projectile', '["Tormenta Infernal","def"]'] };
-    const malAt = Object.entries(ESPERA).filter(([id, [ty, kind, evo]]) => {
-      const m = G.Moves.BY_ID[id], igual = G.Moves.ALL.find(x => x.kind === kind && x.ups && !ESPERA[x.id]);
-      return !m || m.type !== ty || m.kind !== kind || m.ups !== igual.ups || m.maxLvl !== igual.maxLvl || JSON.stringify(G.Moves.EVO[id]) !== evo || 'evo' in m;
-    }).map(([id]) => id);
-    t('ataques propios: Llama Bebé (proyectil de Fuego -> Mega Llama), Súper Escopeta (abanico de Acero -> BFG 9000) y Rayo Bola (proyectil Eléctrico -> Tormenta Infernal), con la escalera de mejoras de su forma',
-      !malAt.length, malAt);
+    // La lista que validó Nico el 14-10-2026: [id, nombre, forma, tipo, evolución, lo que pide] (sin evolución, un potenciador).
+    const LISTA = {
+      10001: [['llama-bebe', 'Llama Bebé', 'projectile', 'fire', 'Mega Llama', 'atk'], ['garra-afilada', 'Garra Afilada', 'melee', 'dragon', 'Brazo Tridente', 'atk'],
+        ['escupefuego', 'Escupefuego', 'cone', 'fire', 'Gigadestructor', 'cd'], ['cabezazo', 'Cabezazo', 'dash', 'normal', 'Gran Cuerno', 'hp'],
+        ['lluvia-fuego', 'Lluvia de Fuego', 'meteor', 'fire', 'Fuerza de Gaia', 'atk'], ['torbellino', 'Torbellino', 'orbit', 'dragon', 'Gran Tornado', 'spd'],
+        ['emblema-valor', 'Emblema del Valor', 'buff', 'dragon']],
+      10002: [['super-escopeta', 'Súper Escopeta', 'cone', 'steel', 'Súper Escopeta Maestra', 'cd'], ['lanzacohetes', 'Lanzacohetes', 'projectile', 'fire', 'Ráfaga de Cohetes', 'atk'],
+        ['rifle-plasma', 'Rifle de Plasma', 'beam', 'electric', 'BFG 9000', 'atk'], ['motosierra', 'Motosierra', 'melee', 'steel', 'Crisol', 'atk'],
+        ['gancho-carne', 'Gancho de Carne', 'dash', 'fighting', 'Gancho Ardiente', 'spd'], ['granada', 'Granada', 'meteor', 'steel', 'Granada de Racimo', 'cd'],
+        ['eructo-llamas', 'Eructo de Llamas', 'cone', 'fire', 'Eructo Infernal', 'def'], ['berserker', 'Berserker', 'buff', 'fighting']],
+      10003: [['rayo-bola', 'Rayo Bola', 'projectile', 'electric', 'Tormenta Infernal', 'def'], ['mordisco-infernal', 'Mordisco Infernal', 'melee', 'dark', 'Fauces del Abismo', 'atk'],
+        ['embestida', 'Embestida', 'dash', 'dark', 'Carga Demoníaca', 'hp'], ['lluvia-bolas', 'Lluvia de Bolas', 'meteor', 'electric', 'Aguacero de Plasma', 'cd'],
+        ['mirada-ojo', 'Mirada del Ojo', 'beam', 'dark', 'Ojo del Infierno', 'atk'], ['aura-infernal', 'Aura Infernal', 'aura', 'dark', 'Círculo Infernal', 'rgn'],
+        ['pellejo-grueso', 'Pellejo Grueso', 'buff', 'dark']]
+    };
+    const malLista = [];
+    for (const [dex, at] of Object.entries(LISTA)) {
+      const p = G.DEX_BY[dex], pool = G.Moves.poolFor(p);
+      if (JSON.stringify(pool) !== JSON.stringify(at.map(a => a[0])) || pool[0] !== G.Moves.startFor(p)) malLista.push(`${dex}: aprende ${pool.join()}`);
+      for (const [id, nombre, kind, ty, evo, need] of at) {
+        const m = G.Moves.BY_ID[id], igual = sin.Moves.ALL.find(x => x.kind === kind && x.ups);
+        if (!m || m.name !== nombre || m.kind !== kind || m.type !== ty || m.ups !== G.Moves.BY_ID[igual.id].ups || m.maxLvl !== igual.maxLvl || 'evo' in m ||
+          JSON.stringify(G.Moves.EVO[id] || null) !== JSON.stringify(evo ? [evo, need] : null) || (evo && !G.Moves.NEED_NAME[need])) malLista.push(id);
+      }
+    }
+    t('cada personaje aprende sólo la lista que validó Nico (poolFor() real, el inicial el primero): 7 de Agumon, 8 del Doom Slayer y 7 del Cacodemonio, cada uno con su nombre, su forma, su tipo, la escalera de mejoras de su forma y su evolución (Llama Bebé -> Mega Llama, Rifle de Plasma -> BFG 9000, Súper Escopeta -> Súper Escopeta Maestra...); los potenciadores, sin evolución',
+      !malLista.length && MV.ATAQUES.length === 22, malLista);
     const nuevos = G.Moves.ALL.filter(x => !sin.Moves.BY_ID[x.id]).map(x => x.id);
     const enPool = Object.entries(G.Moves.POOL).filter(([, ids]) => nuevos.some(id => ids.includes(id))).map(([k]) => k);
     const otros = G.DEX.filter(p => !p.mv && G.Moves.poolFor(p).some(id => nuevos.includes(id))).map(p => p.dex);
-    t('los ataques propios no entran en ningún pool de tipo: ningún Pokémon los aprende (Agumon empieza con el suyo y aprende los de Fuego, Dragón y Normal)',
-      !enPool.length && !otros.length && G.Moves.poolFor(agu).every(id => G.Moves.POOL.normal.includes(id) || G.Moves.POOL.fire.includes(id) || G.Moves.POOL.dragon.includes(id)), { enPool, otros });
+    const ajenos = lista.flatMap(p => G.Moves.poolFor(p).filter(id => sin.Moves.BY_ID[id]).map(id => p.dex + ':' + id));
+    const deDos = nuevos.filter(id => lista.filter(p => p.pool.includes(id)).length !== 1);
+    t(`los ${nuevos.length} ataques del Multiverso no entran en ningún pool de tipo ni los aprende ningún Pokémon (${G.DEX.length - lista.length} mirados), ninguno de los del Multiverso aprende un ataque Pokémon y cada uno de los suyos es de un solo personaje`,
+      nuevos.length === 22 && !enPool.length && !otros.length && !ajenos.length && !deDos.length, { enPool, otros: otros.slice(0, 5), ajenos, deDos });
+    // Control: sin el gancho de poolFor() (moves.js), Agumon aprendería los de Fuego, Dragón y Normal.
+    const sinPool = montar({ cambia: { 'js/data/moves.js': s => s.replace(/^\s*if \(mon\.pool\)[^\n]*MOD nico[^\n]*\n/m, '') } }).G;
+    const ctrl = sinPool.Moves.poolFor(sinPool.DEX_BY[10001]);
+    t(`control: sin el gancho de poolFor() de moves.js, Agumon aprendería ${ctrl.length} ataques Pokémon (la prueba sabe verlo)`,
+      ctrl.length > 10 && ctrl.includes('flamethrower') && ctrl.includes('tackle') && !ctrl.includes('garra-afilada'), ctrl);
+    // Equilibrio: daño nominal (daño × proyectiles ÷ recarga) y alcance dentro del rango de los ataques Pokémon de su forma;
+    // un potenciador, con los números de uno de upstream de la misma estadística.
+    const nominal = m => m.dmg * (m.count || 1) / m.cd;
+    const alcance = m => ['projectile', 'cone', 'nova'].includes(m.kind) ? m.speed * m.life : m.radius;
+    const fuera = [];
+    for (const id of nuevos) {
+      const m = G.Moves.BY_ID[id], misma = sin.Moves.ALL.filter(x => x.kind === m.kind);
+      if (m.kind === 'buff') {
+        if (!misma.some(x => x.stat === m.stat && x.amount === m.amount && x.stacks === m.stacks && x.dur === m.dur && x.cd === m.cd)) fuera.push(id + ': potenciador sin pareja');
+        continue;
+      }
+      for (const [que, f] of [['daño', nominal], ['alcance', alcance]]) {
+        const v = f(m), vs = misma.map(f);
+        if (!(v >= Math.min(...vs) - 1e-9 && v <= Math.max(...vs) + 1e-9)) fuera.push(`${id}: ${que} ${v.toFixed(1)} fuera de ${Math.min(...vs).toFixed(1)}-${Math.max(...vs).toFixed(1)}`);
+      }
+    }
+    t('equilibrio: el daño nominal (daño × proyectiles ÷ recarga) y el alcance de cada ataque del Multiverso, dentro del rango de los ataques Pokémon de su forma; cada potenciador, con los números de uno de upstream (Danza Dragón, Danza Espada, Fortaleza)',
+      !fuera.length, fuera);
     const inst = G.Moves.instance('llama-bebe', 3), base = G.Moves.instance('llama-bebe', 1);
-    t('Llama Bebé sube de nivel con su escalera (instance() real: nivel 3 distinto del 1, sin la escalera dentro)', inst.lvl === 3 && !('ups' in inst) && JSON.stringify(inst) !== JSON.stringify(base));
+    const evos = nuevos.filter(id => G.Moves.EVO[id]).filter(id => {
+      const m = G.Moves.instance(id, 1), e = G.Moves.EVO[id];
+      while (G.Moves.levelUp(m));
+      const info = G.Moves.evoInfo(m, { [e[1]]: 1 });
+      return !(m.lvl === m.def.maxLvl && info && info.ready && info.name === e[0] && G.Moves.evolve(m) && m.name === e[0] && m.evolved);
+    });
+    t('suben de nivel con su escalera (instance() real: nivel 3 distinto del 1, sin la escalera dentro) y los 19 que evolucionan llegan al máximo y evolucionan (evoInfo() y evolve() reales)',
+      inst.lvl === 3 && !('ups' in inst) && JSON.stringify(inst) !== JSON.stringify(base) && nuevos.filter(id => G.Moves.EVO[id]).length === 19 && !evos.length, evos);
   } catch (e) { t('datos del Multiverso', false, String(e && e.stack || e)); }
+  // ---- A2. Sus ataques en partida: las cartas de subida de nivel, la mejora «Repertorio» y cómo se ven ----
+  try {
+    const c = montar({ extra: ['js/systems/levelup.js', 'js/entities/vfx.js'] }), G = c.G;
+    sembrar(c, 11);
+    /** Un jugador de mentira recién empezado con su ataque inicial (lo que lee candidates() de levelup.js). */
+    const jugador = p => ({ mon: p, slots: [[0]], maxMoves: 4, statsTaken: {}, moves: [G.Moves.instance(G.Moves.startFor(p), 1)],
+      hasMove(id) { return this.moves.some(m => m.id === id); } });
+    const malCartas = [];
+    for (const p of G.MULTIVERSO.lista()) {
+      const vistos = new Set();
+      for (let i = 0; i < 400; i++) for (const k of G.LevelUp.offer(jugador(p))) if (k.type === 'new') vistos.add(k.key.slice(4));
+      const esperado = p.pool.filter(id => id !== p.start);
+      if ([...vistos].sort().join() !== [...esperado].sort().join()) malCartas.push({ dex: p.dex, vistos: [...vistos], esperado });
+    }
+    const pk = G.DEX_BY[4], vistosPk = new Set();
+    for (let i = 0; i < 400; i++) for (const k of G.LevelUp.offer(jugador(pk))) if (k.type === 'new') vistosPk.add(k.key.slice(4));
+    const mvIds = new Set(G.MULTIVERSO.ATAQUES.map(a => a.id));
+    t('cartas de subida de nivel (offer() real de levelup.js, 400 subidas de cada uno): un personaje del Multiverso sólo ve ataques nuevos de su lista y le salen todos; Charmander, ninguno del Multiverso',
+      !malCartas.length && vistosPk.size > 5 && ![...vistosPk].some(id => mvIds.has(id)), { malCartas, charmander: [...vistosPk] });
+    const linea = (rd('js/game.js').match(/const pool = G\.Moves\.poolFor\(mon\)[^\n]*;/) || [])[0];
+    const rep = linea ? G.MULTIVERSO.lista().map(p => {
+      const pl = jugador(p);
+      const pool = vm.runInContext(`(() => { ${linea} return pool; })()`, Object.assign(c, { mon: p, pl }));
+      return { dex: p.dex, ok: pool.length > 0 && pool.every(id => p.pool.includes(id) && id !== p.start && G.Moves.BY_ID[id].kind !== 'buff') };
+    }) : null;
+    t('mejora «Repertorio» (la línea de startRun() de game.js, tal cual): el segundo ataque sale de su lista, sin el inicial ni potenciadores',
+      rep && rep.every(x => x.ok), rep || 'no encuentro la línea');
+    const vis = id => G.VFX.forMove(G.Moves.instance(id, 1));
+    const v = { moto: vis('motosierra'), mordisco: vis('mordisco-infernal'), cohete: vis('lanzacohetes'), mirada: vis('mirada-ojo'), cabezazo: vis('cabezazo'), ascuas: vis('ember'), garra: vis('metal-claw') };
+    t('cómo se ven (forMove() real de vfx.js): la motosierra con zarpazo, el mordisco con fauces, el cohete como pedrusco con estela, la mirada como rayo de sombra; sin `vis`, la forma de su tipo; los ataques Pokémon, como upstream',
+      v.moto.melee === 'claw' && v.moto.pal === 'steel' && v.mordisco.melee === 'jaws' && v.cohete.proj === 'rock' && v.cohete.trail === 'ember' && v.cohete.pal === 'fire' &&
+      v.mirada.beam === 'shadow' && v.cabezazo.proj === 'star' && !v.cabezazo.melee && v.ascuas.proj === 'fire' && v.ascuas.trail === 'ember' && v.garra.melee === 'claw', v);
+  } catch (e) { t('ataques en partida', false, String(e && e.stack || e)); }
   // ---- B. Nunca de enemigo: elencos, jefes, hordas y el Pokémon perdido ----
   try {
     const enemigos = (cambia = {}) => {
@@ -6273,15 +6359,25 @@ function multiversoChecks() {
       'Escupe una bola de fuego grande al enemigo más cercano. Quema.': 'Spits a big fireball at the nearest enemy. Burns.' };
     const mal = Object.entries(casos).filter(([es, en]) => EN(es) !== en).map(([es]) => [es, EN(es)]);
     t('inglés (i18n.js real): el banner, la pestaña, la descripción, las notas de las probabilidades, la ficha y el ataque', !mal.length, mal);
+    // Cada ataque del Multiverso: su nombre, su descripción, su evolución y la carta dorada de evolucionar («X → Y»).
+    const textos = MV ? MV.ATAQUES.flatMap(a => [a.name, a.desc].concat(a.evo ? [a.evo[0], a.name + ' → ' + a.evo[0]] : [])) : [];
+    const sinIngles = textos.filter(x => x !== 'BFG 9000' && (EN(x) === x || /[áéíóúñ¿¡]/i.test(EN(x).replace('BFG', ''))));
+    const cartas = { 'Rifle de Plasma → BFG 9000': 'Plasma Rifle → BFG 9000', 'Granada → Granada de Racimo': 'Frag Grenade → Cluster Grenade',
+      'Súper Escopeta → Súper Escopeta Maestra': 'Super Shotgun → Super Shotgun Mastery', 'Torbellino → Gran Tornado': 'Whirlwind → Great Tornado' };
+    const malCartas = Object.entries(cartas).filter(([es, en]) => EN(es) !== en).map(([es]) => [es, EN(es)]);
+    t(`inglés de los ${MV ? MV.ATAQUES.length : 0} ataques del Multiverso: nombre, descripción, evolución y la carta de evolucionar, sin nada en español`,
+      MV && textos.length > 60 && !sinIngles.length && !malCartas.length, { sinIngles, malCartas });
   } catch (e) { t('inglés', false, String(e && e.stack || e)); }
   try {
     const gancho = (f, re) => rd(f).split(/\r?\n/).some(l => re.test(l) && /MOD nico/.test(l));
     const ui = rd('js/ui/gacha-ui.js');
-    t('ganchos de una línea: el banner en gacha.js, el cartel en gacha-ui.js tras las notas, «Multiverso» y la ficha en menu.js, fuera de los enemigos en enemies.js (elenco y jefes) y events.js',
+    t('ganchos de una línea: el banner en gacha.js, el cartel en gacha-ui.js tras las notas, «Multiverso» y la ficha en menu.js, fuera de los enemigos en enemies.js (elenco y jefes) y events.js, sus ataques en la primera línea de poolFor() de moves.js y su aspecto en forMove() de vfx.js',
       gancho('js/systems/gacha.js', /BANNERS\.push\(G\.MULTIVERSO\.BANNER\)/) && gancho('js/ui/gacha-ui.js', /G\.MULTIVERSO\.cartel\(gen\)/) &&
       ui.indexOf('G.MULTIVERSO.cartel(gen)') > ui.indexOf('G.MODS.notasGacha($(') && gancho('js/ui/menu.js', /GEN_NAMES\.push\(G\.MULTIVERSO\.BANNER\.name\)/) &&
       gancho('js/ui/menu.js', /G\.MULTIVERSO\.ficha\(dex\)/) && gancho('js/data/enemies.js', /p\.bst <= tier\.bst\[1\] && G\.SPRITE_META\[p\.dex\] && !p\.mv\)/) &&
-      gancho('js/data/enemies.js', /const ok = p => [^\n]*&& !p\.mv;/) && gancho('js/systems/events.js', /!G\.Sprites\.hovers\(p\.dex\) && !p\.mv\)/));
+      gancho('js/data/enemies.js', /const ok = p => [^\n]*&& !p\.mv;/) && gancho('js/systems/events.js', /!G\.Sprites\.hovers\(p\.dex\) && !p\.mv\)/) &&
+      /function poolFor\(mon\) \{\r?\n\s*if \(mon\.pool\) return mon\.pool\.filter\(id => BY_ID\[id\]\);\s*\/\/ MOD nico/.test(rd('js/data/moves.js')) &&
+      gancho('js/entities/vfx.js', /const v = MOVE\[m\.id\] \|\| m\.vis \|\| \{\};/));
     t('dev.html carga multiverso.js justo después de moves.js (y antes de achievements.js, gacha.js y menu.js); el paquete lo lleva',
       /src="js\/data\/moves\.js"><\/script>\r?\n<script defer src="js\/data\/multiverso\.js">/.test(rd('dev.html')) && /MULTIVERSO/.test(rd('js/app.min.js')));
     const cred = rd('CREDITS.md');
