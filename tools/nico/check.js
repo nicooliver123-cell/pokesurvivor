@@ -112,6 +112,15 @@
  *      su banner en el gacha real (siempre uno suyo, sin ser fuente de monedas, los demás banners sin ellos), el cartel y
  *      la ficha (refresh() real de gacha-ui.js), el inglés, los ganchos, el paquete y CREDITS.md; sus hojas (de PixelLab, montadas por
  *      tools/nico/multiverso/montar.py) con el tamaño, el radio y la escala de un Pokémon normal.
+ *  25. Apariciones en grupo con vistas distintas (js/net/vistas.js, G.MODS.aparicionVistas): spawner.js real con un PC
+ *      (720x450 de mundo) de anfitrión y un móvil (1266x585, con el encuadre) de invitado en 10 posiciones: ningún enemigo ni
+ *      jefe nace dentro de la vista de nadie, sin perder más apariciones que upstream (control: sin el ajuste, sí nacen en la
+ *      del móvil); en solitario, con el ajuste apagado o sin vistas.js, las mismas apariciones que upstream con el mismo azar;
+ *      los rezagados con el bloque de enemy.js tal cual (el que el móvil ve no vuelve; el que nadie ve, sí); y la red con
+ *      coop.js real (el invitado manda ['vista', ...] al empezar, al cambiar y cada 2 s; el anfitrión la apunta, con topes).
+ *      Y la bomba de un compañero (G.MODS.bombaVistas) con el trozo de onCollect() de game.js tal cual, sobre una rejilla
+ *      de enemigos: con el ajuste, exactamente los del rectángulo de SU vista (un móvil y un PC); sin él, sin sus datos,
+ *      sin vistas.js o con la línea de upstream reconstruida, el círculo de upstream; y la tuya, siempre tu pantalla.
  * Sale con código 1 si algo falla.
  *  26. Relieve, sombras y luz (2.5D falsa; js/world/relieve.js, sombras.js y luz.js con el mundo real): el lienzo del relieve
  *      (tramos = paredes, techo subido y cara de 8 + H, el resto transparente), el orden en la escena (norte detrás, sur
@@ -451,6 +460,19 @@ const HOOKS = [
     'tickets ×2: premios de misiones y logros (grant)'],
   ['js/systems/progress.js', /function rewardText\(r\) \{\r?\n\s*if \(G\.MODS && G\.MODS\.premio\) r = G\.MODS\.premio\(r\);\s*\/\/ MOD nico/, 'tickets ×2: el premio que se enseña (rewardText)'],
   ['js/systems/spawner.js', /return Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(SHINY_RATE\) : SHINY_RATE\);\s*\/\/ MOD nico/, 'shiny ×1,5: salvajes y jefes (rollShiny)'],
+  // Apariciones en grupo con vistas distintas (js/net/vistas.js)
+  ['dev.html', /src="js\/net\/coop\.js"><\/script>\r?\n<script defer src="js\/net\/vistas\.js"><\/script><!-- MOD nico/, 'apariciones en grupo: vistas.js justo después de coop.js'],
+  ['js/systems/spawner.js', /const d = \(G\.Vistas \? G\.Vistas\.radio\(players, pl, angle\) : G\.Camera\.outerRadius\(\)\) \+ G\.U\.rand\(10, 70\);\s*\/\/ MOD nico/, 'apariciones en grupo: el anillo, fuera de la vista de todos en cada dirección (ringPoint)'],
+  ['js/systems/spawner.js', /function seenByAnyone\(x, y\) \{\r?\n\s*if \(G\.Vistas && G\.Vistas\.activo\(players\)\) return G\.Vistas\.vistoPorAlguien\(players, x, y\);\s*\/\/ MOD nico[^\n]*\r?\n\s*const r = G\.Camera\.outerRadius\(\) - 30;/,
+    'apariciones en grupo: «¿lo ve alguien?» con la vista de cada uno (seenByAnyone; la línea de upstream sigue detrás)'],
+  ['js/systems/spawner.js', /const \[x, y\] = \(G\.Vistas && G\.Vistas\.activo\(players\) && freePoint\(pl, Math\.random\(\) \* 6\.2832, true\)\) \|\| ringPoint\(pl, Math\.random\(\) \* 6\.2832\);\s*\/\/ MOD nico/,
+    'apariciones en grupo: el jefe, también fuera de la vista de todos (spawnBoss)'],
+  ['js/entities/enemy.js', /const unseen = \(G\.Vistas && G\.Vistas\.activo\(players\) \? G\.Vistas\.fueraDeTodas\(players, e\.x, e\.y, 40\) : d2 > R \* R\) && !G\.Camera\.sees\(e\.x, e\.y, 60\);\s*\/\/ MOD nico/,
+    'apariciones en grupo: un rezagado sólo vuelve si nadie lo ve (EnemyMgr.update)'],
+  ['js/net/coop.js', /function tick\(dt\) \{\r?\n\s*if \(!active\) return;\r?\n\s*if \(G\.Vistas\) G\.Vistas\.tick\(dt, host\);\s*\/\/ MOD nico/, 'apariciones en grupo: el invitado manda su vista (tick)'],
+  ['js/net/coop.js', /case 'vista': if \(G\.Vistas\) G\.Vistas\.deRed\(from, ev\); break;\s*\/\/ MOD nico/, "apariciones en grupo: el anfitrión apunta la vista de cada invitado ('vista')"],
+  ['js/game.js', /const R = G\.Camera\.outerRadius\(\);\r?\n[^\n]*\r?\n\s*for \(const e of G\.EnemyMgr\.all\(\)\) \{\r?\n\s*if \(G\.Vistas && G\.Vistas\.bombaEnSuVista\(who, mine\) \? !G\.Vistas\.enSuVista\(who, e\.x, e\.y\) : mine \? !G\.Camera\.sees\(e\.x, e\.y, 0\) : G\.U\.dist2\(e\.x, e\.y, who\.x, who\.y\) > R \* R\) continue;\s*\/\/ MOD nico/,
+    'la bomba de un compañero, en SU vista (onCollect; detrás, la condición de upstream tal cual)'],
   ['js/systems/rift.js', /shiny: G\.Sprites\.hasShiny\(mon\.dex\) && Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(1 \/ 512\) : 1 \/ 512\),\s*\/\/ MOD nico/, 'shiny ×1,5: legendario de la grieta'],
   ['js/systems/gacha.js', /Math\.random\(\) < \(G\.MODS && G\.MODS\.probShiny \? G\.MODS\.probShiny\(SHINY_RATE\) : SHINY_RATE\)\);\s*\/\/ MOD nico/, 'shiny ×1,5: gacha'],
   ['js/ui/gacha-ui.js', /<span>1%<\/span><\/div>[\s\S]*?<\/p>`;\r?\n\s*if \(G\.MODS && G\.MODS\.notasGacha\) \$\('gacha-rates'\)\.innerHTML = G\.MODS\.notasGacha\(\$\('gacha-rates'\)\.innerHTML\);\s*\/\/ MOD nico/,
@@ -6674,6 +6696,248 @@ function relieveChecks() {
   for (const [name, , detail] of failed) bad(`relieve, sombras y luz: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
 }
 
+// ---------------- 25. apariciones en grupo con vistas distintas (js/net/vistas.js) ----------------
+function vistasChecks() {
+  console.log('25. Apariciones en grupo con vistas distintas (js/net/vistas.js): anillo, «¿lo ve alguien?», jefes, rezagados y red');
+  const r = [];
+  const t = (name, cond, detail) => r.push([name, !!cond, detail]);
+  // Las vistas medidas en el E2E (px de mundo, con el píxel nítido): un PC a 1440x900 (A, anfitrión) y un móvil a 844x390@3
+  // (B, invitado), con el encuadre del HUD Dex compacto (31 a la izquierda y 37 abajo de su Pokémon).
+  const VA = { w: 720, h: 450 }, VB = { w: 1266, h: 585, ox: -31, oy: 37 };
+  const AZAR = s => `(() => { let s = ${s} >>> 0; Math.random = () => { s = (s + 0x6D2B79F5) >>> 0; let q = s; q = Math.imul(q ^ (q >>> 15), q | 1);
+    q ^= q + Math.imul(q ^ (q >>> 7), q | 61); return ((q ^ (q >>> 14)) >>> 0) / 4294967296; }; })();`;
+  /** util.js, mods.js, camera.js, vistas.js (si `vistas`) y spawner.js reales; lo demás, de mentira. */
+  const montar = ({ vistas = true, ajuste = true, coop = true, semilla = 7 } = {}) => {
+    const c = { console }; c.window = c; c.G = {}; vm.createContext(c);
+    for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/core/camera.js']) vm.runInContext(rd(f), c, { filename: f });
+    vm.runInContext(AZAR(semilla), c);
+    const G = c.G, nop = () => {}, nacen = [];
+    G.MODS.aparicionVistas = ajuste;
+    const yo = { x: 0, y: 0, dead: false }, otro = { x: 0, y: 0, dead: false, remote: true, uid: 'B' };
+    Object.assign(G, {
+      Settings: { get: () => false },
+      Coop: { active: coop, isHost: coop, local: coop ? yo : null, scaleRate: () => 1, scaleHp: () => 1, say: nop, enemyGone: nop },
+      Enemies: { rollRun: nop, upcomingDex: () => [], bagAt: () => [{ dex: 19 }], scale: () => ({ hp: 1, spd: 1, dmg: 1 }), bossScale: () => ({ hp: 1, spd: 1, dmg: 1 }), BOSSES: [] },
+      Sprites: { preload: nop, hovers: () => false, hasShiny: () => false },
+      EnemyMgr: { count: 0, add: e => nacen.push(e), bossAlive: () => false },
+      Enemy: class { constructor(def, x, y, sc, boss) { Object.assign(this, { x, y, boss: !!boss, dmg: 1, xp: 1, maxHp: 1, hp: 1, name: '' }); } makeShiny() {} makeGolden() {} },
+      World: { isFree: () => true }, Events: { golden: false }, Rift: { inArena: false }, Audio: { sfx: nop }, Guard: { flag: nop },
+      Game: { get player() { return yo; }, st: { time: 60 } }
+    });
+    if (vistas) vm.runInContext(rd('js/net/vistas.js'), c, { filename: 'js/net/vistas.js' });
+    vm.runInContext(rd('js/systems/spawner.js'), c, { filename: 'js/systems/spawner.js' });
+    Object.assign(G.Camera, { x: 0, y: 0, w: VA.w, h: VA.h });
+    return { c, G, yo, otro, nacen };
+  };
+  /** Ráfagas (G.Spawner.burst: el anillo con su «¿lo ve alguien?») y jefes (update() con un jefe pendiente por llamada). */
+  const jugar = (m, en, { rafagas = 300, jefes = 150, datos = true } = {}) => {
+    const { G, yo, otro, nacen } = m;
+    Object.assign(otro, en);
+    if (datos && G.Vistas) G.Vistas.deRed('B', ['vista', VB.w, VB.h, VB.ox, VB.oy]);
+    const ps = G.Coop.active ? [yo, otro] : [yo];
+    G.Spawner.update(1e-6, ps, 60);
+    for (let i = 0; i < rafagas; i++) G.Spawner.burst(5);
+    const n = nacen.length;
+    G.Enemies.BOSSES = Array.from({ length: jefes }, () => ({ dex: 150, at: 0 }));
+    for (let i = 0; i < jefes; i++) G.Spawner.update(1e-6, ps, 60);
+    const enB = e => Math.abs(e.x - (otro.x + VB.ox)) < VB.w / 2 && Math.abs(e.y - (otro.y + VB.oy)) < VB.h / 2;
+    const enA = e => Math.abs(e.x) < VA.w / 2 && Math.abs(e.y) < VA.h / 2;
+    const normales = nacen.slice(0, n), js = nacen.slice(n);
+    return { intentos: rafagas * 5, nacen: n, fallan: rafagas * 5 - n, enB: normales.filter(enB).length, enA: normales.filter(enA).length,
+      jefes: js.length, jefesEnB: js.filter(enB).length, jefesEnA: js.filter(enA).length, pos: nacen.map(e => [Math.round(e.x * 100), Math.round(e.y * 100)]) };
+  };
+  try {
+    // Dónde está B respecto a A: juntos, a un lado, arriba, en diagonal y lejos.
+    const SEP = [[0, 0], [90, 20], [-150, 0], [300, 0], [600, 0], [0, 350], [400, 300], [900, 0], [1300, 0], [2500, 0]];
+    const con = SEP.map((s, i) => [s, jugar(montar({ semilla: 11 + i }), { x: s[0], y: s[1] })]);
+    const sin = SEP.map((s, i) => [s, jugar(montar({ ajuste: false, semilla: 11 + i }), { x: s[0], y: s[1] })]);
+    const fila = ([s, x]) => ({ B: s.join(','), nacen: x.nacen, enB: x.enB, enA: x.enA, jefesEnB: x.jefesEnB, fallan: x.fallan });
+    t('con el ajuste, ningún enemigo ni jefe nace dentro de la vista del móvil (B) ni de la del PC (A), esté B donde esté (10 posiciones, 1.500 apariciones y 150 jefes en cada una)',
+      con.every(([, x]) => x.enB === 0 && x.enA === 0 && x.jefesEnB === 0 && x.jefesEnA === 0 && x.jefes === 150), con.map(fila));
+    t('control: sin el ajuste (upstream) nacen enemigos y jefes dentro de la vista de B en todas las posiciones (la prueba lo detecta), y ninguno en la de A',
+      sin.every(([, x]) => x.enB > 50 && x.jefesEnB > 0 && x.enA === 0), sin.map(fila));
+    // El anillo más lejano no puede dejar sin enemigos: como mucho un 3 % de apariciones fallidas más que upstream en cada posición.
+    t('con el ajuste no se pierden más apariciones que en upstream (8 intentos por enemigo; como mucho 3 puntos más en cada posición)',
+      con.every(([, x], i) => x.fallan / x.intentos <= sin[i][1].fallan / sin[i][1].intentos + 0.03),
+      con.map(([s, x], i) => ({ B: s.join(','), conAjuste: +(x.fallan / x.intentos).toFixed(3), upstream: +(sin[i][1].fallan / sin[i][1].intentos).toFixed(3) })));
+    // Lo que no cambia: en solitario, con el ajuste apagado o sin vistas.js, exactamente lo de upstream (mismo azar, mismas posiciones).
+    const igual = (a, b) => JSON.stringify(a.pos) === JSON.stringify(b.pos) && a.pos.length > 0;
+    const solo = [jugar(montar({ coop: false }), { x: 0, y: 0 }), jugar(montar({ coop: false, vistas: false }), { x: 0, y: 0 })];
+    const apagado = [jugar(montar({ ajuste: false }), { x: 90, y: 20 }), jugar(montar({ vistas: false }), { x: 90, y: 20 })];
+    t('en solitario, las mismas apariciones que sin vistas.js (upstream), con el mismo azar', igual(solo[0], solo[1]), { n: solo[0].pos.length });
+    t('con aparicionVistas: false, las mismas apariciones que sin vistas.js, también en grupo', igual(apagado[0], apagado[1]), { n: apagado[0].pos.length });
+    const m0 = montar(), V0 = m0.G.Vistas, up = m0.G.Camera.outerRadius(), ps0 = [m0.yo, m0.otro];
+    t('sin datos del invitado (otra versión o aún no ha llegado), su vista se supone la del anfitrión', V0.radioDe(m0.otro) === up && V0.radio(ps0, m0.otro, 0) === up,
+      { radioDeB: V0.radioDe(m0.otro), upstream: up });
+    V0.deRed('B', ['vista', VB.w, VB.h, VB.ox, VB.oy]);
+    m0.otro.x = 90; m0.otro.y = 20;
+    const esperado = Math.hypot(VB.w, VB.h) / 2 + 40 + Math.hypot(VB.ox, VB.oy);
+    const rumbo = a => +V0.radio(ps0, m0.yo, a).toFixed(1);
+    const dir = { derecha: rumbo(0), izquierda: rumbo(Math.PI), abajo: rumbo(Math.PI / 2), arriba: rumbo(-Math.PI / 2), diagonal: rumbo(0.6) };
+    // B junto a A (90, 20): por los lados, justo fuera de la vista de B con el margen (sus bordes, a 90 - 31 + 673 = 732 y a
+    // 673 - 90 + 31 = 614 de A); arriba y abajo, la distancia de upstream (la vista de B, 292 de media altura, queda dentro del anillo de A).
+    t('con B (móvil) junto a A (PC), el anillo de A sólo se aleja por los lados, hasta salir de la vista de B; arriba y abajo, el de upstream',
+      dir.abajo === +up.toFixed(1) && dir.arriba === +up.toFixed(1) && Math.abs(dir.derecha + 10 - 733) < 0.5 && Math.abs(dir.izquierda + 10 - 615) < 0.5 && dir.diagonal > up,
+      Object.assign({ upstream: +up.toFixed(1) }, dir));
+    t('alrededor de B, su propia vista (con lo que la tiene corrida): el anillo empieza en su círculo', Math.abs(V0.radioDe(m0.otro) - esperado) < 1e-9 && V0.radio(ps0, m0.otro, Math.PI / 2) === V0.radioDe(m0.otro),
+      { radioDeB: V0.radioDe(m0.otro), esperado });
+    const deRed = ev => { const m = montar(); m.G.Vistas.deRed('B', ev); return m.G.Vistas.vista('B'); };
+    const hostiles = [deRed(['vista', 1e9, 585, 0, 0]), deRed(['vista', 'x', 585, 0, 0]), deRed(['vista', 1266, 50, 0, 0]), deRed(['vista']), deRed(['vista', 1266, 585, 9999, -9999])];
+    t('el anfitrión no se fía de lo que llega: tamaños fuera de 100-3.000 o que no son números se ignoran, y la vista corrida, como mucho 400 px',
+      hostiles.slice(0, 4).every(v => v === null) && hostiles[4] && hostiles[4].ox === 400 && hostiles[4].oy === -400, hostiles);
+  } catch (e) { t('apariciones con spawner.js real', false, String(e && e.stack || e)); }
+
+  // Rezagados: el bloque de enemy.js tal cual. A lejos; B corre hacia la izquierda; uno detrás a 560 (dentro de la vista de B, que
+  // llega a 602 por la derecha) y otro a 900 (fuera de ella y del radio de su vista más 40, 826).
+  try {
+    const src = rd('js/entities/enemy.js');
+    const m = src.match(/        const d2 = G\.U\.dist2\(e\.x, e\.y, near\.x, near\.y\);\r?\n[\s\S]*?\r?\n        if \(\(unseen && e\.lagT > LAG_T\) \|\| d2 > 1400 \* 1400\) \{\r?\n[\s\S]*?\r?\n        \}\r?\n/);
+    if (!m) throw new Error('no encuentro el bloque de los rezagados en js/entities/enemy.js');
+    const rezagados = ({ vistas = true, ajuste = true, coop = true } = {}) => {
+      const c = { console }; c.window = c; c.G = {}; vm.createContext(c);
+      for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/core/camera.js']) vm.runInContext(rd(f), c, { filename: f });
+      const G = c.G, vuelven = [];
+      G.MODS.aparicionVistas = ajuste;
+      const yo = { x: coop ? -2600 : 0, y: 0, dead: false, _vx: coop ? 0 : -116, _vy: 0 }, otro = { x: 0, y: 0, dead: false, remote: true, uid: 'B', _vx: -116, _vy: 0 };
+      G.Coop = { active: coop, isHost: coop, local: yo, enemyGone: () => {} };
+      G.Spawner = { ahead: (e, near) => { vuelven.push({ x: e.x, t: e.t }); e.x = near.x - 700; return true; } };
+      Object.assign(G.Camera, { x: yo.x, y: 0, w: VA.w, h: VA.h });
+      if (vistas) vm.runInContext(rd('js/net/vistas.js'), c, { filename: 'js/net/vistas.js' });
+      if (vistas && coop) G.Vistas.deRed('B', ['vista', VB.w, VB.h, VB.ox, VB.oy]);
+      vm.runInContext(`var __rez = (e, near, players, dt, i, list, byId, LAG_T) => {\n${m[0]}};`, c, { filename: 'js/entities/enemy.js (rezagados)' });
+      const players = coop ? [yo, otro] : [yo], near = coop ? otro : yo;
+      const es = [{ id: 1, x: near.x + 560, y: near.y + 10, lagT: 0 }, { id: 2, x: near.x + 900, y: near.y, lagT: 0 }];
+      for (let f = 0; f < 240; f++) for (const e of es) { e.t = f / 60; if (e.x > near.x) c.__rez(e, near, players, 1 / 60, 0, [e], new Map(), 2.5); }
+      return { a560: vuelven.filter(v => v.x < near.x + 700).map(v => +v.t.toFixed(2)), a900: vuelven.filter(v => v.x >= near.x + 700).map(v => +v.t.toFixed(2)) };
+    };
+    const con = rezagados(), sin = rezagados({ ajuste: false });
+    t('rezagados (el bloque de enemy.js tal cual): con el ajuste, el que B ve a 560 px no vuelve a salir por delante; el de 900 sí, a los 2,5 s',
+      con.a560.length === 0 && con.a900.length === 1 && con.a900[0] >= 2.5 && con.a900[0] < 2.6, con);
+    t('rezagados, control: sin el ajuste (upstream, con la vista del anfitrión) también el de 560 px, que B está viendo', sin.a560.length === 1 && sin.a900.length === 1, sin);
+    const s1 = rezagados({ coop: false }), s2 = rezagados({ coop: false, vistas: false });
+    // (En solitario la vista es la del PC, 720 de ancho: los dos están fuera de ella y los dos vuelven, como en upstream.)
+    t('rezagados en solitario: igual que sin vistas.js', JSON.stringify(s1) === JSON.stringify(s2) && s1.a560.length === 1 && s1.a900.length === 1, { conVistas: s1, sinVistas: s2 });
+  } catch (e) { t('rezagados con el bloque de enemy.js', false, String(e && e.stack || e)); }
+
+  // Red: coop.js real en los dos lados. El invitado manda ['vista', ...] al empezar, al cambiar y cada 2 s; el anfitrión la apunta.
+  try {
+    const cliente = (uid, anfitrion, ajuste = true, bombaAj = false) => {
+      const c = { console, performance: { now: () => 0 } }; c.window = c; c.G = {}; vm.createContext(c);
+      for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/core/camera.js']) vm.runInContext(rd(f), c, { filename: f });
+      const G = c.G, nop = () => {}, S = { enviados: [], mandados: [], dts: [] };
+      G.MODS.aparicionVistas = ajuste; G.MODS.bombaVistas = bombaAj;
+      const pl = { x: 100, y: 50, dead: false, hp: 100, maxHp: 100, moveAngle: 0, walking: false, magnet: 78, aim: 0, xpMul: 1, reviveT: 0, activeGroup: () => [] };
+      Object.assign(G, {
+        Net: { uid, on: fn => { S.recibe = fn; }, onPeer: nop, slow: () => false, viaTurn: () => false,
+          send: (to, msg) => S.mandados.push(JSON.parse(JSON.stringify(msg))), toHost: msg => S.enviados.push(JSON.parse(JSON.stringify(msg))) },
+        Player: class { constructor(mon) { Object.assign(this, { mon, dex: mon.dex, x: 0, y: 0, hp: 100, maxHp: 100, dead: false }); } },
+        startMoveOf: () => 'tackle', Sprites: { preload: nop }, DEX_BY: { 25: { dex: 25, name: 'Pikachu' } }, Spawner: { say: nop }, Projectiles: { clearOrbs: nop },
+        EnemyMgr: { all: () => [] },
+        Encuadre: { desplazamiento: dt => { S.dts.push(dt); return [VB.ox, VB.oy]; } }   // el HUD Dex compacto corre la cámara
+      });
+      vm.runInContext(rd('js/net/vistas.js'), c, { filename: 'js/net/vistas.js' });
+      vm.runInContext(rd('js/net/coop.js'), c, { filename: 'js/net/coop.js' });
+      G.Coop.begin({ host: 'A', members: [{ uid: 'A', name: 'Ana', dex: 25 }, { uid: 'B', name: 'Bea', dex: 25 }] }, pl, { team: () => ({}) });
+      return { G, S, pl };
+    };
+    const B = cliente('B', false), A = cliente('A', true);
+    const camara = (o = 0) => Object.assign(B.G.Camera, { x: B.pl.x + VB.ox + o, y: B.pl.y + VB.oy, w: VB.w, h: VB.h });
+    const vistasDe = () => B.S.enviados.flatMap(m => (m.ev || []).filter(ev => ev[0] === 'vista'));
+    for (let f = 0; f < 600; f++) { camara(f % 30 < 15 ? 13 : -13); B.G.Coop.tick(1 / 60); }   // 10 s; la cámara va y viene 13 px (su retraso al moverse)
+    const diez = vistasDe().length;
+    const primera = vistasDe()[0];
+    t('lo corrida que está la vista lo pide al encuadre sin hacerlo avanzar (dt 0)', B.S.dts.length > 0 && B.S.dts.every(d => d === 0), { llamadas: B.S.dts.length });
+    for (let f = 0; f < 120; f++) { Object.assign(B.G.Camera, { w: VB.w - 3 * f, h: VB.h - f }); B.G.Coop.tick(1 / 60); }   // 2 s cambiando de tamaño cada fotograma
+    const cambiando = vistasDe().length - diez;
+    t("el invitado manda su vista al empezar (['vista', 1266, 585, -31, 37]) y luego cada 2 s; el vaivén de la cámara no la vuelve a mandar",
+      primera && primera.join() === ['vista', VB.w, VB.h, VB.ox, VB.oy].join() && diez >= 5 && diez <= 6, { primera, en10s: diez });
+    t('si cambia de tamaño, la vuelve a mandar enseguida, como mucho 2 veces por segundo', cambiando >= 3 && cambiando <= 5, { en2s: cambiando });
+    // El anfitrión recibe esos mensajes (coop.js, onClientFrame) y apunta la última.
+    for (const msg of B.S.enviados) A.S.recibe('B', msg);
+    const ultima = vistasDe().slice(-1)[0], v = A.G.Vistas.vista('B');
+    t("el anfitrión apunta la vista de B con coop.js real (case 'vista')", v && v.w === ultima[1] && v.h === ultima[2] && v.ox === ultima[3] && v.oy === ultima[4], { recibida: v, ultima });
+    A.S.recibe('Z', { k: 'f', ev: [['vista', 2000, 2000, 0, 0]] });
+    t('de alguien que no está en la partida, nada', A.G.Vistas.vista('Z') === null);
+    const Bsin = cliente('B', false, false);
+    for (let f = 0; f < 300; f++) Bsin.G.Coop.tick(1 / 60);
+    t('con aparicionVistas y bombaVistas en false el invitado no manda nada nuevo (como upstream)', Bsin.S.enviados.length > 0 && Bsin.S.enviados.every(m => !(m.ev || []).some(ev => ev[0] === 'vista')),
+      { mensajes: Bsin.S.enviados.length });
+    const Bbomba = cliente('B', false, false, true);
+    for (let f = 0; f < 300; f++) { Object.assign(Bbomba.G.Camera, { w: VB.w, h: VB.h }); Bbomba.G.Coop.tick(1 / 60); }
+    const vb = Bbomba.S.enviados.flatMap(m => (m.ev || []).filter(ev => ev[0] === 'vista'));
+    t('con sólo bombaVistas (aparicionVistas en false) el invitado también manda su vista, que necesita la bomba', vb.length >= 2 && vb.length <= 4 && vb[0][1] === VB.w, { vistas: vb.length, primera: vb[0] });
+    for (let f = 0; f < 120; f++) A.G.Coop.tick(1 / 60);
+    t('el anfitrión no manda su vista a nadie', A.S.mandados.length > 0 && !A.S.enviados.length && A.S.mandados.every(m => !(m.ev || []).some(ev => ev[0] === 'vista')),
+      { mensajes: A.S.mandados.length });
+  } catch (e) { t('red con coop.js real', false, String(e && e.stack || e)); }
+
+  // La bomba de un compañero (G.MODS.bombaVistas): el trozo de onCollect() de js/game.js tal cual, sobre una rejilla de
+  // enemigos (cada 24 px, en posiciones impares para no caer justo en un borde). A, el anfitrión (PC), lejos; B la coge.
+  try {
+    const m = rd('js/game.js').match(/    if \(p\.kind === 'bomb'\) \{\r?\n[\s\S]*?\r?\n    \}\r?\n/);
+    if (!m) throw new Error('no encuentro la bomba en onCollect() de js/game.js');
+    const GANCHO = /G\.Vistas && G\.Vistas\.bombaEnSuVista\(who, mine\) \? !G\.Vistas\.enSuVista\(who, e\.x, e\.y\) : /;
+    if (!GANCHO.test(m[0])) throw new Error('la bomba de onCollect() no lleva el gancho');
+    // Upstream: el mismo trozo sin el gancho ni su comentario (lo que queda detrás del gancho es su condición tal cual).
+    const UPSTREAM = m[0].replace(GANCHO, '').replace(/\s*\/\/ MOD nico[^\r\n]*/, '');
+    const R = Math.hypot(VA.w, VA.h) / 2 + 40;   // G.Camera.outerRadius() del anfitrión: 464,5
+    const bomba = ({ trozo = m[0], vistas = true, ajuste = true, apariciones = true, coop = true, host = true, datos = VB, mia = false } = {}) => {
+      const c = { console }; c.window = c; c.G = {}; vm.createContext(c);
+      for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/core/camera.js']) vm.runInContext(rd(f), c, { filename: f });
+      const G = c.G, golpes = [], aros = [];
+      G.MODS.bombaVistas = ajuste; G.MODS.aparicionVistas = apariciones;
+      const yo = { x: -2600, y: 0, level: 7 }, otro = { x: 90, y: 20, remote: true, uid: 'B', level: 3 }, who = mia ? yo : otro;
+      Object.assign(G, { Settings: { get: () => false }, Coop: { active: coop, isHost: coop && host, local: yo }, FX: { ring: (x, y, r0, r1) => aros.push(Math.round(r1)) } });
+      Object.assign(G.Camera, { x: yo.x, y: yo.y, w: VA.w, h: VA.h });
+      const es = [];
+      for (let dx = -983; dx <= 985; dx += 24) for (let dy = -695; dy <= 697; dy += 24)
+        es.push({ x: who.x + dx, y: who.y + dy, hurt(d, col, kx, ky, kb) { golpes.push({ x: this.x, y: this.y, d, col, kx, ky, kb }); } });
+      G.EnemyMgr = { all: () => es };
+      if (vistas) vm.runInContext(rd('js/net/vistas.js'), c, { filename: 'js/net/vistas.js' });
+      if (vistas && datos) G.Vistas.deRed('B', ['vista', datos.w, datos.h, datos.ox || 0, datos.oy || 0]);
+      vm.runInContext(`var __bomba = (p, who, pl) => { const mine = who === pl;\n${trozo}};`, c, { filename: 'js/game.js (la bomba de onCollect)' });
+      c.__bomba({ kind: 'bomb' }, who, yo);
+      const clave = e => Math.round(e.x) + ',' + Math.round(e.y);
+      return { G, who, es, golpes, aros, k: new Set(golpes.map(clave)), clave, dmg: 60 + yo.level * 14 };
+    };
+    const igual = (x, quien) => { const q = new Set(x.es.filter(quien).map(x.clave)); return q.size > 0 && q.size === x.k.size && [...q].every(k => x.k.has(k)); };
+    const rect = (v, w) => e => Math.abs(e.x - (w.x + (v.ox || 0))) < v.w / 2 && Math.abs(e.y - (w.y + (v.oy || 0))) < v.h / 2;
+    const d2 = (a, b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
+    const circulo = w => e => d2(e, w) <= R * R;
+    const cuenta = x => x.k.size;
+
+    // Un móvil de invitado (1266x585, corrida 31 a la izquierda y 37 abajo, como manda el HUD Dex compacto).
+    const movil = bomba(), movilUp = bomba({ trozo: UPSTREAM }), sinAj = bomba({ ajuste: false }), sinDatos = bomba({ datos: null }), sinVistas = bomba({ vistas: false });
+    const lados = [...movil.k].filter(k => !movilUp.k.has(k)).length, noVe = [...movilUp.k].filter(k => !movil.k.has(k)).length;
+    t('bomba de un compañero con un móvil (bombaVistas): daña exactamente a los enemigos del rectángulo de SU vista (1266x585, con lo que la tiene corrida)',
+      igual(movil, rect(VB, movil.who)), { golpeados: cuenta(movil), enSuVista: movil.es.filter(rect(VB, movil.who)).length });
+    t('control: la condición de upstream (el trozo sin el gancho) daña al círculo del radio de la vista del ANFITRIÓN (465 px) alrededor del compañero; el ajuste alcanza a los de los lados de su pantalla y deja a los de arriba y abajo que no ve',
+      igual(movilUp, circulo(movilUp.who)) && lados > 0 && noVe > 0, { upstream: cuenta(movilUp), conAjuste: cuenta(movil), soloConAjuste: lados, soloUpstream: noVe });
+    t('sin el ajuste, sin la vista del compañero (otra versión, o aún no ha llegado) o sin vistas.js, exactamente lo de upstream',
+      [sinAj, sinDatos, sinVistas].every(x => igual(x, circulo(x.who))), { sinAjuste: cuenta(sinAj), sinDatos: cuenta(sinDatos), sinVistas: cuenta(sinVistas), upstream: cuenta(movilUp) });
+    // Un PC de invitado (720x450, sin corrimiento): su vista es más pequeña que el círculo de upstream; su bomba, como jugando solo.
+    const pc = bomba({ datos: { w: VA.w, h: VA.h } }), pcUp = bomba({ trozo: UPSTREAM, datos: { w: VA.w, h: VA.h } });
+    t('con un PC de invitado (720x450), su rectángulo: menos que el círculo de upstream (lo mismo que su bomba jugando solo)',
+      igual(pc, rect({ w: VA.w, h: VA.h }, pc.who)) && cuenta(pc) < cuenta(pcUp), { conAjuste: cuenta(pc), upstream: cuenta(pcUp) });
+    // La tuya, la del anfitrión: su pantalla (G.Camera.sees(x, y, 0)), con el ajuste o sin él.
+    const tuya = bomba({ mia: true }), tuyaUp = bomba({ mia: true, trozo: UPSTREAM }), cam = tuya.G.Camera;
+    t('tu bomba no cambia: tu pantalla, con el ajuste y con la condición de upstream', igual(tuya, e => cam.sees(e.x, e.y, 0)) && igual(tuyaUp, e => cam.sees(e.x, e.y, 0)),
+      { conAjuste: cuenta(tuya), upstream: cuenta(tuyaUp) });
+    const soloAj = bomba({ apariciones: false });
+    t('bombaVistas no depende de aparicionVistas (sólo de la vista que manda el invitado)', igual(soloAj, rect(VB, soloAj.who)), { golpeados: cuenta(soloAj) });
+    const inv = bomba({ host: false });
+    t('sólo lo decide el anfitrión: en el invitado (que no aplica la bomba), bombaEnSuVista() dice que no', inv.G.Vistas.bombaEnSuVista(inv.who, false) === false && movil.G.Vistas.bombaEnSuVista(movil.who, false) === true,
+      { invitado: inv.G.Vistas.bombaEnSuVista(inv.who, false) });
+    t('el daño, el empuje y el aro, como upstream (60 + nivel × 14, el empuje desde quien la coge; el aro, del radio del anfitrión)',
+      movil.golpes.every(g => g.d === movil.dmg && g.col === '#ff7b3d' && g.kb === 160 && g.kx === g.x - movil.who.x && g.ky === g.y - movil.who.y) && movil.aros.join() === movilUp.aros.join() && movil.aros[0] === Math.round(R),
+      { aros: movil.aros, aroUpstream: movilUp.aros });
+  } catch (e) { t('la bomba de un compañero con el trozo de onCollect()', false, String(e && e.stack || e)); }
+
+  const failed = r.filter(x => !x[1]);
+  if (!failed.length) ok(`apariciones en grupo: ${r.length} casos bien`);
+  for (const [name, , detail] of failed) bad(`apariciones en grupo: ${name}${detail !== undefined ? ' · ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : ''}`);
+}
+
 importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stack || e))).then(() => {
   try { grietaChecks(); } catch (e) { bad('no se pudo probar la grieta garantizada: ' + (e && e.stack || e)); }
   try { gachaChecks(); } catch (e) { bad('no se pudo probar el gacha y los tickets: ' + (e && e.stack || e)); }
@@ -6693,6 +6957,7 @@ importChecks().catch(e => bad('no se pudo probar el importador: ' + (e && e.stac
   try { mapasChecks(); } catch (e) { bad('no se pudo probar los mapas propios: ' + (e && e.stack || e)); }
   try { multiversoChecks(); } catch (e) { bad('no se pudo probar el Multiverso: ' + (e && e.stack || e)); }
   try { relieveChecks(); } catch (e) { bad('no se pudo probar el relieve, las sombras y la luz: ' + (e && e.stack || e)); }
+  try { vistasChecks(); } catch (e) { bad('no se pudo probar las apariciones en grupo: ' + (e && e.stack || e)); }
   console.log(fails ? `\nRESULTADO: ${fails} fallo(s), ${warns} aviso(s)` : `\nRESULTADO: todo bien (${warns} aviso(s))`);
   process.exit(fails ? 1 : 0);
 });

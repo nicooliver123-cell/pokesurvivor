@@ -37,7 +37,7 @@ G.Spawner = (() => {
   }
 
   function ringPoint(pl, angle) {
-    const d = G.Camera.outerRadius() + G.U.rand(10, 70);
+    const d = (G.Vistas ? G.Vistas.radio(players, pl, angle) : G.Camera.outerRadius()) + G.U.rand(10, 70);   // MOD nico: en grupo, fuera de la vista de todos (js/net/vistas.js)
     return [pl.x + Math.cos(angle) * d, pl.y + Math.sin(angle) * d * 0.9];
   }
 
@@ -45,6 +45,7 @@ G.Spawner = (() => {
 
   /** ¿Lo vería algún jugador? (para no aparecer delante de nadie) */
   function seenByAnyone(x, y) {
+    if (G.Vistas && G.Vistas.activo(players)) return G.Vistas.vistoPorAlguien(players, x, y);   // MOD nico: la vista de cada uno, no la del anfitrión (js/net/vistas.js)
     const r = G.Camera.outerRadius() - 30;
     return players.some(o => G.U.dist2(o.x, o.y, x, y) < r * r);
   }
@@ -95,7 +96,7 @@ G.Spawner = (() => {
   }
 
   function spawnBoss(pl, t, b) {
-    const [x, y] = ringPoint(pl, Math.random() * 6.2832);
+    const [x, y] = (G.Vistas && G.Vistas.activo(players) && freePoint(pl, Math.random() * 6.2832, true)) || ringPoint(pl, Math.random() * 6.2832);   // MOD nico: en grupo, el jefe también fuera de la vista de todos (js/net/vistas.js)
     const e = new G.Enemy(b, x, y, scaled(G.Enemies.bossScale(t), G.Coop.scaleHp(players.length) * (players.length > 1 ? 1.4 : 1)), true);
     if (rollShiny(b.dex)) e.makeShiny();
     G.EnemyMgr.add(e);

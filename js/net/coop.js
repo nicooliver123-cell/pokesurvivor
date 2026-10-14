@@ -178,6 +178,7 @@ G.Coop = (() => {
   /** Cada fotograma (también en la pantalla de subida de nivel). */
   function tick(dt) {
     if (!active) return;
+    if (G.Vistas) G.Vistas.tick(dt, host);   // MOD nico: el invitado le dice al anfitrión qué mide su vista (js/net/vistas.js)
     if (host) {
       for (const m of mates.values()) {
         if (!m.connected) continue;
@@ -260,6 +261,7 @@ G.Coop = (() => {
         case 're': G.Rift.enterRequest(); break;
         case 'bye': mateGone(from); break;
         case 'evo': if (G.EvoPartida) G.EvoPartida.deRed(ev, from); break;   // MOD nico: un invitado ha evolucionado (js/systems/evo-partida.js)
+        case 'vista': if (G.Vistas) G.Vistas.deRed(from, ev); break;   // MOD nico: lo que mide la vista de este invitado (js/net/vistas.js)
       }
     }
   }
