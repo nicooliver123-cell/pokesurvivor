@@ -96,7 +96,7 @@ G.GachaUI = (() => {
     fx.classList.remove('hidden');
 
     // La tragaperras (ui/slots.js) y luego las cartas.
-    await G.Slots.play(slot, res);
+    await (G.MODS && G.MODS.maquinaGancho && G.Gancho ? G.Gancho : G.Slots).play(slot, res);   // MOD nico: máquina de gancho (js/ui/gancho.js)
     G.Audio.sfx('burst', { rarity: best });
     slot.style.display = 'none';
 

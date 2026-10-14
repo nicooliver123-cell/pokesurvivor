@@ -160,5 +160,7 @@ G.I18n.add({
     'On a foldable, the split falls on the hinge if the browser knows where it is; otherwise, exactly in the middle.',
   // «Elige a tu compañero» sin el test de personalidad (js/ui/elegir-companero.js) y la nota de Ajustes > Cuenta sin la personalidad.
   'Al azar': 'Random', 'Elegir a {x}': 'Choose {x}', 'Elige uno o déjalo al azar.': 'Pick one or leave it to chance.', 'Iniciales': 'Starters',
-  'Tu apodo, tus misiones de hoy y tu inicial no cambian.': 'Your nickname, today\'s missions and your starter don\'t change.'
+  'Tu apodo, tus misiones de hoy y tu inicial no cambian.': 'Your nickname, today\'s missions and your starter don\'t change.',
+  // La máquina de gancho del gacha (js/ui/gancho.js); el resto de sus rótulos son los de la tragaperras (lang-en.js).
+  'POKé GANCHO': 'POKé CLAW'
 });

@@ -171,6 +171,12 @@ G.MODS = {
    * ×10 también en un portátil de 1280x720) o «Continuar». false = como el original. */
   avisosTrasGacha: true,
 
+  /* Animación de la tirada del gacha (decisión de Nico, 14-10-2026): true = una máquina de gancho
+   * coge del montón la Poké Ball de la rareza que ha salido y la suelta en la bandeja (js/ui/gancho.js).
+   * Sólo es la animación: probabilidades, pity y premios siguen en gacha.js. false = la tragaperras
+   * del original. */
+  maquinaGancho: true,
+
   /* ---- Identidad visual «Dex de Expedición» (elegida por Nico el 12-10-2026) ----
    * Estilo que ve quien no lo ha cambiado en Ajustes > Gráficos > Estilo (js/ui/estilo.js):
    *   'dex'      menús de Rotom-Dex (css/nico.css) y letra M PLUS Rounded 1c en todo, también en el
