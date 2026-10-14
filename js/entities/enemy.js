@@ -924,7 +924,7 @@
         // no se puede huir sin más, y nunca desaparece uno que estés viendo.
         const d2 = G.U.dist2(e.x, e.y, near.x, near.y);
         const R = G.Camera.outerRadius() + 40;
-        const unseen = d2 > R * R && !G.Camera.sees(e.x, e.y, 60);
+        const unseen = (G.Vistas && G.Vistas.activo(players) ? G.Vistas.fueraDeTodas(players, e.x, e.y, 40) : d2 > R * R) && !G.Camera.sees(e.x, e.y, 60);   // MOD nico: fuera de la vista de cada uno (js/net/vistas.js)
         const sp = Math.hypot(near._vx || 0, near._vy || 0);
         const behind = sp > 40 && ((e.x - near.x) * near._vx + (e.y - near.y) * near._vy) < -0.2 * Math.sqrt(d2) * sp;
         if (unseen && behind) e.lagT += dt;

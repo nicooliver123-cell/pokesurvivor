@@ -64,6 +64,12 @@
  *      de cada copia que acaba de golpear se ve (la vida le llega por red) y una copia herida cuya
  *      vida no cambia (escudo permanente) no la lleva; y los disparos que A hace salir hacia B (con
  *      'es') se pintan en B con el contorno rojo, que se comprueba en el lienzo de verdad (#ff2440).
+ *  13. Apariciones con vistas distintas (G.MODS.aparicionVistas, js/net/vistas.js), antes de la grieta: A a 1440x900 y B a
+ *      844x390@3 (con CDP), así que B ve más mundo (1266x585 frente a 720x450). Juntos y quietos, con oleadas forzadas (12 s):
+ *      ninguna copia nueva nace con los pies dentro de la vista de B. B corriendo 7 s con A lejos y unos Gastly detrás a su
+ *      velocidad, dentro de su vista pero más lejos de lo que ve A: ningún rezagado sale de la vista de B ni vuelve dentro.
+ *      No cuentan el duende del tesoro ni los esbirros que un invocador saca a su lado (salen a la vista a propósito).
+ *      Cada fase, también de control con el ajuste apagado en A (upstream): ahí SÍ pasa. Al terminar, todo como estaba.
  *
  * CRITERIO del invitado. Cada subida de vida de una copia se clasifica según el tiempo
  * desde el último golpe que el propio invitado predijo en ella (lo mide la trampa):
@@ -829,6 +835,175 @@ async function guaranteedRift(A, B) {
   report.grietaGarantizada = { horaA, horaB, abierta: a0, recibida: b0, legendario: leg, sinMod, esperada, bonds, ttl: TTL };
 }
 
+// ---------------- apariciones con vistas distintas (G.MODS.aparicionVistas, js/net/vistas.js) ----------------
+// Recogedor del invitado: cada copia nueva ('ne') que nace con los pies dentro de su vista (G.Camera.sees con margen 0), cada
+// copia que se quita sin caer estando a la vista, y cada salto de más de 200 px entre dos fotogramas seguidos del anfitrión
+// (un rezagado que vuelve a salir por delante) que sale de su vista o cae en ella. No cuentan los que salen a la vista a
+// propósito, como en upstream: el duende del tesoro (a 230-300 px de un jugador, con su anillo dorado) y los esbirros que un
+// invocador saca a su lado (los apunta el anfitrión: H.invocados; se descuentan al evaluar, por su id).
+const VISTAS_B = `(() => {
+  const H = window.__vistas = { on: false, fase: '', f: {}, ej: [], ult: new Map(), n: 0, vistos: [] };
+  H.c = () => (H.f[H.fase] = H.f[H.fase] || { nacen: 0, nacenVista: 0, saltos: 0, saltosDesde: 0, saltosHasta: 0, quitados: 0, quitadosVista: 0, fotos: 0 });
+  const ej = (tipo, x, y, extra) => { if (H.ej.filter(e => e.fase === H.fase).length < 8) { const c = G.Camera; H.ej.push(Object.assign({ fase: H.fase, tipo, dx: Math.round(x - c.x), dy: Math.round(y - c.y), w: Math.round(c.w), h: Math.round(c.h) }, extra || {})); } };
+  const ar = G.EnemyMgr.addRemote;
+  G.EnemyMgr.addRemote = function (o) {
+    const nuevo = !G.EnemyMgr.get(o.id), e = ar.apply(this, arguments);
+    if (nuevo && H.on && o.beh !== 'thief') {
+      const c = H.c(); c.nacen++;
+      if (G.Camera.sees(o.x, o.y, 0)) { c.nacenVista++; H.vistos.push({ fase: H.fase, id: o.id }); ej('nace', o.x, o.y, { id: o.id, jefe: !!o.boss }); }
+    }
+    return e;
+  };
+  const rr = G.EnemyMgr.removeRemote;
+  G.EnemyMgr.removeRemote = function (id, died) {
+    const e = G.EnemyMgr.get(id);
+    // (En las fases «quietos» quita el arnés: vaciar() del anfitrión. Sólo cuenta en las de los rezagados.)
+    if (H.on && e && !died && e.behavior !== 'thief' && !/^quietos/.test(H.fase)) { const c = H.c(); c.quitados++; if (G.Camera.sees(e.x, e.y, 0)) { c.quitadosVista++; ej('quitado', e.x, e.y); } }
+    return rr.apply(this, arguments);
+  };
+  G.Net.on((from, msg) => {
+    if (!H.on || !msg || msg.k !== 'f' || !msg.e) return;
+    const c = H.c(), cam = G.Camera, ahora = new Map();
+    H.n++; c.fotos++;
+    for (const a of msg.e) {
+      const p = H.ult.get(a[0]);
+      if (p && p.n === H.n - 1 && Math.hypot(a[1] - p.x, a[2] - p.y) > 200) {
+        c.saltos++;
+        const desde = cam.sees(p.x, p.y, 0), hasta = cam.sees(a[1], a[2], 0);
+        if (desde) c.saltosDesde++;
+        if (hasta) c.saltosHasta++;
+        if (desde || hasta) ej('salto', a[1], a[2], { desde: [Math.round(p.x - cam.x), Math.round(p.y - cam.y)] });
+      }
+      ahora.set(a[0], { x: a[1], y: a[2], n: H.n });
+    }
+    H.ult = ahora;
+  });
+  return 'instalado';
+})()`;
+// Control del anfitrión: lo que crea dentro de su propia vista (upstream ya lo evitaba: tiene que seguir en 0), sin el duende ni
+// los esbirros de un invocador, que apunta aparte (sus ids, para descontarlos en B). vaciar() quita los enemigos (sin caer, como
+// un rezagado perdido) para que el tope de 64 no frene las apariciones.
+const VISTAS_A = `(() => {
+  const H = window.__vistasA = { on: false, fase: '', f: {}, invocados: [], invocando: false };
+  H.c = () => (H.f[H.fase] = H.f[H.fase] || { nacen: 0, nacenVista: 0 });
+  const su = G.Enemy.prototype.summon;
+  G.Enemy.prototype.summon = function () { H.invocando = true; try { return su.apply(this, arguments); } finally { H.invocando = false; } };
+  const add = G.EnemyMgr.add;
+  G.EnemyMgr.add = function (e) {
+    if (H.on && !e.remote) {
+      if (H.invocando) H.invocados.push(e.id);
+      else if (e.behavior !== 'thief') { const c = H.c(); c.nacen++; if (G.Camera.sees(e.x, e.y, 0)) c.nacenVista++; }
+    }
+    return add.apply(this, arguments);
+  };
+  H.vaciar = () => { const L = G.EnemyMgr.all(); for (let i = L.length - 1; i >= 0; i--) { const e = L[i]; if (e.boss || e.dead) continue; L.splice(i, 1); e.dead = true; G.Coop.enemyGone(e, false); } };
+  return 'instalado';
+})()`;
+
+/**
+ * El anfitrión decide dónde nacen los enemigos. A (anfitrión) juega en un PC a 1440x900 y B (invitado) en un móvil a 844x390@3:
+ * con el píxel nítido B ve mucho más mundo que A (1266x585 frente a 720x450). Nada puede nacer, ni reaparecer como rezagado,
+ * dentro de la vista de B.
+ *   1. Juntos y quietos: A provoca oleadas (G.Spawner.burst: el anillo de aparición de siempre) además del goteo, 12 s.
+ *   2. Rezagados: A se va lejos; A crea detrás de B, dentro de su vista pero más lejos de lo que A ve, unos Gastly que le siguen
+ *      a su misma velocidad, y B corre en línea recta 7 s.
+ * Cada fase con G.MODS.aparicionVistas y, de control, con el ajuste apagado en el anfitrión (como upstream): ahí tiene que pasar.
+ */
+async function vistasCoop(A, B, uidB) {
+  await A.page.setViewportSize({ width: 1440, height: 900 });
+  const cdp = await B.ctx.newCDPSession(B.page);   // el dpr no se cambia con setViewportSize
+  await cdp.send('Emulation.setDeviceMetricsOverride', { width: 844, height: 390, deviceScaleFactor: 3, mobile: false });
+  await sleep(1200);
+  const vista = P => P.page.evaluate(() => ({ w: Math.round(G.Camera.w), h: Math.round(G.Camera.h), dpr: devicePixelRatio, estilo: G.Estilo ? G.Estilo.actual : '' }));
+  const vA = await vista(A), vB = await vista(B);
+  check('Vistas distintas: B (móvil 844x390@3, con el píxel nítido) ve bastante más mundo que A (PC 1440x900)', vB.dpr === 3 && vB.w > vA.w * 1.4, { A: vA, B: vB });
+  step('A: recogedor de apariciones', await A.page.evaluate(VISTAS_A));
+  step('B: recogedor de apariciones', await B.page.evaluate(VISTAS_B));
+  const fase = (P, f, on) => P.page.evaluate(([f, on]) => { const H = window.__vistas || window.__vistasA; H.fase = f; H.on = on; }, [f, on]);
+  const ajuste = v => A.page.evaluate(v => { G.MODS.aparicionVistas = v; }, v);
+
+  // 1. Juntos y quietos.
+  for (const [nombre, conAjuste] of [['quietos', true], ['quietos-control', false]]) {
+    await ajuste(conAjuste);
+    const junto = await B.page.evaluate(() => {
+      const a = G.Coop.mates[0].pl, p = G.Game.player;
+      for (const [dx, dy] of [[90, 20], [-90, 20], [0, 70], [0, -70], [150, 0], [-150, 0]]) if (G.World.isFree(a.x + dx, a.y + dy, 14)) { p.x = a.x + dx; p.y = a.y + dy; return [dx, dy]; }
+      p.x = a.x; p.y = a.y; return [0, 0];
+    });
+    await sleep(1500);
+    await A.page.evaluate(() => { window.__vistasA.vaciar(); window.__oleadasT = setInterval(() => { if (G.EnemyMgr.count > 48) window.__vistasA.vaciar(); G.Spawner.burst(4); }, 400); });
+    await fase(A, nombre, true); await fase(B, nombre, true);
+    await sleep(12000);
+    await fase(A, nombre, false); await fase(B, nombre, false);
+    await A.page.evaluate(() => clearInterval(window.__oleadasT));
+    step(`Apariciones ${nombre}`, `B junto a A (${junto.join(', ')}), ajuste ${conAjuste ? 'activado' : 'apagado'} en el anfitrión`);
+  }
+
+  // 2. Rezagados. B busca un pasillo horizontal libre (sólo en horizontal B ve más que A: 633 frente a 360 de media vista;
+  // en vertical, 292 frente a 225, ambos por debajo del radio con el que A da por perdido de vista a un rezagado).
+  for (const [nombre, conAjuste] of [['rezagados', true], ['rezagados-control', false]]) {
+    await ajuste(conAjuste);
+    await A.page.evaluate(() => window.__vistasA.vaciar());
+    const ruta = await B.page.evaluate(() => {
+      const p = G.Game.player, libre = (x, y, s) => { for (let i = 1; i <= 70; i++) if (!G.World.isFree(x + s * 20 * i, y, 16)) return i * 20; return 1400; };
+      for (let r = 0; r <= 2400; r += 120) for (let k = 0; k < (r ? 12 : 1); k++) {
+        const x = p.x + Math.cos(k * 0.5236) * r, y = p.y + Math.sin(k * 0.5236) * r;
+        if (!G.World.isFree(x, y, 16)) continue;
+        for (const s of [-1, 1]) if (libre(x, y, s) >= 1400 && libre(x, y, -s) >= 600) { p.x = x; p.y = y; return { tecla: s < 0 ? 'KeyA' : 'KeyD', s, spd: p.spd, x: Math.round(x), y: Math.round(y) }; }
+      }
+      return null;
+    });
+    if (!ruta) { check(`Apariciones ${nombre}: B encuentra un pasillo horizontal libre para correr`, false); continue; }
+    await sleep(1200);   // la cámara de B llega a su sitio y A recibe su posición
+    const escolta = await A.page.evaluate(({ s, spd, uidB }) => {
+      const a = G.Game.player, b = G.Coop.mate(uidB).pl;
+      a.x = b.x - s * 2600; a.y = b.y;                    // A, lejos (su vista no ve nada de lo de B)
+      const def = { dex: 92, name: 'Gastly', hp: 1e6, spd, dmg: 0, xp: 0, behavior: 'chase' }, ids = [];
+      for (let i = 0; i < 6; i++) { const e = G.EnemyMgr.add(new G.Enemy(def, b.x - s * (520 + i * 12), b.y + (i - 2.5) * 36, { hp: 1, spd: 1, dmg: 1 })); ids.push(e.id); }
+      return ids;
+    }, { s: ruta.s, spd: ruta.spd, uidB });
+    await sleep(700);
+    await fase(A, nombre, true); await fase(B, nombre, true);
+    const x0 = await B.page.evaluate(() => G.Game.player.x);
+    await B.page.keyboard.down(ruta.tecla); await sleep(7000); await B.page.keyboard.up(ruta.tecla);
+    const x1 = await B.page.evaluate(() => G.Game.player.x);
+    await fase(A, nombre, false); await fase(B, nombre, false);
+    await A.page.evaluate(() => window.__vistasA.vaciar());
+    step(`Apariciones ${nombre}`, `B corre con ${ruta.tecla} desde ${ruta.x},${ruta.y} (velocidad ${Math.round(ruta.spd)}): ${Math.round(Math.abs(x1 - x0))} px en 7 s; ` +
+      `${escolta.length} Gastly detrás a su velocidad; ajuste ${conAjuste ? 'activado' : 'apagado'} en el anfitrión`);
+  }
+
+  const rB = await B.page.evaluate(() => ({ f: window.__vistas.f, ej: window.__vistas.ej, vistos: window.__vistas.vistos }));
+  const { f: rA, invocados } = await A.page.evaluate(() => ({ f: window.__vistasA.f, invocados: window.__vistasA.invocados }));
+  // Los esbirros de un invocador nacen a su lado a propósito: fuera de la cuenta (y apuntados aparte).
+  const inv = new Set(invocados);
+  for (const [f, c] of Object.entries(rB.f)) {
+    const esb = rB.vistos.filter(v => v.fase === f && inv.has(v.id)).length;
+    c.esbirrosVista = esb; c.nacenVista -= esb;
+  }
+  report.vistasCoop = { vistas: { A: vA, B: vB }, invitado: rB.f, anfitrion: rA, esbirros: invocados.length, ejemplos: rB.ej };
+  const q = rB.f.quietos || {}, qc = rB.f['quietos-control'] || {}, z = rB.f.rezagados || {}, zc = rB.f['rezagados-control'] || {};
+  const visto = x => (x.nacenVista || 0) + (x.saltosDesde || 0) + (x.saltosHasta || 0) + (x.quitadosVista || 0);
+  check('Apariciones (A en un PC, B en un móvil): con el ajuste ningún enemigo nace dentro de la vista de B, y A sigue sin crear ninguno dentro de la suya (sin contar el duende del tesoro ni los esbirros que un invocador saca a su lado, que salen a la vista a propósito)',
+    (q.nacen || 0) >= 60 && q.nacenVista === 0 && rA.quietos && rA.quietos.nacenVista === 0,
+    { invitado: q, anfitrion: rA.quietos, ejemplos: rB.ej.filter(e => e.fase === 'quietos').slice(0, 5) });
+  check('Apariciones, control: sin el ajuste en el anfitrión (como upstream) SÍ nacen enemigos dentro de la vista de B (la prueba lo detecta)',
+    (qc.nacenVista || 0) > 0, { invitado: qc, ejemplos: rB.ej.filter(e => e.fase === 'quietos-control').slice(0, 5) });
+  check('Rezagados (B corre, A lejos): con el ajuste ninguno desaparece de la vista de B ni vuelve a salir dentro de ella, y nada nace en ella (lo mismo: sin el duende ni los esbirros)',
+    (z.fotos || 0) > 40 && visto(z) === 0, { invitado: z, ejemplos: rB.ej.filter(e => e.fase === 'rezagados').slice(0, 5) });
+  check('Rezagados, control: sin el ajuste en el anfitrión SÍ saltan rezagados desde la vista de B o hasta ella (la prueba lo detecta)',
+    (zc.saltosDesde || 0) + (zc.saltosHasta || 0) > 0, { invitado: zc, ejemplos: rB.ej.filter(e => e.fase === 'rezagados-control').slice(0, 5) });
+
+  // Como estaban: A junto a B, los dos a 1280x720, el ajuste activado.
+  await ajuste(true);
+  await A.page.evaluate(uidB => { const a = G.Game.player, b = G.Coop.mate(uidB).pl; a.x = b.x + 80; a.y = b.y; }, uidB);
+  await cdp.send('Emulation.clearDeviceMetricsOverride');
+  await cdp.detach().catch(() => {});
+  await A.page.setViewportSize({ width: 1280, height: 720 });
+  await B.page.setViewportSize({ width: 1280, height: 720 });
+  await sleep(1000);
+}
+
 (async () => {
   let emu = null, srv = null, browser = null, A = null, B = null, code = 0;
   try {
@@ -1211,6 +1386,9 @@ async function guaranteedRift(A, B) {
     const rec = await A.page.evaluate(() => window.__hRec), env2 = await B.page.evaluate(() => window.__hEnv);
     check('Todos los golpes que manda el invitado le llegan al anfitrión', env1 > 0 && rec >= env1 && rec <= env2,
       { enviadosAntes: env1, recibidos: rec, enviadosDespues: env2 });
+
+    // ---- Apariciones con vistas distintas: A en un PC y B en un móvil (G.MODS.aparicionVistas) ----
+    await vistasCoop(A, B, uidB);
 
     // ---- Grieta garantizada, al final (hasta aquí, desactivada) ----
     await guaranteedRift(A, B);

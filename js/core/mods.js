@@ -191,6 +191,17 @@ G.MODS = {
    * arregladas (los que flotan siguen pasando por encima); false = como el original. Gancho en interact.js. */
   trampasPisadas: true,
 
+  /* Cooperativo: los enemigos nacen fuera de la vista de CADA jugador (hallazgo del 14-10-2026; js/net/vistas.js). En
+   * upstream el anfitrión los hace aparecer fuera de SU vista y la da por buena para todos; desde el píxel nítido un móvil
+   * ve mucho más mundo que un PC (844x390@3: 1266x585 px de mundo; 1440x900: 720x450), así que al invitado con el móvil le
+   * nacían enemigos dentro de la pantalla, por los lados, y le desaparecían rezagados que estaba viendo. true: cada
+   * invitado le dice al anfitrión qué mide su vista; el anillo de aparición se aleja, en cada dirección, lo justo para no
+   * pisar la vista de nadie, no nace nada (tampoco un jefe) dentro del rectángulo de la vista de nadie más
+   * aparicionMargen px de mundo, y un rezagado sólo vuelve a salir por delante si está fuera de la vista de todos. Lo
+   * decide el anfitrión; en solitario no cambia nada. false = como upstream (la vista del anfitrión para todos). */
+  aparicionVistas: true,
+  aparicionMargen: 40,
+
   /* Evolución dentro de la partida (decisión de Nico, 14-10-2026; js/systems/evo-partida.js): al subir de nivel sale la
    * carta «Evolucionar en X» cuando tu Pokémon ya puede; dura hasta el final de esa partida. Nivel de la partida: el real
    * de los juegos × evoNivelFactor, redondeado hacia arriba (Charmander 16 -> 8, Dragonite 55 -> 28); las que no son
