@@ -424,6 +424,7 @@
 
   /** Movimientos que este Pokémon puede aprender (sus tipos + normal). */
   function poolFor(mon) {
+    if (mon.pool) return mon.pool.filter(id => BY_ID[id]);   // MOD nico: el Multiverso aprende sólo los de su mundo (multiverso.js)
     const ids = new Set(POOL.normal);
     for (const t of mon.types) for (const id of (POOL[t] || [])) ids.add(id);
     return [...ids];
