@@ -6467,12 +6467,14 @@ function relieveChecks() {
     const c = tramo && tramo.ent.caja;
     t(`escena: el tramo de la cresta (orden ${tramo && tramo.y} = su borde norte) va después de lo que tiene los pies 6 px al norte y antes de lo de debajo; lo que vuela sobre ella, después de su último tramo`,
       !!tramo && i(norte) < it && it < i(sur) && i(vuela) > it, { tramo: tramo && tramo.y, orden: items.map(q => q.ent.n || (q.ent.relieve ? 'pared@' + q.y : '?')).slice(0, 40) });
-    t(`escena: la caja del tramo (la que cuenta G.Claridad) va de 16 px por encima de la casilla (el techo subido) a su pie con la cara (${c && c[1] - y0} y ${c && c[3] - y0})`,
-      !!c && c[1] === y0 - 16 && c[3] === y0 + TS, c);
+    const Hm = G.Relieve.altura() * PX;
+    t(`escena: la caja del tramo (la que cuenta G.Claridad) va de H·${PX} = ${Hm} px por encima de la casilla (el techo subido) a su pie con la cara (${c && c[1] - y0} y ${c && c[3] - y0})`,
+      !!c && Hm > 0 && c[1] === y0 - Hm && c[3] === y0 + TS, c);
     // Sin relieve (altura 0) o con mundoDex = false y Clásico, nada; con mundoDex, también con Clásico.
+    const H0 = G.MODS.relieveAltura;
     G.MODS.relieveAltura = 0;
     const sin = escena(G, cam, [norte], 2).filter(q => q.ent.relieve).length;
-    G.MODS.relieveAltura = 8;
+    G.MODS.relieveAltura = H0;
     const MC = mundo({ estilo: 'clasico', mundoDex: false }), MCD = mundo({ estilo: 'clasico' });
     const cla = escena(MC.G, cam, [], 4).filter(q => q.ent.relieve).length, claD = escena(MCD.G, cam, [], 14).filter(q => q.ent.relieve).length;
     t(`escena: sin tramos con relieveAltura = 0 (${sin}) y con mundoDex = false y Clásico (${cla}); con mundoDex, también con Clásico (${claD})`, !sin && !cla && claD > 0);

@@ -20,7 +20,8 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 const OUT = path.join(__dirname, '..', 'out', 'relieve');
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const PORT = +arg('--puerto', 8097);
-const SEMILLA = +arg('--semilla', 1234);   // el mundo de las capturas (el mismo en todas las pantallas)
+const SEMILLA = +arg('--semilla', 1234);
+const ALTURA = 12;                      // la de js/core/mods.js (relieveAltura)   // el mundo de las capturas (el mismo en todas las pantallas)
 const BASE = `http://127.0.0.1:${PORT}/dev.html`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -150,11 +151,11 @@ const COSTE = async () => {
           await page.evaluate(e => G.Estilo.set(e), est);
           // Antes: sin relieve, luz ni sombras y, en Clásico, con el mundo del proyecto base (mundoDex = false), como era.
           for (const [cuando, on] of [['antes', false], ['despues', true]]) {
-            await page.evaluate(on => {
-              Object.assign(G.MODS, { relieveAltura: on ? 8 : 0, luz: on, sombras: on, mundoDex: on });
+            await page.evaluate(([on, A]) => {
+              Object.assign(G.MODS, { relieveAltura: on ? A : 0, luz: on, sombras: on, mundoDex: on });
               G.Tiles.clearProps && G.Tiles.clearProps();
               if (G.Horno) G.Horno.rehornear(); else G.World.rehornear();
-            }, on);
+            }, [on, ALTURA]);
             await page.evaluate(async () => {
               for (let i = 0; i < 300 && G.Horno && G.Horno.conViejas; i++) await new Promise(r => requestAnimationFrame(r));
               for (let i = 0; i < 8; i++) await new Promise(r => requestAnimationFrame(r));
@@ -169,7 +170,7 @@ const COSTE = async () => {
             filas.push({ escena, est, nv, cuando, f: base + '.png', r: base + '-recorte.png' });
           }
         }
-        await page.evaluate(() => { Object.assign(G.MODS, { relieveAltura: 8, luz: true, sombras: true, mundoDex: true }); if (G.Game.state === 'paused') G.Game.togglePause(); });
+        await page.evaluate(() => { Object.assign(G.MODS, { relieveAltura: ALTURA, luz: true, sombras: true, mundoDex: true }); if (G.Game.state === 'paused') G.Game.togglePause(); });
       }
       if (errores.length) console.log(`[AVISO] ${nv}: errores en la página: ${errores.slice(0, 5).join(' | ')}`);
       await ctx.close();

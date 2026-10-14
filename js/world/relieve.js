@@ -1,5 +1,5 @@
 /* ============ relieve.js — 2.5D falsa: paredes y crestas con altura (MOD nico) ============
- * PLAN.md, punto 10 (valoración del 14-10-2026; aprobado por Nico con las capturas el mismo día, con altura 8).
+ * PLAN.md, punto 10 (valoración del 14-10-2026; aprobado por Nico con las capturas el mismo día; altura 12, G.MODS.relieveAltura).
  * Con G.MODS.relieveAltura > 0 y los mapas propios, cada pared se levanta H px de arte: su techo sube H y su cara pasa
  * de 8 a 8 + H (lo pinta G.Mapas.pintarRelieve, con los materiales de mapas-pintar.js, en un lienzo aparte por chunk).
  * Cada fila de paredes seguidas es un objeto más de la escena de drawScene (game.js), ordenado por Y con el borde norte

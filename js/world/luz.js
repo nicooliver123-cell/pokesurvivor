@@ -197,5 +197,5 @@ G.Luz = (() => {
     ctx.restore();
   }
 
-  return { pintar, activo, luces, alumbra: tipo => tipo === 'fire' || tipo === 'electric' };
+  return { pintar, activo, luces, alumbra: tipo => tipo === 'fire' || tipo === 'electric', get lienzo() { return cv; } };
 })();

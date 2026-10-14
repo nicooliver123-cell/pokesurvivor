@@ -168,13 +168,14 @@ G.MODS = {
    * para compararlo byte a byte con upstream). */
   mundoDex: true,
 
-  /* Relieve, 2.5D falsa sobre los mapas propios (PLAN.md, punto 10; aprobado por Nico el 14-10-2026, con
-   * altura 8): las paredes y crestas se levantan `relieveAltura` píxeles de arte (8 = la cara pasa de 8 a
-   * 16, la altura de una casilla) y se pintan como un objeto más, ordenado por Y con los Pokémon y los
+  /* Relieve, 2.5D falsa sobre los mapas propios (PLAN.md, punto 10; aprobado por Nico el 14-10-2026 con
+   * altura 8 y subido a 12 el mismo día: en partida la colisión deja los pies a su radio del borde, unos
+   * 14 px, y con 8 la cresta apenas los tapaba): las paredes y crestas se levantan `relieveAltura` píxeles
+   * de arte (12 = la cara pasa de 8 a 20) y se pintan como un objeto más, ordenado por Y con los Pokémon y los
    * árboles (js/world/relieve.js, G.Relieve): lo que está al norte de una cresta queda detrás y, si tapa
    * a tu Pokémon, G.Claridad lo repinta como con un árbol. La colisión, la cámara y la red no cambian.
    * Sólo con mapasPropios y con el mundo Dex (`mundoDex`). 0 = paredes planas, como hasta ahora. */
-  relieveAltura: 8,
+  relieveAltura: 12,
 
   /* Búfer de luz (aprobado por Nico el 14-10-2026; va con el mundo Dex, `mundoDex`; js/world/luz.js, G.Luz): un lienzo a resolución de píxel de
    * arte, con la luz ambiente del bioma (`luzAmbiente`, 0-1: lo que deja cada canal lejos de una luz) y
