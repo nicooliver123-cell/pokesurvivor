@@ -59,7 +59,7 @@
  *      y zonas seguras simuladas (cada env(safe-area-inset-*) de lo que se sirve, cambiado por píxeles: 844x390 con
  *      47/24/47/21).
  *  12. Portada «Tarjeta de entrenador» (--solo-portada), con Dex, en 10 tamaños: «Pulsa para empezar», el inicio de
- *      sesión, el test, su resultado y el menú, cada cara entera; los 8 botones del menú de 44 px o más, sin textos
+ *      sesión, el test, su resultado y el menú, cada cara entera; los 9 botones del menú de 44 px o más, sin textos
  *      cortados ni desbordados en vertical (el icono y la caja de la letra del nombre dentro del borde); el compañero a
  *      ×4 en el móvil; la pantalla opaca del menú ≤ 25 % en el móvil y el plegable; y Clásico.
  *  13. Entornos del Gremio, clima y horneado escalonado (--solo-entornos; lote 3). Capturas por pares de los tres biomas
@@ -1399,8 +1399,8 @@ async function pruebaPortada(browser) {
     await captura(page, `portada-menu-dex-${nv}`);
     const pMenu = await opaco(page);
     report.medidas[`portada-opaco-${nv}`] = { menu: pMenu, login: pLogin };
-    check(`${nv} Dex: menú «Tarjeta de entrenador»: la tarjeta y los 8 botones dentro de la ventana, de 44 px o más, sin textos cortados ni desbordados en vertical (icono y nombre dentro del borde) ni la barra superior encima; el Rotom-Dex delante del nombre, sin lengüeta; el compañero a ×${m.escalaMax}${movil ? ' (retoque a: ×4)' : ''}; ${pMenu} % de pantalla opaca${movil || plegable ? ' (≤ 25 %)' : ''}`,
-      m.tarjeta && m.izquierda === 'none' && m.rotom && !m.lengueta && m.botones === 8 && !m.fuera.length && !m.bajos.length && !m.cortados.length && !m.desbordan.length && !m.pisaBarra &&
+    check(`${nv} Dex: menú «Tarjeta de entrenador»: la tarjeta y los 9 botones dentro de la ventana, de 44 px o más, sin textos cortados ni desbordados en vertical (icono y nombre dentro del borde) ni la barra superior encima; el Rotom-Dex delante del nombre, sin lengüeta; el compañero a ×${m.escalaMax}${movil ? ' (retoque a: ×4)' : ''}; ${pMenu} % de pantalla opaca${movil || plegable ? ' (≤ 25 %)' : ''}`,
+      m.tarjeta && m.izquierda === 'none' && m.rotom && !m.lengueta && m.botones === 9 && !m.fuera.length && !m.bajos.length && !m.cortados.length && !m.desbordan.length && !m.pisaBarra &&
       m.escala === m.escalaMax && (!movil || m.escala === 4) && (!(movil || plegable) || pMenu <= 25) && m.pagina <= 0, { m, pMenu });
     if (movil) {
       // El peor caso: un compañero grande (Dragonite) a ×4 y un nombre largo con dos tipos (Crabominable, tan ancho que va a
