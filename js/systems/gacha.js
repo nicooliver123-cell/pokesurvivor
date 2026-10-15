@@ -111,6 +111,7 @@ G.Gacha = (() => {
         if (isNew) save.owned[mon.dex] = { at: Date.now(), from: 'gacha' };
         else refund = REFUND[rarity];
       }
+      if (!isNew && G.MULTIVERSO && G.MULTIVERSO.premio) refund = G.MULTIVERSO.premio(gen, refund);   // MOD nico: el repetido del Multiverso, según lo que cuesta su tirada
       const evo = !isNew && G.MODS && G.MODS.evolucionDeRepetido ? G.MODS.evolucionDeRepetido(save, mon.dex, shiny) : 0; if (evo) refund = 0;   // MOD nico: repetido -> su evolución
       save.coins += refund;
       out.push({ dex: mon.dex, rarity, shiny, isNew, refund });

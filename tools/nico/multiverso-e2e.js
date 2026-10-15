@@ -4,8 +4,8 @@
  * Un invitado sin nube (G.FIREBASE_CONFIG en null, como estilo-e2e.js) en 1440x900 y en un móvil (844x390@3,
  * táctil), con Dex y con Clásico: la pestaña «Multiverso» de la colección y la ficha de uno que no tienes; el
  * banner del gacha (pestaña «Otros mundos», cartel, probabilidades y destacados); tiradas ×1, un shiny forzado
- * y ×10 por la interfaz (cada repetido paga 30, 90 un shiny, y los nuevos nada); los tres de compañero desde la
- * colección; y una partida con cada uno (1440x900 Dex, los tres; los demás, uno): eres él, dispara su ataque,
+ * y ×10 por la interfaz (cada repetido paga 300, 900 un shiny, y los nuevos nada); los diez de compañero desde la
+ * colección; y una partida con cada uno (1440x900 Dex, los diez; los demás, un reparto): eres él, dispara su ataque,
  * ningún enemigo es del Multiverso, al subir de nivel las cartas de ataque nuevo sólo traen los de su mundo (8
  * subidas, eligiendo por la interfaz) y su ataque evoluciona al máximo. Consola sin errores y nada pedido fuera de
  * 127.0.0.1. Deja capturas en la carpeta de salida. Unos 4 min. No va en npm test.
@@ -126,8 +126,8 @@ async function caso(browser, v, estilo, partidas) {
   const c10 = await tirar(page, '#pull-10', `${tag}-5-tirada10`);
   const r10 = await page.evaluate(() => ({ coins: G.DB.save.coins, res: (window.__ult || []).map(x => ({ dex: x.dex, mv: !!G.DEX_BY[x.dex].mv, shiny: x.shiny, isNew: x.isNew, refund: x.refund })) }));
   const pagado = r10.res.reduce((sum, x) => sum + x.refund, 0);
-  t(`${tag}: la ×10 son 10 del Multiverso; los nuevos (también un shiny nuevo) no pagan y cada repetido da 30 Pokémonedas (90 un shiny), lo que suben las monedas`,
-    r10.res.length === 10 && r10.res.every(x => x.mv && (x.isNew ? x.refund === 0 : x.refund === (x.shiny ? 90 : 30))) && r10.coins - antes === pagado, { r10, antes, c10 });
+  t(`${tag}: la ×10 son 10 del Multiverso; los nuevos (también un shiny nuevo) no pagan y cada repetido da 300 Pokémonedas (900 un shiny), lo que suben las monedas`,
+    r10.res.length === 10 && r10.res.every(x => x.mv && (x.isNew ? x.refund === 0 : x.refund === (x.shiny ? 900 : 300))) && r10.coins - antes === pagado, { r10, antes, c10 });
   const gastado = await page.evaluate(() => G.DB.save.tickets);
   // Los normales no bajan (pueden subir: los logros de las primeras tiradas dan tickets).
   t(`${tag}: las 12 tiradas del Multiverso gastan 12 tickets ×10 y ningún ticket normal`, gastado.t10 === 3 && gastado.t1 >= 60, gastado);

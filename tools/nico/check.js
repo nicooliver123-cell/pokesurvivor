@@ -109,7 +109,8 @@
  *      su evolución, fuera de los pools de tipo; sólo esos en poolFor(), con control sin el gancho; dentro del rango de daño y
  *      alcance de los ataques Pokémon de su forma; las cartas de offer() de levelup.js real, «Repertorio» y su aspecto en vfx.js),
  *      nunca de enemigo (2.000 runs con enemies.js real, con control sin los ganchos; el Pokémon perdido de events.js),
- *      su banner en el gacha real (siempre uno suyo, sin ser fuente de monedas, los demás banners sin ellos), el cartel y
+ *      su banner en el gacha real (siempre uno suyo, su coste en tickets ×10 y el premio de un repetido, por ticket por
+ *      debajo del techo de un banner normal, los demás banners sin ellos), el cartel y
  *      la ficha (refresh() real de gacha-ui.js), el inglés, los ganchos, el paquete y CREDITS.md; sus hojas (de PixelLab, montadas por
  *      tools/nico/multiverso/montar.py) con el tamaño, el radio y la escala de un Pokémon normal.
  *  25. Apariciones en grupo con vistas distintas (js/net/vistas.js, G.MODS.aparicionVistas): spawner.js real con un PC
@@ -478,7 +479,7 @@ const HOOKS = [
   ['js/ui/gacha-ui.js', /<span>1%<\/span><\/div>[\s\S]*?<\/p>`;\r?\n\s*if \(G\.MODS && G\.MODS\.notasGacha\) \$\('gacha-rates'\)\.innerHTML = G\.MODS\.notasGacha\(\$\('gacha-rates'\)\.innerHTML\);\s*\/\/ MOD nico/,
     'shiny ×1,5: el cartel del gacha (el «1%» de upstream sigue ahí y el gancho lo cambia después de pintarlo)'],
   ['dev.html', /src="js\/data\/sprites-meta\.js"><\/script>\r?\n<script defer src="js\/data\/evolutions\.js"><\/script><!-- MOD nico/, 'repetidos: evolutions.js se carga justo después de sprites-meta.js'],
-  ['js/systems/gacha.js', /else refund = REFUND\[rarity\];\r?\n\s*\}\r?\n\s*const evo = !isNew && G\.MODS && G\.MODS\.evolucionDeRepetido \? G\.MODS\.evolucionDeRepetido\(save, mon\.dex, shiny\) : 0; if \(evo\) refund = 0;\s*\/\/ MOD nico[^\n]*\n\s*save\.coins \+= refund;\r?\n\s*out\.push\(\{ dex: mon\.dex, rarity, shiny, isNew, refund \}\);\r?\n\s*if \(evo\) out\[out\.length - 1\]\.evo = evo;\s*\/\/ MOD nico/,
+  ['js/systems/gacha.js', /else refund = REFUND\[rarity\];\r?\n\s*\}\r?\n(?:\s*if \(!isNew && G\.MULTIVERSO[^\n]*\/\/ MOD nico[^\n]*\n)?\s*const evo = !isNew && G\.MODS && G\.MODS\.evolucionDeRepetido \? G\.MODS\.evolucionDeRepetido\(save, mon\.dex, shiny\) : 0; if \(evo\) refund = 0;\s*\/\/ MOD nico[^\n]*\n\s*save\.coins \+= refund;\r?\n\s*out\.push\(\{ dex: mon\.dex, rarity, shiny, isNew, refund \}\);\r?\n\s*if \(evo\) out\[out\.length - 1\]\.evo = evo;\s*\/\/ MOD nico/,
     'repetidos: pull() pregunta por la evolución antes de dar las monedas y la apunta en el resultado'],
   ['js/ui/gacha-ui.js', /<div class="tag">\$\{tag\}<\/div>`\);\r?\n\s*if \(r\.evo && G\.MODS && G\.MODS\.marcarEvolucion\) G\.MODS\.marcarEvolucion\(c, r\);\s*\/\/ MOD nico/, 'repetidos: la carta enseña la evolución desbloqueada'],
   ['js/ui/gacha-ui.js', /· Los repetidos dan Pokémonedas \(los shiny repetidos, el triple\)\.<br>/, 'repetidos: la nota de upstream que cambia notasGacha() sigue ahí'],
@@ -6424,16 +6425,41 @@ function multiversoChecks() {
     // Nuevos: el shiny de cada uno y su versión normal, salvo si lo primero que salió de él fue el shiny, que ya
     // lo deja en la colección (gacha.js de upstream). Con diez personajes pasa en ~14 % de las tandas.
     const nuevosEsperados = mvs.length + mvs.filter(d => !res.find(x => x.dex === d).shiny).length;
-    t(`10.000 tiradas en el Multiverso: siempre uno suyo, a partes iguales (${cuantos.join(' / ')}); cada uno y su shiny, nuevos una vez (el normal no, si salió antes el shiny); el resto, 30 Pokémonedas (90 un shiny); shiny ${sh.toFixed(2)} % (1,2-1,8)`,
-      !fuera.length && nuevos === nuevosEsperados && res.every(x => x.isNew ? x.refund === 0 : x.refund === (x.shiny ? 90 : 30)) && sh >= 1.2 && sh <= 1.8 &&
+    t(`10.000 tiradas en el Multiverso: siempre uno suyo, a partes iguales (${cuantos.join(' / ')}); cada uno y su shiny, nuevos una vez (el normal no, si salió antes el shiny); el resto, 300 Pokémonedas (900 un shiny: multiversoRepetidoPorCoste, 30 por cada ticket que vale el ×10); shiny ${sh.toFixed(2)} % (1,2-1,8)`,
+      !fuera.length && nuevos === nuevosEsperados && res.every(x => x.isNew ? x.refund === 0 : x.refund === (x.shiny ? 900 : 300)) && sh >= 1.2 && sh <= 1.8 &&
+      G.MODS.multiversoRepetidoPorCoste === true &&
       mvs.every(d => save.owned[d] && save.shiny[d]) && cuantos.every(k => Math.abs(k / res.length - 1 / mvs.length) < 0.02), { fuera: fuera.length, nuevos, nuevosEsperados, sh, cuantos });
-    // Una tirada en un banner normal vale de media 38,25 Pokémonedas si todo es repetido (las rarezas de RATES por REFUND): el Multiverso, menos.
-    const media = Ga.RATES.reduce((a, [rr, w]) => a + w / 100 * Ga.REFUND[rr], 0);
-    t(`no es una fuente de monedas: ${monedas.toFixed(2)} Pokémonedas por tirada, menos que los ${media.toFixed(2)} de un banner normal todo repetido`, monedas < media, { monedas, media });
+    // El techo: una tirada ×1 de un banner normal en el que todo sale repetido vale de media 38,25 Pokémonedas (las rarezas
+    // de RATES por REFUND; su ×10, con la Épica garantizada, unas 46 por ticket) y cuesta un ticket. La del Multiverso cuesta
+    // un ticket ×10, que vale 10 (la ×10 de upstream cuesta 10 tickets o uno ×10): por ticket gastado, menos que ese techo.
+    // Ojo: un banner normal poco avanzado paga menos (sus nuevos y los repetidos que desbloquean su evolución no dan
+    // monedas, aunque dan Pokémon): ver multiversoRepetidoPorCoste en CLAUDE.md.
+    const media = Ga.RATES.reduce((a, [rr, w]) => a + w / 100 * Ga.REFUND[rr], 0), porTicket = monedas / 10;
+    t(`por ticket gastado, menos que el techo de un banner normal (todo repetido): ${monedas.toFixed(2)} Pokémonedas por tirada del Multiverso, ${porTicket.toFixed(2)} por ticket (un ticket ×10 vale 10), frente a ${media.toFixed(2)}`,
+      porTicket < media && monedas > 10 * Ga.REFUND[2] * 0.9, { monedas, porTicket, media });
+    // premio(): sólo en su banner, sólo con el ajuste y según lo que cuesta la tirada.
+    const M = G.MULTIVERSO, premios = { mv: M.premio(10, 30), mvSh: M.premio(10, 90), kanto: M.premio(1, 30), kantoSh: M.premio(1, 90) };
+    // Con pull() real, partidas que ya los tienen todos (también en shiny) y 3 shiny forzados por tanda: todo es repetido.
+    const todosYa = () => Object.fromEntries(mvs.map(d => [d, { at: 1 }]));
+    const tanda = (t1, t10) => { Ga.debugForceShiny(3); return Ga.pull(Object.assign(sv(t1, t10), { owned: todosYa(), shiny: todosYa() }), 10, 10, 't1'); };
+    const resumen = r => r && r.map(x => (x.shiny ? 's' : '') + x.refund).join(' ');
+    G.MODS.multiversoTicketLila = false; premios.mvSinLila = M.premio(10, 30); premios.mvShSinLila = M.premio(10, 90);
+    const sinLila = tanda(10, 0);   // sin el ticket lila cuesta tickets normales: 30 por repetido (90 un shiny)
+    G.MODS.multiversoTicketLila = true;
+    G.MODS.multiversoRepetidoPorCoste = false; premios.mvSinAjuste = M.premio(10, 30); premios.mvShSinAjuste = M.premio(10, 90);
+    const sinPremio = tanda(0, 10);
+    G.MODS.multiversoRepetidoPorCoste = true;
+    const conPremio = tanda(0, 10);
+    const pagan = (r, n, sh) => !!r && r.length === 10 && r.filter(x => x.shiny).length >= 3 && r.every(x => !x.isNew && x.refund === (x.shiny ? sh : n));
+    t('premio(): en el Multiverso, 300 (900 un shiny) con el ticket ×10; sin multiversoTicketLila, 30 (la tirada cuesta un ticket normal); en Kanto, el de upstream; y con multiversoRepetidoPorCoste = false, 30 (90 un shiny) como upstream; con pull() real y shiny repetidos en las tres',
+      JSON.stringify(premios) === JSON.stringify({ mv: 300, mvSh: 900, kanto: 30, kantoSh: 90, mvSinLila: 30, mvShSinLila: 90, mvSinAjuste: 30, mvShSinAjuste: 90 }) &&
+      pagan(conPremio, 300, 900) && pagan(sinLila, 30, 90) && pagan(sinPremio, 30, 90),
+      { premios, conPremio: resumen(conPremio), sinLila: resumen(sinLila), sinPremio: resumen(sinPremio) });
     const save2 = { tickets: { t1: 20000, t10: 0 }, owned: {}, shiny: {}, coins: 0, stats: {}, pity: {} };
     const otros = [];
     for (let i = 0; i < 900; i++) otros.push(...Ga.pull(save2, 10, 1 + (i % 9)));
-    t('9.000 tiradas en los banners de upstream: ninguno del Multiverso', !otros.some(x => G.DEX_BY[x.dex].mv));
+    t('9.000 tiradas en los banners de upstream: ninguno del Multiverso, y sus repetidos dan lo de upstream (o su evolución): el premio del Multiverso no los toca',
+      !otros.some(x => G.DEX_BY[x.dex].mv) && otros.every(x => x.isNew || x.evo || x.refund === Ga.REFUND[x.rarity] * (x.shiny ? 3 : 1)));
     const evo = G.MODS.evolucionDeRepetido({ owned: { 10001: { at: 1 } }, shiny: {} }, 10001, false);
     t('repetido -> evolución: Agumon no evoluciona (sin entrada en G.EVO), así que da sus Pokémonedas', !evo && !(G.EVO && G.EVO[10001]));
   } catch (e) { t('gacha', false, String(e && e.stack || e)); }
@@ -6479,10 +6505,16 @@ function multiversoChecks() {
       els['banner-title'].textContent === 'Multiverso' && els['banner-desc'].textContent === 'Personajes de otros mundos que se cuelan en el enjambre: Digimon, DOOM, Kirby, Zelda, Metroid, Pac-Man, Castlevania, Terraria.' &&
       els['gacha-pity'].textContent === '' && [10001, 10002, 10003].every(d => els['gacha-feat'].children.some(x => x.dex === d)), { titulo: els['banner-title'].textContent, desc: els['banner-desc'].textContent });
     const pct = +(100 / G.MULTIVERSO.lista().length).toFixed(2) + '%';
-    t(`probabilidades del Multiverso: cada personaje con su ${pct}, el shiny del ajuste (1,5 %), los repetidos a 30 y sin la Épica de la ×10 ni la Legendaria`,
+    // Con multiversoRepetidoPorCoste apagado (o sin el ticket lila), el cartel vuelve a decir 30.
+    const cartelCon = (k, v) => { const antes = G.MODS[k]; G.MODS[k] = v; tabs.find(b => +b.dataset.gen === 10).onclick(); const r = els['gacha-rates'].innerHTML; G.MODS[k] = antes; return r; };
+    const ratesSinAjuste = cartelCon('multiversoRepetidoPorCoste', false), ratesSinLila = cartelCon('multiversoTicketLila', false);
+    tabs.find(b => +b.dataset.gen === 10).onclick();
+    const dice = r => (r.match(/Un repetido da (\d+) Pokémonedas/) || [])[1];
+    t(`probabilidades del Multiverso: cada personaje con su ${pct}, el shiny del ajuste (1,5 %), los repetidos a 300 (a 30 sin multiversoRepetidoPorCoste o sin el ticket lila) y sin la Épica de la ×10 ni la Legendaria`,
       G.MULTIVERSO.lista().every(p => rates.includes(`${p.name}</span>\n      <span>${pct}</span>`)) &&
-      /\[shiny\] Shiny<\/span><span>1\.5%<\/span>/.test(rates) && rates.includes('· Un repetido da 30 Pokémonedas (un shiny repetido, el triple).') &&
-      !/Épica|Legendaria|Común/.test(rates), rates);
+      /\[shiny\] Shiny<\/span><span>1\.5%<\/span>/.test(rates) && rates.includes('· Un repetido da 300 Pokémonedas (un shiny repetido, el triple).') &&
+      dice(ratesSinAjuste) === '30' && dice(ratesSinLila) === '30' && dice(els['gacha-rates'].innerHTML) === '300' &&
+      !/Épica|Legendaria|Común/.test(rates), { rates, sinAjuste: dice(ratesSinAjuste), sinLila: dice(ratesSinLila) });
     // La ficha de la colección.
     el('nota').innerHTML = 'Aún no lo tienes.<br>Consíguelo en el banner de <b class="gold">Multiverso</b> o derrotándolo cuando salga shiny.';
     G.MULTIVERSO.ficha(10001);
@@ -6509,7 +6541,7 @@ function multiversoChecks() {
       'Escupe una bola de rayos lenta y grande que atraviesa y frena.': 'Spits a big, slow ball of lightning that goes through and slows down.',
       '· Cada tirada trae a uno de estos personajes, todos con la misma probabilidad.': '· Each pull brings one of these characters, all equally likely.',
       '· No hay legendarios, así que tampoco pity.': '· There are no legendaries, so there is no pity either.',
-      '· Un repetido da 30 Pokémonedas (un shiny repetido, el triple).': '· A duplicate gives 30 PokéCoins (a shiny duplicate, triple).',
+      '· Un repetido da 300 Pokémonedas (un shiny repetido, el triple).': '· A duplicate gives 300 PokéCoins (a shiny duplicate, triple).',
       '· Nunca salen de enemigos: sólo se consiguen aquí.': '· They never show up as enemies: you can only get them here.',
       'Sólo sale en el banner del Multiverso, en el gacha.': 'Only in the Multiverse banner of the gacha.',
       'Escupe una bola de fuego grande al enemigo más cercano. Quema.': 'Spits a big fireball at the nearest enemy. Burns.' };
@@ -6529,8 +6561,9 @@ function multiversoChecks() {
   try {
     const gancho = (f, re) => rd(f).split(/\r?\n/).some(l => re.test(l) && /MOD nico/.test(l));
     const ui = rd('js/ui/gacha-ui.js');
-    t('ganchos de una línea del ticket ×10: el coste en pull() de gacha.js (con el costOf() de upstream detrás) y los botones al final de refresh() de gacha-ui.js, tras los de upstream',
+    t('ganchos de una línea del ticket ×10: el coste en pull() de gacha.js (con el costOf() de upstream detrás), el premio de un repetido tras calcular el de upstream y antes de la evolución, y los botones al final de refresh() de gacha-ui.js, tras los de upstream',
       /const cost = G\.MULTIVERSO && G\.MULTIVERSO\.coste \? G\.MULTIVERSO\.coste\(save, n, gen, use, costOf\) : costOf\(save, n, use\);\s*\/\/ MOD nico/.test(rd('js/systems/gacha.js')) &&
+      /else refund = REFUND\[rarity\];\r?\n\s*\}\r?\n\s*if \(!isNew && G\.MULTIVERSO && G\.MULTIVERSO\.premio\) refund = G\.MULTIVERSO\.premio\(gen, refund\);\s*\/\/ MOD nico[^\n]*\n\s*const evo = /.test(rd('js/systems/gacha.js')) &&
       /\$\('pull-10b'\)\.disabled = !G\.Gacha\.costOf\(s, 10, 't10'\);\r?\n\s*if \(G\.MULTIVERSO && G\.MULTIVERSO\.botones\) G\.MULTIVERSO\.botones\(gen, s\);\s*\/\/ MOD nico/.test(ui));
     t('ganchos de una línea: el banner en gacha.js, el cartel en gacha-ui.js tras las notas, «Multiverso» y la ficha en menu.js, fuera de los enemigos en enemies.js (elenco y jefes) y events.js, sus ataques en la primera línea de poolFor() de moves.js y su aspecto en forMove() de vfx.js',
       gancho('js/systems/gacha.js', /BANNERS\.push\(G\.MULTIVERSO\.BANNER\)/) && gancho('js/ui/gacha-ui.js', /G\.MULTIVERSO\.cartel\(gen\)/) &&

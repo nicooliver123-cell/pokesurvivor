@@ -219,6 +219,15 @@ G.MODS = {
    * banner. Los demás banners no cambian. false = como los demás (tickets normales). */
   multiversoTicketLila: true,
 
+  /* Repetidos del Multiverso (petición de Nico, 15-10-2026; js/data/multiverso.js): un repetido da las Pokémonedas de
+   * su rareza por cada ticket normal que vale su tirada. Con multiversoTicketLila la tirada cuesta un ticket ×10, que
+   * vale 10 (la ×10 de un banner normal cuesta 10 tickets o uno ×10): 300, y 900 un shiny. Por ticket gastado vuelve a
+   * ser lo que daba antes del ticket lila (30; con el ticket lila y 30 por repetido eran 3), menos que un banner normal
+   * en el que ya todo sale repetido (38,25 por ticket en la ×1). Un banner normal poco avanzado paga menos monedas (sus
+   * nuevos y los repetidos que desbloquean su evolución dan Pokémon en vez de monedas): ver CLAUDE.md, tabla de Mods.
+   * false = 30, y 90 un shiny, como upstream. */
+  multiversoRepetidoPorCoste: true,
+
   /* Guardería Pokémon (decisión de Nico, 14-10-2026; js/systems/guarderia.js, en la pantalla Mejoras): plazas, lo que
    * cuesta dejar a un Pokémon (cada vez que entra; sacarlo es gratis y conserva lo ganado) y cada cuántos segundos de
    * run gana cada uno 1 nivel en una de sus mejoras al azar. Sólo cuenta el tiempo de las runs de quien tiene la

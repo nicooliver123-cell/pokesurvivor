@@ -35,11 +35,14 @@
  *
  * Todos con rareza 2: su banner los reparte a partes iguales (lo que dice el
  * cartel; con rarezas distintas haría falta un sorteo propio, porque el pity de un
- * banner sin legendarios nunca vuelve a 0) y un repetido da 30 Pokémonedas, menos
- * de lo que vale de media una tirada repetida en otro banner: no regala monedas.
+ * banner sin legendarios nunca vuelve a 0) y un repetido da 30 Pokémonedas por cada
+ * ticket que vale su tirada (con el ticket ×10, 300; premio()): por ticket gastado,
+ * menos que un banner normal en el que ya todo sale repetido (uno poco avanzado paga
+ * menos monedas, porque sus nuevos y sus evoluciones dan Pokémon: CLAUDE.md).
  * Stats de un Pokémon de segunda fase (Agumon, los de Charmeleon).
  *
- * Ganchos de una línea (// MOD nico): gacha.js (el banner), gacha-ui.js (el
+ * Ganchos de una línea (// MOD nico): gacha.js (el banner, el coste y el premio de
+ * un repetido), gacha-ui.js (el
  * cartel y sus probabilidades), menu.js (el nombre en la colección y la ficha),
  * enemies.js y events.js (nunca de enemigo), moves.js (poolFor: sus ataques) y
  * vfx.js (forMove: cómo se ven).
@@ -481,7 +484,7 @@ G.MULTIVERSO = (() => {
     const shiny = G.MODS && G.MODS.probShiny ? G.MODS.probShiny(G_.SHINY_RATE) : G_.SHINY_RATE;
     const rarezas = [...new Set(todos.map(p => p.rarity))];
     const repetido = rarezas.length === 1
-      ? `Un repetido da ${G_.REFUND[rarezas[0]]} Pokémonedas (un shiny repetido, el triple).`
+      ? `Un repetido da ${premio(GEN, G_.REFUND[rarezas[0]])} Pokémonedas (un shiny repetido, el triple).`
       : 'Los repetidos dan Pokémonedas (los shiny repetidos, el triple).';
     rates.innerHTML = '<h3>Probabilidades</h3>' + todos.map(p => `
       <div><span style="color:${G_.RARITY_COLOR[p.rarity]}">${G.UI.stars(p.rarity, 10)} ${p.name}</span>
@@ -508,6 +511,22 @@ G.MULTIVERSO = (() => {
 
   /** G.MODS.multiversoTicketLila: en este banner se tira con tickets ×10 (los lila). */
   const lila = () => !!(G.MODS && G.MODS.multiversoTicketLila);
+
+  /** Tickets normales que vale un ticket ×10: la ×10 de upstream cuesta 10 tickets o 1 ticket ×10. */
+  const TICKETS_POR_LILA = 10;
+
+  /**
+   * Las Pokémonedas de un repetido (gancho de una línea en pull() de gacha.js, tras calcular las de
+   * upstream): en el banner del Multiverso, con G.MODS.multiversoRepetidoPorCoste, las de su rareza por
+   * cada ticket normal que vale su tirada; con multiversoTicketLila, un ticket ×10, que vale 10: 300, y
+   * 900 un shiny. Por ticket gastado es lo que daba antes del ticket lila y menos que un banner normal
+   * en el que ya todo sale repetido (check.js lo mide). En los demás banners, o sin el ajuste, lo de
+   * upstream tal cual.
+   */
+  function premio(gen, refund) {
+    if (gen !== GEN || !(G.MODS && G.MODS.multiversoRepetidoPorCoste)) return refund;
+    return refund * (lila() ? TICKETS_POR_LILA : 1);
+  }
 
   /**
    * Lo que gasta una tirada (gancho de una línea en pull() de gacha.js, en vez de su costOf(), que no
@@ -540,5 +559,5 @@ G.MULTIVERSO = (() => {
     if (b10) b10.disabled = !coste(save, 10, gen, 't1');
   }
 
-  return { GEN, BANNER, PERSONAJES, ATAQUES, lista, cartel, ficha, coste, botones };
+  return { GEN, BANNER, PERSONAJES, ATAQUES, lista, cartel, ficha, coste, botones, premio };
 })();
