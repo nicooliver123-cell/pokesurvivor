@@ -135,13 +135,16 @@ uso **no comercial** y con atribución a sus artistas.
 ## Personajes del Multiverso
 
 Personajes de otras franquicias que salen, como guiño, en el banner «Multiverso» del gacha:
-**Agumon** (*Digimon*), el **Doom Slayer** y el **Cacodemonio** (*DOOM*).
+**Agumon** (*Digimon*), el **Doom Slayer** y el **Cacodemonio** (*DOOM*), **Kirby** (*Kirby*), **Link**
+(*The Legend of Zelda*), **Samus** (*Metroid*), **Pac-Man** y **Blinky** (*Pac-Man*), **Drácula**
+(*Castlevania*) y el **Ojo de Cthulhu** (*Terraria*).
 
 Sus sprites se generaron para este proyecto con [PixelLab](https://www.pixellab.ai), una herramienta
 de pixel art por IA (las 8 rotaciones de cada uno y sus pasos al andar), y están en
 `tools/nico/multiverso/fuentes/`; las hojas del
-juego (`assets/pokemon/10001` a `10003`), con las animaciones que faltan y el variocolor, las monta
-`tools/nico/multiverso/montar.py`. No usan sprites de SpriteCollab.
+juego (`assets/pokemon/10001` a `10010`), con las animaciones que faltan y el variocolor, las monta
+`tools/nico/multiverso/montar.py`. Pac-Man y Blinky no salen de PixelLab: los dibuja por código
+`tools/nico/multiverso/dibujar.py`. No usan sprites de SpriteCollab.
 
 ## Datos
 
@@ -174,4 +177,7 @@ de lucro, no afiliado, patrocinado ni aprobado por ellos.
 
 Digimon, Agumon y los demás personajes de Digimon son propiedad de Bandai Namco y Toei Animation.
 DOOM, el Doom Slayer y el Cacodemonio son marcas y propiedad de id Software (ZeniMax Media, Microsoft).
+Kirby es de Nintendo y HAL Laboratory; The Legend of Zelda, Link, Metroid y Samus Aran, de Nintendo;
+Pac-Man y Blinky, de Bandai Namco Entertainment; Castlevania y Drácula, de Konami; Terraria y el Ojo de
+Cthulhu, de Re-Logic.
 PokéSwarm tampoco está afiliado a ellos ni lo aprueban.

@@ -6229,8 +6229,9 @@ function multiversoChecks() {
       return { dex: p.dex, idle: !!meta.a.Idle && !!meta.a.Walk, filas: A.every(([, a]) => a.r === 8 && a.d.length === a.n && a.ax > 0 && a.ax < a.w && a.ay > 0 && a.ay < a.h),
         sh: S.hasShiny(p.dex), radio: S.bodyRadius(p.dex, 1) === S.bodyRadius(4, 1), escala: G.MODS.escalaJugador(p.dex) === 1, flota: S.hovers(p.dex) };
     });
-    t('geometría propia (META de multiverso.js, la escribe montar.py): las 7 animaciones en 8 direcciones con su ancla dentro, variocolor, el radio y el tamaño de un Pokémon normal (Idle de 32 de ancho, como Charmander), y sólo el Cacodemonio flota',
-      geo.every(g => g.idle && g.filas && g.sh && g.radio && g.escala && g.flota === (g.dex === 10003)) && lista.every(p => Object.keys(G.SPRITE_META[p.dex].a).length === 7), geo);
+    const FLOTAN = [10003, 10008, 10010];   // el Cacodemonio, Blinky y el Ojo de Cthulhu (Drácula se desliza por el suelo)
+    t('geometría propia (META de multiverso.js, la escribe montar.py): las 7 animaciones en 8 direcciones con su ancla dentro, variocolor, el radio y el tamaño de un Pokémon normal (Idle de 32 de ancho, como Charmander), y sólo flotan el Cacodemonio, Blinky y el Ojo de Cthulhu',
+      lista.length === 10 && geo.every(g => g.idle && g.filas && g.sh && g.radio && g.escala && g.flota === FLOTAN.includes(g.dex)) && lista.every(p => Object.keys(G.SPRITE_META[p.dex].a).length === 7), geo);
     // La lista que validó Nico el 14-10-2026: [id, nombre, forma, tipo, evolución, lo que pide] (sin evolución, un potenciador).
     const LISTA = {
       10001: [['llama-bebe', 'Llama Bebé', 'projectile', 'fire', 'Mega Llama', 'atk'], ['garra-afilada', 'Garra Afilada', 'melee', 'dragon', 'Brazo Tridente', 'atk'],
@@ -6244,7 +6245,36 @@ function multiversoChecks() {
       10003: [['rayo-bola', 'Rayo Bola', 'projectile', 'electric', 'Tormenta Infernal', 'def'], ['mordisco-infernal', 'Mordisco Infernal', 'melee', 'dark', 'Fauces del Abismo', 'atk'],
         ['embestida', 'Embestida', 'dash', 'dark', 'Carga Demoníaca', 'hp'], ['lluvia-bolas', 'Lluvia de Bolas', 'meteor', 'electric', 'Aguacero de Plasma', 'cd'],
         ['mirada-ojo', 'Mirada del Ojo', 'beam', 'dark', 'Ojo del Infierno', 'atk'], ['aura-infernal', 'Aura Infernal', 'aura', 'dark', 'Círculo Infernal', 'rgn'],
-        ['pellejo-grueso', 'Pellejo Grueso', 'buff', 'dark']]
+        ['pellejo-grueso', 'Pellejo Grueso', 'buff', 'dark']],
+      // Segundo lote (15-10-2026): las fichas salen de estudiar a cada uno en su saga.
+      10004: [['bala-estelar', 'Bala Estelar', 'projectile', 'normal', 'Bala Penetrante', 'mag'], ['copia-cuchillo', 'Cuchillo', 'boomerang', 'steel', 'Cuchillo Chakram', 'cd'],
+        ['copia-espada', 'Espada', 'melee', 'fighting', 'Gran Espada', 'atk'], ['copia-fuego', 'Fuego', 'cone', 'fire', 'Fuego Dragontino', 'spd'],
+        ['copia-martillo', 'Martillo', 'melee', 'normal', 'Gran Martillo', 'hp'], ['copia-bomba', 'Bomba', 'mine', 'fire', 'Bomba en Cadena', 'xp'],
+        ['superabsorcion', 'Superabsorción', 'aura', 'flying', 'Hipernova', 'rgn'], ['maxi-tomate', 'Maxi Tomate', 'buff', 'normal']],
+      10005: [['espada-maestra', 'Espada Maestra', 'melee', 'steel', 'Gran Ataque Circular', 'atk'], ['rayo-espada', 'Rayo de Espada', 'beam', 'fairy', 'Rayo Celestial', 'hp'],
+        ['arco-hadas', 'Arco de las Hadas', 'projectile', 'fairy', 'Flecha de Luz', 'xp'], ['bumeran', 'Bumerán', 'boomerang', 'flying', 'Bumerán Tornado', 'mag'],
+        ['bomba-mecha', 'Bomba de Mecha', 'mine', 'normal', 'Bomba Remota', 'cd'], ['botas-pegaso', 'Botas de Pegaso', 'dash', 'steel', 'Epona', 'spd'],
+        ['fuego-din', 'Fuego de Din', 'nova', 'fire', 'Medallón Bombos', 'atk'], ['escudo-hyliano', 'Escudo Hyliano', 'buff', 'steel']],
+      10006: [['rayo-de-poder', 'Rayo de Poder', 'projectile', 'normal', 'Rayo Phazon', 'def'], ['lanzamisiles', 'Lanzamisiles', 'projectile', 'steel', 'Supermisil', 'atk'],
+        ['rayo-de-ondas', 'Rayo de Ondas', 'chain', 'electric', 'Látigo de Ondas', 'mag'], ['rayo-de-hielo', 'Rayo de Hielo', 'beam', 'ice', 'Difusor de Hielo', 'atk'],
+        ['rayo-de-plasma', 'Rayo de Plasma', 'cone', 'fire', 'Lanzallamas de Plasma', 'cd'], ['bomba-morfosfera', 'Bomba de Morfosfera', 'mine', 'ground', 'Bomba de Energía', 'hp'],
+        ['turbosfera', 'Turbosfera', 'dash', 'steel', 'Hiperesfera', 'spd'], ['rayo-recarga', 'Rayo Recarga', 'buff', 'electric']],
+      10007: [['waka-waka', 'Waka Waka', 'melee', 'dark', 'Super Pac-Man', 'hp'], ['fruta-bonificacion', 'Fruta de Bonificación', 'projectile', 'grass', 'Llave de Bonificación', 'xp'],
+        ['pildora-poder', 'Píldora de Poder', 'buff', 'electric'], ['combo-fantasmas', 'Combo de Fantasmas', 'chain', 'dark', 'Tren de Fantasmas', 'mag'],
+        ['boca-riego', 'Boca de Riego', 'turret', 'water', 'Géiser', 'def'], ['rodada-turbo', 'Rodada Turbo', 'dash', 'normal', 'Pac-Man Gigante', 'spd'],
+        ['pac-bomba', 'Pac-Bomba', 'nova', 'normal', 'Combo 256', 'cd'], ['rastro-fuego', 'Rastro de Fuego', 'trail', 'fire', 'Pyro', 'atk']],
+      10008: [['pandilla-fantasma', 'Pandilla Fantasma', 'orbit', 'dark', 'Pac-Mania', 'xp'], ['persecucion', 'Persecución', 'projectile', 'dark', 'Sombra', 'spd'],
+        ['carga-de-toro', 'Carga de Toro', 'dash', 'normal', 'Superfantasma', 'hp'], ['dispersion', 'Dispersión', 'nova', 'dark', 'Cuatro Esquinas', 'cd'],
+        ['vuelta-a-casa', 'Vuelta a Casa', 'boomerang', 'ghost', 'Caja de Regeneración', 'rgn'], ['minifantasmas', 'Minifantasmas', 'meteor', 'ghost', 'Platillo Volante', 'atk'],
+        ['toque-fantasma', 'Toque Fantasma', 'aura', 'ghost', 'Game Over', 'def'], ['cruise-elroy', 'Cruise Elroy', 'buff', 'dark']],
+      10009: [['fuego-infernal', 'Fuego Infernal', 'projectile', 'fire', 'Infierno Oscuro', 'atk'], ['alas-demoniacas', 'Alas Demoníacas', 'melee', 'dark', 'Forma Verdadera', 'hp'],
+        ['enjambre-murcielagos', 'Enjambre de Murciélagos', 'dash', 'flying', 'Luna de Murciélagos', 'spd'], ['rayo-fatal', 'Rayo Fatal', 'meteor', 'dark', 'Rayo de Destrucción', 'mag'],
+        ['ola-oscuridad', 'Ola de Oscuridad', 'nova', 'dark', 'Megiddo Demoníaco', 'atk'], ['robo-almas', 'Robo de Almas', 'aura', 'ghost', 'Poder de Dominación', 'rgn'],
+        ['guadana-muerte', 'Guadaña de la Muerte', 'boomerang', 'ghost', 'Hoz Llameante', 'def'], ['metamorfosis-oscura', 'Metamorfosis Oscura', 'buff', 'dark']],
+      10010: [['siervo-de-cthulhu', 'Siervo de Cthulhu', 'projectile', 'psychic', 'Ojos Fantasmales', 'cd'], ['embestida-nocturna', 'Embestida Nocturna', 'dash', 'dark', 'Escudo de Cthulhu', 'def'],
+        ['dentellada', 'Dentellada', 'melee', 'dark', 'Espasmatizador', 'atk'], ['embestidas-en-cadena', 'Embestidas en Cadena', 'chain', 'dark', 'El Ojo de Cthulhu', 'spd'],
+        ['iris-roto', 'Iris Roto', 'nova', 'psychic', 'Esferas Fantasmales', 'rgn'], ['presencia-maligna', 'Presencia Maligna', 'aura', 'psychic', 'Infierno Inminente', 'xp'],
+        ['segunda-forma', 'Segunda Forma', 'buff', 'dark']]
     };
     const malLista = [];
     for (const [dex, at] of Object.entries(LISTA)) {
@@ -6256,15 +6286,15 @@ function multiversoChecks() {
           JSON.stringify(G.Moves.EVO[id] || null) !== JSON.stringify(evo ? [evo, need] : null) || (evo && !G.Moves.NEED_NAME[need])) malLista.push(id);
       }
     }
-    t('cada personaje aprende sólo la lista que validó Nico (poolFor() real, el inicial el primero): 7 de Agumon, 8 del Doom Slayer y 7 del Cacodemonio, cada uno con su nombre, su forma, su tipo, la escalera de mejoras de su forma y su evolución (Llama Bebé -> Mega Llama, Rifle de Plasma -> BFG 9000, Súper Escopeta -> Súper Escopeta Maestra...); los potenciadores, sin evolución',
-      !malLista.length && MV.ATAQUES.length === 22, malLista);
+    t('cada personaje aprende sólo su lista (poolFor() real, el inicial el primero): 7 de Agumon, 8 del Doom Slayer y 7 del Cacodemonio (validadas por Nico) y las del segundo lote (8 cada uno, 7 el Ojo de Cthulhu), cada uno con su nombre, su forma, su tipo, la escalera de mejoras de su forma y su evolución (Llama Bebé -> Mega Llama, Rifle de Plasma -> BFG 9000, Súper Escopeta -> Súper Escopeta Maestra...); los potenciadores, sin evolución',
+      !malLista.length && Object.keys(LISTA).length === 10 && MV.ATAQUES.length === 77, malLista);
     const nuevos = G.Moves.ALL.filter(x => !sin.Moves.BY_ID[x.id]).map(x => x.id);
     const enPool = Object.entries(G.Moves.POOL).filter(([, ids]) => nuevos.some(id => ids.includes(id))).map(([k]) => k);
     const otros = G.DEX.filter(p => !p.mv && G.Moves.poolFor(p).some(id => nuevos.includes(id))).map(p => p.dex);
     const ajenos = lista.flatMap(p => G.Moves.poolFor(p).filter(id => sin.Moves.BY_ID[id]).map(id => p.dex + ':' + id));
     const deDos = nuevos.filter(id => lista.filter(p => p.pool.includes(id)).length !== 1);
     t(`los ${nuevos.length} ataques del Multiverso no entran en ningún pool de tipo ni los aprende ningún Pokémon (${G.DEX.length - lista.length} mirados), ninguno de los del Multiverso aprende un ataque Pokémon y cada uno de los suyos es de un solo personaje`,
-      nuevos.length === 22 && !enPool.length && !otros.length && !ajenos.length && !deDos.length, { enPool, otros: otros.slice(0, 5), ajenos, deDos });
+      nuevos.length === 77 && !enPool.length && !otros.length && !ajenos.length && !deDos.length, { enPool, otros: otros.slice(0, 5), ajenos, deDos });
     // Control: sin el gancho de poolFor() (moves.js), Agumon aprendería los de Fuego, Dragón y Normal.
     const sinPool = montar({ cambia: { 'js/data/moves.js': s => s.replace(/^\s*if \(mon\.pool\)[^\n]*MOD nico[^\n]*\n/m, '') } }).G;
     const ctrl = sinPool.Moves.poolFor(sinPool.DEX_BY[10001]);
@@ -6273,7 +6303,7 @@ function multiversoChecks() {
     // Equilibrio: daño nominal (daño × proyectiles ÷ recarga) y alcance dentro del rango de los ataques Pokémon de su forma;
     // un potenciador, con los números de uno de upstream de la misma estadística.
     const nominal = m => m.dmg * (m.count || 1) / m.cd;
-    const alcance = m => ['projectile', 'cone', 'nova'].includes(m.kind) ? m.speed * m.life : m.radius;
+    const alcance = m => ['projectile', 'cone', 'nova'].includes(m.kind) ? m.speed * m.life : m.kind === 'turret' ? m.range : m.radius;   // la torreta, por su alcance (range)
     const fuera = [];
     for (const id of nuevos) {
       const m = G.Moves.BY_ID[id], misma = sin.Moves.ALL.filter(x => x.kind === m.kind);
@@ -6295,8 +6325,8 @@ function multiversoChecks() {
       const info = G.Moves.evoInfo(m, { [e[1]]: 1 });
       return !(m.lvl === m.def.maxLvl && info && info.ready && info.name === e[0] && G.Moves.evolve(m) && m.name === e[0] && m.evolved);
     });
-    t('suben de nivel con su escalera (instance() real: nivel 3 distinto del 1, sin la escalera dentro) y los 19 que evolucionan llegan al máximo y evolucionan (evoInfo() y evolve() reales)',
-      inst.lvl === 3 && !('ups' in inst) && JSON.stringify(inst) !== JSON.stringify(base) && nuevos.filter(id => G.Moves.EVO[id]).length === 19 && !evos.length, evos);
+    t('suben de nivel con su escalera (instance() real: nivel 3 distinto del 1, sin la escalera dentro) y los 67 que evolucionan llegan al máximo y evolucionan (evoInfo() y evolve() reales)',
+      inst.lvl === 3 && !('ups' in inst) && JSON.stringify(inst) !== JSON.stringify(base) && nuevos.filter(id => G.Moves.EVO[id]).length === 67 && !evos.length, evos);
   } catch (e) { t('datos del Multiverso', false, String(e && e.stack || e)); }
   // ---- A2. Sus ataques en partida: las cartas de subida de nivel, la mejora «Repertorio» y cómo se ven ----
   try {
@@ -6391,9 +6421,12 @@ function multiversoChecks() {
     const sh = res.filter(x => x.shiny).length / res.length * 100;
     const nuevos = res.filter(x => x.isNew).length, monedas = res.reduce((a, x) => a + x.refund, 0) / res.length;
     const mvs = G.MULTIVERSO.lista().map(p => p.dex), cuantos = mvs.map(d => res.filter(x => x.dex === d).length);
-    t(`10.000 tiradas en el Multiverso: siempre uno suyo, a partes iguales (${cuantos.join(' / ')}); cada uno y su shiny, nuevos una vez; el resto, 30 Pokémonedas (90 un shiny); shiny ${sh.toFixed(2)} % (1,2-1,8)`,
-      !fuera.length && nuevos === 2 * mvs.length && res.every(x => x.isNew ? x.refund === 0 : x.refund === (x.shiny ? 90 : 30)) && sh >= 1.2 && sh <= 1.8 &&
-      mvs.every(d => save.owned[d] && save.shiny[d]) && cuantos.every(k => Math.abs(k / res.length - 1 / mvs.length) < 0.02), { fuera: fuera.length, nuevos, sh, cuantos });
+    // Nuevos: el shiny de cada uno y su versión normal, salvo si lo primero que salió de él fue el shiny, que ya
+    // lo deja en la colección (gacha.js de upstream). Con diez personajes pasa en ~14 % de las tandas.
+    const nuevosEsperados = mvs.length + mvs.filter(d => !res.find(x => x.dex === d).shiny).length;
+    t(`10.000 tiradas en el Multiverso: siempre uno suyo, a partes iguales (${cuantos.join(' / ')}); cada uno y su shiny, nuevos una vez (el normal no, si salió antes el shiny); el resto, 30 Pokémonedas (90 un shiny); shiny ${sh.toFixed(2)} % (1,2-1,8)`,
+      !fuera.length && nuevos === nuevosEsperados && res.every(x => x.isNew ? x.refund === 0 : x.refund === (x.shiny ? 90 : 30)) && sh >= 1.2 && sh <= 1.8 &&
+      mvs.every(d => save.owned[d] && save.shiny[d]) && cuantos.every(k => Math.abs(k / res.length - 1 / mvs.length) < 0.02), { fuera: fuera.length, nuevos, nuevosEsperados, sh, cuantos });
     // Una tirada en un banner normal vale de media 38,25 Pokémonedas si todo es repetido (las rarezas de RATES por REFUND): el Multiverso, menos.
     const media = Ga.RATES.reduce((a, [rr, w]) => a + w / 100 * Ga.REFUND[rr], 0);
     t(`no es una fuente de monedas: ${monedas.toFixed(2)} Pokémonedas por tirada, menos que los ${media.toFixed(2)} de un banner normal todo repetido`, monedas < media, { monedas, media });
@@ -6442,8 +6475,8 @@ function multiversoChecks() {
       { sinLila, conUno, conDiez, kantoAntes, kantoDespues });
     t('el cartel del Multiverso dice que cada tirada cuesta un ticket ×10', rates.includes('· Cada tirada cuesta un ticket ×10, el lila (la ×10, diez).<br>'), rates);
     t('pestaña del gacha: «Otros mundos» en vez de «Gen 10» desde que se abre el gacha (en Kanto)', enKanto === 'Otros mundos', enKanto);
-    t('cartel del Multiverso: título, la lista de personajes con su serie, sin el pity de la legendaria y los tres de destacados',
-      els['banner-title'].textContent === 'Multiverso' && els['banner-desc'].textContent === 'Personajes de otros mundos que se cuelan en el enjambre: Agumon (Digimon), Doom Slayer (DOOM), Cacodemonio (DOOM).' &&
+    t('cartel del Multiverso: título, sus sagas sin repetir, sin el pity de la legendaria y los tres primeros de destacados',
+      els['banner-title'].textContent === 'Multiverso' && els['banner-desc'].textContent === 'Personajes de otros mundos que se cuelan en el enjambre: Digimon, DOOM, Kirby, Zelda, Metroid, Pac-Man, Castlevania, Terraria.' &&
       els['gacha-pity'].textContent === '' && [10001, 10002, 10003].every(d => els['gacha-feat'].children.some(x => x.dex === d)), { titulo: els['banner-title'].textContent, desc: els['banner-desc'].textContent });
     const pct = +(100 / G.MULTIVERSO.lista().length).toFixed(2) + '%';
     t(`probabilidades del Multiverso: cada personaje con su ${pct}, el shiny del ajuste (1,5 %), los repetidos a 30 y sin la Épica de la ×10 ni la Legendaria`,
@@ -6469,7 +6502,8 @@ function multiversoChecks() {
     for (const f of ['js/core/i18n.js', 'js/data/lang-en.js', 'js/data/lang-en-mod.js']) vm.runInContext(rd(f), c, { filename: f });
     const EN = c.G.I18n.t;
     const casos = { 'Multiverso': 'Multiverse', 'Otros mundos': 'Other worlds', 'Llama Bebé': 'Pepper Breath', 'Mega Llama': 'Nova Blast',
-      'Personajes de otros mundos que se cuelan en el enjambre: Agumon (Digimon), Doom Slayer (DOOM), Cacodemonio (DOOM).': 'Characters from other worlds who slip into the swarm: Agumon (Digimon), Doom Slayer (DOOM), Cacodemon (DOOM).',
+      'Personajes de otros mundos que se cuelan en el enjambre: Digimon, DOOM, Kirby, Zelda, Metroid, Pac-Man, Castlevania, Terraria.': 'Characters from other worlds who slip into the swarm: Digimon, DOOM, Kirby, Zelda, Metroid, Pac-Man, Castlevania, Terraria.',
+      'Ojo de Cthulhu': 'Eye of Cthulhu', 'Drácula': 'Dracula', 'Espada Maestra': 'Master Sword', 'Píldora de Poder': 'Power Pellet', 'Fuego Infernal': 'Hellfire',
       'Cacodemonio': 'Cacodemon', 'Súper Escopeta': 'Super Shotgun', 'Rayo Bola': 'Ball Lightning', 'Tormenta Infernal': 'Hellstorm',
       'Escopeta de dos cañones: una ráfaga corta de perdigones que empuja.': 'Double-barrelled shotgun: a short burst of pellets that knocks back.',
       'Escupe una bola de rayos lenta y grande que atraviesa y frena.': 'Spits a big, slow ball of lightning that goes through and slows down.',
@@ -6483,7 +6517,9 @@ function multiversoChecks() {
     t('inglés (i18n.js real): el banner, la pestaña, la descripción, las notas de las probabilidades, la ficha y el ataque', !mal.length, mal);
     // Cada ataque del Multiverso: su nombre, su descripción, su evolución y la carta dorada de evolucionar («X → Y»).
     const textos = MV ? MV.ATAQUES.flatMap(a => [a.name, a.desc].concat(a.evo ? [a.evo[0], a.name + ' → ' + a.evo[0]] : [])) : [];
-    const sinIngles = textos.filter(x => x !== 'BFG 9000' && (EN(x) === x || /[áéíóúñ¿¡]/i.test(EN(x).replace('BFG', ''))));
+    // Los que se llaman igual en inglés (nombres propios de su saga): se miran sólo por si traen algo en español.
+    const IGUALES = new Set(['BFG 9000', 'Epona', 'Waka Waka', 'Super Pac-Man', 'Waka Waka → Super Pac-Man', 'Pyro', 'Pac-Mania', 'Game Over', 'Cruise Elroy']);
+    const sinIngles = textos.filter(x => (!IGUALES.has(x) && EN(x) === x) || /[áéíóúñ¿¡]/i.test(EN(x)));
     const cartas = { 'Rifle de Plasma → BFG 9000': 'Plasma Rifle → BFG 9000', 'Granada → Granada de Racimo': 'Frag Grenade → Cluster Grenade',
       'Súper Escopeta → Súper Escopeta Maestra': 'Super Shotgun → Super Shotgun Mastery', 'Torbellino → Gran Tornado': 'Whirlwind → Great Tornado' };
     const malCartas = Object.entries(cartas).filter(([es, en]) => EN(es) !== en).map(([es]) => [es, EN(es)]);
@@ -6506,10 +6542,12 @@ function multiversoChecks() {
     t('dev.html carga multiverso.js justo después de moves.js (y antes de achievements.js, gacha.js y menu.js); el paquete lo lleva',
       /src="js\/data\/moves\.js"><\/script>\r?\n<script defer src="js\/data\/multiverso\.js">/.test(rd('dev.html')) && /MULTIVERSO/.test(rd('js/app.min.js')));
     const cred = rd('CREDITS.md');
-    t('CREDITS.md cuenta de dónde salen las hojas del Multiverso (PixelLab y tools/nico/multiverso/montar.py) y que Digimon y DOOM son de sus dueños',
-      ['Agumon', 'Doom Slayer', 'Cacodemonio', 'PixelLab', 'tools/nico/multiverso/montar.py', 'Bandai', 'id Software'].every(x => cred.includes(x)));
+    t('CREDITS.md cuenta de dónde salen las hojas del Multiverso (PixelLab, dibujar.py y montar.py) y de quién es cada saga (Bandai, id Software, Nintendo, HAL, Bandai Namco, Konami, Re-Logic)',
+      ['Agumon', 'Doom Slayer', 'Cacodemonio', 'Kirby', 'Link', 'Samus', 'Pac-Man', 'Blinky', 'Drácula', 'Ojo de Cthulhu', 'PixelLab', 'tools/nico/multiverso/montar.py',
+        'tools/nico/multiverso/dibujar.py', 'Bandai', 'id Software', 'Nintendo', 'HAL', 'Bandai Namco', 'Konami', 'Re-Logic'].every(x => cred.includes(x)));
     const DIRS = ['south', 'south-east', 'east', 'north-east', 'north', 'north-west', 'west', 'south-west'];
-    const faltan = ['agumon', 'slayer', 'caco'].flatMap(k => DIRS.map(d => `tools/nico/multiverso/fuentes/${k}/rot-${d}.png`)).filter(f => !ex(f));
+    const faltan = ['agumon', 'slayer', 'caco', 'kirby', 'link', 'samus', 'pacman', 'blinky', 'dracula', 'cthulhu']
+      .flatMap(k => DIRS.map(d => `tools/nico/multiverso/fuentes/${k}/rot-${d}.png`)).filter(f => !ex(f));
     t('lo que dibujó PixelLab está en tools/nico/multiverso/fuentes/ (las 8 rotaciones de cada uno) junto a montar.py, que rehace las hojas; multiverso.js y montar.py, nuevos, en LF',
       !faltan.length && ex('tools/nico/multiverso/montar.py') && !/\r/.test(rd('js/data/multiverso.js')) && !/\r/.test(rd('tools/nico/multiverso/montar.py')), faltan);
   } catch (e) { t('ganchos y paquete', false, String(e && e.stack || e)); }

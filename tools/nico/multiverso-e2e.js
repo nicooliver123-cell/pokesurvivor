@@ -70,16 +70,22 @@ async function tirar(page, boton, nombre) {
 }
 
 const PJS = [[10001, 'Agumon', 'llama-bebe', 'Llama Bebé', 'Mega Llama'], [10002, 'Doom Slayer', 'super-escopeta', 'Súper Escopeta', 'Súper Escopeta Maestra'],
-  [10003, 'Cacodemonio', 'rayo-bola', 'Rayo Bola', 'Tormenta Infernal']];
+  [10003, 'Cacodemonio', 'rayo-bola', 'Rayo Bola', 'Tormenta Infernal'],
+  // Segundo lote (15-10-2026).
+  [10004, 'Kirby', 'bala-estelar', 'Bala Estelar', 'Bala Penetrante'], [10005, 'Link', 'espada-maestra', 'Espada Maestra', 'Gran Ataque Circular'],
+  [10006, 'Samus', 'rayo-de-poder', 'Rayo de Poder', 'Rayo Phazon'], [10007, 'Pac-Man', 'waka-waka', 'Waka Waka', 'Super Pac-Man'],
+  [10008, 'Blinky', 'pandilla-fantasma', 'Pandilla Fantasma', 'Pac-Mania'], [10009, 'Drácula', 'fuego-infernal', 'Fuego Infernal', 'Infierno Oscuro'],
+  [10010, 'Ojo de Cthulhu', 'siervo-de-cthulhu', 'Siervo de Cthulhu', 'Ojos Fantasmales']];
+const SAGAS = 'Digimon, DOOM, Kirby, Zelda, Metroid, Pac-Man, Castlevania, Terraria';
 
 async function caso(browser, v, estilo, partidas) {
   const tag = `${v.n}-${estilo}`;
   const P = await jugador(browser, v, estilo), { page } = P;
-  // 1. La colección antes de tenerlos: pestaña Multiverso (0/3) y la ficha.
+  // 1. La colección antes de tenerlos: pestaña Multiverso (0/10) y la ficha.
   await page.evaluate(() => document.querySelector('#scr-menu [data-go=dex]').click());
   await page.locator('#scr-dex').waitFor({ state: 'visible' });
   const tabDex = page.locator('#dex-gens .gen-tab', { hasText: 'Multiverso' });
-  t(`${tag}: la colección tiene la pestaña «Multiverso» (0/3)`, await tabDex.count() === 1 && /0\/3/.test(await tabDex.textContent()), await page.locator('#dex-gens').textContent());
+  t(`${tag}: la colección tiene la pestaña «Multiverso» (0/${PJS.length})`, await tabDex.count() === 1 && (await tabDex.textContent()).includes('0/' + PJS.length), await page.locator('#dex-gens').textContent());
   await tabDex.click();
   await page.locator('#dex-grid .cell').first().click();
   await sleep(200);
@@ -97,8 +103,9 @@ async function caso(browser, v, estilo, partidas) {
   const cartel = await page.evaluate(() => ({ titulo: document.getElementById('banner-title').textContent, desc: document.getElementById('banner-desc').textContent,
     rates: document.getElementById('gacha-rates').textContent.replace(/\s+/g, ' '), feat: document.querySelectorAll('#gacha-feat canvas').length,
     pity: document.getElementById('gacha-pity').textContent, scrollX: document.documentElement.scrollWidth > innerWidth + 1 }));
-  t(`${tag}: cartel del Multiverso (título, los tres con su serie, cada uno al 33,33 %, shiny 1,5 %, sin Legendaria, tres destacados)`, cartel.titulo === 'Multiverso' &&
-    /Agumon \(Digimon\), Doom Slayer \(DOOM\), Cacodemonio \(DOOM\)/.test(cartel.desc) && ['Agumon', 'Doom Slayer', 'Cacodemonio'].every(n => cartel.rates.includes(n + ' 33.33%')) &&
+  const pct = +(100 / PJS.length).toFixed(2) + '%';
+  t(`${tag}: cartel del Multiverso (título, sus sagas, cada uno al ${pct}, shiny 1,5 %, sin Legendaria, tres destacados)`, cartel.titulo === 'Multiverso' &&
+    cartel.desc.includes(SAGAS) && PJS.every(([, n]) => cartel.rates.includes(n + ' ' + pct)) &&
     /Shiny\s*1\.5%/.test(cartel.rates) && !/Legendaria|Épica/.test(cartel.rates) && cartel.feat === 3 && !cartel.pity && !cartel.scrollX, cartel);
   await foto(page, `${tag}-2-banner`);
   // El banner del Multiverso cuesta tickets ×10 (G.MODS.multiversoTicketLila): 1 la ×1, 10 la ×10 y sin el tercer botón.
@@ -128,15 +135,16 @@ async function caso(browser, v, estilo, partidas) {
   await sleep(300);
   const kanto = await page.evaluate(() => ({ tercero: getComputedStyle(document.getElementById('pull-10b')).display, c1: document.getElementById('cost-1').textContent.trim() }));
   t(`${tag}: en Kanto vuelve el botón «×10 por 1 ticket ×10»`, kanto.tercero !== 'none' && kanto.c1 === '1', kanto);
-  // Los tres en la colección, pase lo que pase con el azar, para probarlos todos.
-  await page.evaluate(() => { for (const d of [10001, 10002, 10003]) G.DB.save.owned[d] = G.DB.save.owned[d] || { at: Date.now(), from: 'gacha' }; G.DB.commit(); });
+  // Todos en la colección, pase lo que pase con el azar, para probarlos todos.
+  await page.evaluate(ds => { for (const d of ds) G.DB.save.owned[d] = G.DB.save.owned[d] || { at: Date.now(), from: 'gacha' }; G.DB.commit(); }, PJS.map(x => x[0]));
   for (const [dex, nombre, mid, ataque, evoNombre] of PJS) {
     const corto = nombre.split(' ')[0].toLowerCase();
     // 4. Colección: elegirlo de compañero.
     await page.evaluate(() => { G.UI.hideAll(); G.MenuUI.open(); document.querySelector('#scr-menu [data-go=dex]').click(); });
     await page.locator('#scr-dex').waitFor({ state: 'visible' });
     await page.locator('#dex-gens .gen-tab', { hasText: 'Multiverso' }).click();
-    await page.locator('#dex-grid .cell', { hasText: nombre }).click();
+    // Por su número: «Link» también está dentro de «Blinky».
+    await page.locator('#dex-grid .cell', { hasText: String(dex) }).click();
     await sleep(300);
     await foto(page, `${tag}-6-coleccion-${corto}`);
     const fichaYa = (await page.locator('#dex-detail').textContent()).replace(/\s+/g, ' ');
@@ -150,20 +158,20 @@ async function caso(browser, v, estilo, partidas) {
     // 5. Una partida con él.
     await page.evaluate(() => G.Flow.play());
     await page.waitForFunction(() => G.Game.state === 'playing' && G.Game.player, null, { timeout: 20000 });
-    let disparos = 0, enemigosMv = 0, enemigos = 0, cerca = Infinity;
-    for (let i = 0; i < 80 && !(i >= 24 && disparos > 0); i++) {
+    let disparos = 0, enemigosMv = 0, enemigos = 0, cerca = Infinity, danio = 0;
+    for (let i = 0; i < 140 && !(i >= 24 && danio > 0); i++) {
       await sleep(250);
       const m = await page.evaluate(() => {
         const pl = G.Game.player, mv = new Set(G.DEX.filter(p => p.mv).map(p => p.dex));
         const es = G.EnemyMgr.all();
-        return { d: G.Projectiles.all().filter(p => p.owner === pl).length, e: es.length, emv: es.filter(e => mv.has(e.dex)).length,
+        return { d: G.Projectiles.all().filter(p => p.owner === pl).length, e: es.length, emv: es.filter(e => mv.has(e.dex)).length, h: pl.dmgDealt || 0,
           c: Math.min(Infinity, ...es.map(e => Math.hypot(e.x - pl.x, e.y - pl.y))) };
       });
-      disparos = Math.max(disparos, m.d); enemigos = Math.max(enemigos, m.e); enemigosMv += m.emv; cerca = Math.min(cerca, m.c);
+      disparos = Math.max(disparos, m.d); enemigos = Math.max(enemigos, m.e); enemigosMv += m.emv; cerca = Math.min(cerca, m.c); danio = m.h;
     }
     const pl = await page.evaluate(() => { const p = G.Game.player; return { dex: p.dex, move: p.moves[0] && p.moves[0].id, scale: p.scale, r: p.r, anim: p.anim && p.anim.dex, hv: G.Sprites.hovers(p.dex) }; });
-    t(`${tag}: en partida eres ${nombre} con ${ataque} y dispara (${disparos} a la vez como mucho; enemigo más cercano a ${Math.round(cerca)} px)`,
-      pl.dex === dex && pl.move === mid && pl.anim === dex && pl.scale === 1 && disparos > 0, { pl, disparos });
+    t(`${tag}: en partida eres ${nombre} con ${ataque} y ataca (${Math.round(danio)} de daño hecho; ${disparos} proyectiles a la vez como mucho; enemigo más cercano a ${Math.round(cerca)} px)`,
+      pl.dex === dex && pl.move === mid && pl.anim === dex && pl.scale === 1 && danio > 0, { pl, disparos, danio });
     t(`${tag}: con ${nombre}, ningún enemigo es del Multiverso (${enemigos} enemigos como mucho)`, enemigosMv === 0 && enemigos > 0, { enemigosMv, enemigos });
     await foto(page, `${tag}-8-partida-${corto}`);
     const c = await page.evaluate(() => { const r = document.getElementById('game').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
@@ -222,7 +230,9 @@ async function caso(browser, v, estilo, partidas) {
   const browser = await chromium.launch();
   try {
     const V = [{ n: '1440x900', w: 1440, h: 900, dpr: 1 }, { n: '844x390', w: 844, h: 390, dpr: 3, tactil: true }];
-    const PLAN = { '1440x900-dex': [10001, 10002, 10003], '1440x900-clasico': [10002], '844x390-dex': [10003], '844x390-clasico': [10001] };
+    // Una partida con cada uno en escritorio con Dex; en los demás, un reparto (cada uno juega en al menos dos).
+    const PLAN = { '1440x900-dex': PJS.map(x => x[0]), '1440x900-clasico': [10002, 10005, 10009], '844x390-dex': [10003, 10006, 10007, 10010],
+      '844x390-clasico': [10001, 10004, 10008] };
     for (const v of V) for (const e of ['dex', 'clasico']) {
       try { await caso(browser, v, e, PLAN[v.n + '-' + e]); } catch (err) { t(`${v.n}-${e}: el recorrido`, false, String(err && err.stack || err)); }
     }
