@@ -5384,6 +5384,21 @@ function devMenuChecks() {
   if (bien && sal === 'pokeswarm/dev/1\\0' && gancho && !uidEnClaro && /G\.DB\.guest/.test(src) && /DevMenu/.test(rd('js/app.min.js')))
     ok(`menú de pruebas: ${lista.length} cuenta(s) por huella SHA-256 (ningún uid en claro), nunca a invitados, con su gancho en settings-ui.js y en el paquete`);
   else bad(`menú de pruebas: huellas ${bien ? 'bien' : 'mal formadas'}, sal ${JSON.stringify(sal)}, gancho ${gancho}, uid en claro ${uidEnClaro}`);
+  // «Desbloquear todos (con shiny)» (15-10-2026), con la Pokédex, los sprites y el Multiverso reales.
+  const d = { console }; d.window = d; d.G = {}; vm.createContext(d);
+  for (const f of ['js/core/util.js', 'js/core/mods.js', 'js/data/pokedex.js', 'js/data/sprites-meta.js', 'js/data/evolutions.js', 'js/core/sprites.js', 'js/data/moves.js', 'js/data/multiverso.js', 'js/ui/dev-menu.js'])
+    vm.runInContext(rd(f), d, { filename: f });
+  const G = d.G, s = { owned: { 4: { at: 1, from: 'starter' } }, shiny: { 25: { at: 2, from: 'gacha' } } };
+  const r1 = G.DevMenu.desbloquearTodo(s), r2 = G.DevMenu.desbloquearTodo(s);
+  const dex = G.DEX.map(p => p.dex), conShiny = dex.filter(x => G.Sprites.hasShiny(x)), mv = dex.filter(x => x >= 10001);
+  const fallos = [];
+  if (!dex.every(x => s.owned[x])) fallos.push('falta alguno en owned');
+  if (!conShiny.every(x => s.shiny[x]) || Object.keys(s.shiny).some(x => !G.Sprites.hasShiny(+x))) fallos.push('shiny: no cuadra con hasShiny');
+  if (s.owned[4].from !== 'starter' || s.owned[4].at !== 1 || s.shiny[25].from !== 'gacha') fallos.push('pisó lo que ya había');
+  if (r1.nuevos !== dex.length - 1 || r1.shinies !== conShiny.length - 1 || r2.nuevos || r2.shinies || r1.total !== dex.length) fallos.push('cuentas ' + JSON.stringify([r1, r2]));
+  if (mv.length < 10 || !mv.every(x => s.owned[x] && s.shiny[x])) fallos.push('Multiverso incompleto');
+  if (!fallos.length) ok(`menú de pruebas: «Desbloquear todos» da los ${dex.length} (${mv.length} del Multiverso) y ${conShiny.length} shiny (los que tienen sprite shiny), sin pisar lo que ya había; repetirlo no suma nada`);
+  else bad('menú de pruebas, desbloquear todos: ' + fallos.join('; '));
 }
 
 // ---------------- 23. mapas propios: biomas, terreno, objetos, arenas, pintor y sprites (G.Mapas) ----------------

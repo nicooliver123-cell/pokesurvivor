@@ -1,6 +1,7 @@
 /* ============ dev-menu.js — menú de pruebas de Nico (MOD nico) ============
  * Petición de Nico (14-10-2026): en Ajustes > Cuenta, sólo con su cuenta, botones para sumarse tickets del gacha y
- * Pokémonedas y probar el gacha, las mejoras y la guardería sin jugar horas.
+ * Pokémonedas y probar el gacha, las mejoras y la guardería sin jugar horas. Desde el 15-10-2026, también uno que
+ * desbloquea toda la colección (los 966 y el Multiverso) con su shiny (desbloquearTodo).
  *
  * Quién lo ve: una sesión de la nube (no invitado) cuyo uid de Firebase tiene una huella de G.MODS.devHuellas. El
  * repositorio es público, así que no se guarda el uid sino su SHA-256 con la sal de abajo (como tools/nico/base.js).
@@ -34,8 +35,27 @@ G.DevMenu = (() => {
     { id: 't1', txt: '+10 tickets', fn: s => { s.tickets.t1 += 10; } },
     { id: 't10', txt: '+1 ticket ×10', fn: s => { s.tickets.t10 += 1; } },
     { id: 'c1', txt: '+1.000 Pokémonedas', fn: s => { s.coins += 1000; } },
-    { id: 'c10', txt: '+10.000 Pokémonedas', fn: s => { s.coins += 10000; } }
+    { id: 'c10', txt: '+10.000 Pokémonedas', fn: s => { s.coins += 10000; } },
+    // Petición de Nico (15-10-2026): toda la colección, también el Multiverso, con su shiny si el juego lo tiene.
+    { id: 'todo', txt: 'Desbloquear todos (con shiny)', fn: s => {
+      const r = desbloquearTodo(s);
+      return `Desbloqueados ${r.nuevos} Pokémon y ${r.shinies} shiny (${r.total} en la colección)`;
+    } }
   ];
+
+  /** Todo G.DEX (los 966 y el Multiverso) en owned y, si su sprite tiene versión shiny, en shiny. No quita nada ni
+   *  pisa lo que ya estaba (conserva su fecha y su origen); lo nuevo, con from: 'dev'. → { nuevos, shinies, total }. */
+  function desbloquearTodo(s) {
+    const ahora = Date.now(), conShiny = d => !!(G.Sprites && G.Sprites.hasShiny ? G.Sprites.hasShiny(d) : false);
+    s.owned = s.owned || {};
+    s.shiny = s.shiny || {};
+    let nuevos = 0, shinies = 0;
+    for (const p of G.DEX) {
+      if (!s.owned[p.dex]) { s.owned[p.dex] = { at: ahora, from: 'dev' }; nuevos++; }
+      if (conShiny(p.dex) && !s.shiny[p.dex]) { s.shiny[p.dex] = { at: ahora, from: 'dev' }; shinies++; }
+    }
+    return { nuevos, shinies, total: Object.keys(s.owned).length };
+  }
 
   /** Gancho de settings-ui.js (render): la sección al final de Cuenta, si la cuenta tiene permiso. */
   function ajustes(box, tab) {
@@ -50,15 +70,15 @@ G.DevMenu = (() => {
           const b = BOTONES.find(x => x.id === el.dataset.dev), s = G.DB.save;
           if (!b || !s) return;
           s.tickets = Object.assign({ t1: 0, t10: 0 }, s.tickets);
-          b.fn(s);
+          const msg = b.fn(s);
           G.DB.commit(true);
           G.Audio.sfx('buy');
           G.UI.refreshCoins();
-          G.UI.toast(b.txt);   // los totales ya están en la barra de arriba
+          G.UI.toast(msg || b.txt);   // los totales ya están en la barra de arriba
         };
       });
     });
   }
 
-  return { ajustes, permitido, huella };
+  return { ajustes, permitido, huella, desbloquearTodo };
 })();
