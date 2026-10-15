@@ -223,6 +223,7 @@ G.I18n.add({
   'Un aura del infierno le rodea: daña y frena algo a lo cercano.': 'A hellish aura surrounds it: it hurts and slightly slows anything close.',
   '· Cada tirada trae a uno de estos personajes, todos con la misma probabilidad.': '· Each pull brings one of these characters, all equally likely.',
   '· No hay legendarios, así que tampoco pity.': '· There are no legendaries, so there is no pity either.',
+  '· Cada tirada cuesta un ticket ×10, el lila (la ×10, diez).': '· Each pull costs one ×10 ticket, the purple one (a ×10 pull, ten).',
   '· Un repetido da {x} Pokémonedas (un shiny repetido, el triple).': '· A duplicate gives {x} PokéCoins (a shiny duplicate, triple).',
   '· Nunca salen de enemigos: sólo se consiguen aquí.': '· They never show up as enemies: you can only get them here.',
   'Sólo sale en el banner del Multiverso, en el gacha.': 'Only in the Multiverse banner of the gacha.',

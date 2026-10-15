@@ -79,7 +79,7 @@ G.Gacha = (() => {
    *   { dex, rarity, shiny, isNew, refund }
    */
   function pull(save, n, gen = 1, use = 't1') {
-    const cost = costOf(save, n, use);
+    const cost = G.MULTIVERSO && G.MULTIVERSO.coste ? G.MULTIVERSO.coste(save, n, gen, use, costOf) : costOf(save, n, use);   // MOD nico: el Multiverso, con tickets ×10 (js/data/multiverso.js)
     if (!cost) return null;
     save.tickets.t1 -= cost.t1;
     save.tickets.t10 -= cost.t10;

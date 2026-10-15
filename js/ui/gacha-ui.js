@@ -76,6 +76,7 @@ G.GachaUI = (() => {
     $('pull-1').disabled = !G.Gacha.costOf(s, 1);
     $('pull-10').disabled = !G.Gacha.costOf(s, 10, 't1');
     $('pull-10b').disabled = !G.Gacha.costOf(s, 10, 't10');
+    if (G.MULTIVERSO && G.MULTIVERSO.botones) G.MULTIVERSO.botones(gen, s);   // MOD nico: el Multiverso, con tickets ×10 (js/data/multiverso.js)
     G.UI.refreshCoins();
   }
 

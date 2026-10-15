@@ -214,6 +214,11 @@ G.MODS = {
    * del original. */
   maquinaGancho: true,
 
+  /* Banner del Multiverso (petición de Nico, 15-10-2026; js/data/multiverso.js): cada tirada cuesta un ticket ×10,
+   * el lila, en vez de uno normal: la ×1, uno y la ×10, diez; el botón «×10 por 1 ticket ×10» no sale en ese
+   * banner. Los demás banners no cambian. false = como los demás (tickets normales). */
+  multiversoTicketLila: true,
+
   /* Guardería Pokémon (decisión de Nico, 14-10-2026; js/systems/guarderia.js, en la pantalla Mejoras): plazas, lo que
    * cuesta dejar a un Pokémon (cada vez que entra; sacarlo es gratis y conserva lo ganado) y cada cuántos segundos de
    * run gana cada uno 1 nivel en una de sus mejoras al azar. Sólo cuenta el tiempo de las runs de quien tiene la

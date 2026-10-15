@@ -49,7 +49,7 @@ async function jugador(browser, v, estilo) {
     await page.click('#ec-ok');
   }
   await page.locator('#scr-menu').waitFor({ state: 'visible', timeout: 15000 });
-  await page.evaluate(() => { G.DB.save.tickets = { t1: 60, t10: 6 }; });
+  await page.evaluate(() => { G.DB.save.tickets = { t1: 60, t10: 15 }; });
   return P;
 }
 const foto = async (page, nombre) => { await page.screenshot({ path: path.join(OUT, nombre + '.png') }); };
@@ -101,6 +101,12 @@ async function caso(browser, v, estilo, partidas) {
     /Agumon \(Digimon\), Doom Slayer \(DOOM\), Cacodemonio \(DOOM\)/.test(cartel.desc) && ['Agumon', 'Doom Slayer', 'Cacodemonio'].every(n => cartel.rates.includes(n + ' 33.33%')) &&
     /Shiny\s*1\.5%/.test(cartel.rates) && !/Legendaria|Épica/.test(cartel.rates) && cartel.feat === 3 && !cartel.pity && !cartel.scrollX, cartel);
   await foto(page, `${tag}-2-banner`);
+  // El banner del Multiverso cuesta tickets ×10 (G.MODS.multiversoTicketLila): 1 la ×1, 10 la ×10 y sin el tercer botón.
+  const botones = await page.evaluate(() => ({ c1: document.getElementById('cost-1').textContent.trim(), c10: document.getElementById('cost-10').textContent.trim(),
+    tercero: getComputedStyle(document.getElementById('pull-10b')).display, nota: /Cada tirada cuesta un ticket ×10/.test(document.getElementById('gacha-rates').textContent),
+    ajuste: G.MODS.multiversoTicketLila, ok1: !document.getElementById('pull-1').disabled, ok10: !document.getElementById('pull-10').disabled }));
+  t(`${tag}: el Multiverso cuesta tickets ×10 (1 y 10), sin el botón «×10 por 1 ticket ×10», y el cartel lo dice`,
+    botones.ajuste === true && botones.c1 === '1' && botones.c10 === '10' && botones.tercero === 'none' && botones.nota && botones.ok1 && botones.ok10, botones);
   // 3. Tiradas: ×1, un shiny forzado (para ver su carta) y ×10.
   const c1 = await tirar(page, '#pull-1', `${tag}-3-tirada1`);
   const mv1 = await page.evaluate(() => Object.keys(G.DB.save.owned).map(Number).filter(d => G.DEX_BY[d] && G.DEX_BY[d].mv));
@@ -115,6 +121,13 @@ async function caso(browser, v, estilo, partidas) {
   const pagado = r10.res.reduce((sum, x) => sum + x.refund, 0);
   t(`${tag}: la ×10 son 10 del Multiverso; los nuevos (también un shiny nuevo) no pagan y cada repetido da 30 Pokémonedas (90 un shiny), lo que suben las monedas`,
     r10.res.length === 10 && r10.res.every(x => x.mv && (x.isNew ? x.refund === 0 : x.refund === (x.shiny ? 90 : 30))) && r10.coins - antes === pagado, { r10, antes, c10 });
+  const gastado = await page.evaluate(() => G.DB.save.tickets);
+  // Los normales no bajan (pueden subir: los logros de las primeras tiradas dan tickets).
+  t(`${tag}: las 12 tiradas del Multiverso gastan 12 tickets ×10 y ningún ticket normal`, gastado.t10 === 3 && gastado.t1 >= 60, gastado);
+  await page.locator('#gacha-gens .gen-tab[data-gen="1"]').click();
+  await sleep(300);
+  const kanto = await page.evaluate(() => ({ tercero: getComputedStyle(document.getElementById('pull-10b')).display, c1: document.getElementById('cost-1').textContent.trim() }));
+  t(`${tag}: en Kanto vuelve el botón «×10 por 1 ticket ×10»`, kanto.tercero !== 'none' && kanto.c1 === '1', kanto);
   // Los tres en la colección, pase lo que pase con el azar, para probarlos todos.
   await page.evaluate(() => { for (const d of [10001, 10002, 10003]) G.DB.save.owned[d] = G.DB.save.owned[d] || { at: Date.now(), from: 'gacha' }; G.DB.commit(); });
   for (const [dex, nombre, mid, ataque, evoNombre] of PJS) {

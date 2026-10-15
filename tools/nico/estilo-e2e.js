@@ -3144,6 +3144,7 @@ function hojaDeContactos() {
         for (const e of (v.h < 520 ? ESTILOS : ['dex'])) {
           await estilo(page, e);
           await page.evaluate('G.MenuUI.open(); G.GachaUI.open();');
+          await page.click('#gacha-gens .gen-tab[data-gen="1"]');   // Kanto: el gacha recuerda el último banner, el del Multiverso, que se paga con tickets ×10
           const x1 = await tirar(P, 'pull-1');
           if (CON_CAPTURAS.includes(clave)) await captura(page, `tirada-x1-${e}-${nv}`);
           await page.click('#pull-close');

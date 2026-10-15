@@ -6369,9 +6369,24 @@ function multiversoChecks() {
     sembrar(c, 5);
     t('BANNERS: los 9 de upstream y el Multiverso al final, cada uno en su índice (gacha-ui.js usa BANNERS[gen - 1])',
       Ga.BANNERS.length === 10 && Ga.BANNERS.every((b, i) => b.gen === i + 1) && Ga.BANNERS[9] === G.MULTIVERSO.BANNER, Ga.BANNERS.map(b => b.gen));
-    const save = { tickets: { t1: 20000, t10: 0 }, owned: {}, shiny: {}, coins: 0, stats: {}, pity: {} };
+    const save = { tickets: { t1: 500, t10: 10000 }, owned: {}, shiny: {}, coins: 0, stats: {}, pity: {} };
     const res = [];
     for (let i = 0; i < 1000; i++) res.push(...Ga.pull(save, 10, 10));
+    t('multiversoTicketLila: las 10.000 tiradas del Multiverso gastan 10.000 tickets ×10 (uno cada una) y ningún ticket normal',
+      G.MODS.multiversoTicketLila === true && save.tickets.t10 === 0 && save.tickets.t1 === 500 && res.length === 10000, save.tickets);
+    // El coste de cada botón, en el Multiverso y en un banner de región (gacha-ui.js: pull(1), pull(10, 't1') y pull(10, 't10')).
+    const sv = (t1, t10) => ({ tickets: { t1, t10 }, owned: {}, shiny: {}, coins: 0, stats: {}, pity: {} });
+    const gasto = (s, n, gen, use) => { const r = Ga.pull(s, n, gen, use); return r ? [r.length, s.tickets.t1, s.tickets.t10] : null; };
+    const costes = {
+      mv1: gasto(sv(100, 1), 1, 10), mv1sin: gasto(sv(100, 0), 1, 10), mv10: gasto(sv(100, 10), 10, 10, 't1'), mv10corto: gasto(sv(100, 9), 10, 10, 't1'),
+      mv10b: gasto(sv(100, 5), 10, 10, 't10'), kanto1: gasto(sv(3, 3), 1, 1), kanto10: gasto(sv(10, 3), 10, 1, 't1'), kanto10b: gasto(sv(0, 3), 10, 1, 't10')
+    };
+    t('Multiverso con tickets ×10: la ×1 gasta uno, la ×10 diez (con nueve, nada), sin ninguno no tira y la ×10 «por 1 ticket ×10» no vale; Kanto, como upstream (1 y 10 tickets, o 1 ticket ×10 la ×10)',
+      JSON.stringify(costes) === JSON.stringify({ mv1: [1, 100, 0], mv1sin: null, mv10: [10, 100, 0], mv10corto: null, mv10b: null, kanto1: [1, 2, 3], kanto10: [10, 0, 3], kanto10b: [10, 0, 2] }), costes);
+    G.MODS.multiversoTicketLila = false;
+    const sinAjuste = { mv1: gasto(sv(3, 3), 1, 10), mv10b: gasto(sv(0, 3), 10, 10, 't10') };
+    G.MODS.multiversoTicketLila = true;
+    t('con multiversoTicketLila = false, el Multiverso cuesta como los demás (costOf() de upstream)', JSON.stringify(sinAjuste) === JSON.stringify({ mv1: [1, 2, 3], mv10b: [10, 0, 2] }), sinAjuste);
     const fuera = res.filter(x => !G.DEX_BY[x.dex].mv);
     const sh = res.filter(x => x.shiny).length / res.length * 100;
     const nuevos = res.filter(x => x.isNew).length, monedas = res.reduce((a, x) => a + x.refund, 0) / res.length;
@@ -6406,9 +6421,26 @@ function multiversoChecks() {
     G.GachaUI.init();
     G.GachaUI.open();
     const enKanto = small.textContent;
+    const kantoAntes = [els['cost-1'].innerHTML, els['cost-10'].innerHTML, els['cost-10b'].innerHTML, els['pull-10b'].style.display];
     els['gacha-feat'].innerHTML = ''; els['gacha-feat'].children = [];
     tabs.find(b => +b.dataset.gen === 10).onclick();
     const rates = els['gacha-rates'].innerHTML;
+    const btn = () => [els['cost-1'].innerHTML, els['cost-10'].innerHTML, els['pull-10b'].style.display, els['pull-1'].disabled, els['pull-10'].disabled];
+    const sinLila = btn();
+    G.DB.save.tickets = { t1: 50, t10: 1 }; tabs.find(b => +b.dataset.gen === 10).onclick();
+    const conUno = btn();
+    G.DB.save.tickets = { t1: 0, t10: 10 }; tabs.find(b => +b.dataset.gen === 10).onclick();
+    const conDiez = btn();
+    tabs.find(b => +b.dataset.gen === 1).onclick();
+    const kantoDespues = [els['cost-1'].innerHTML, els['cost-10'].innerHTML, els['cost-10b'].innerHTML, els['pull-10b'].style.display];
+    G.DB.save.tickets = { t1: 0, t10: 0 };
+    tabs.find(b => +b.dataset.gen === 10).onclick();
+    t('botones del Multiverso (refresh() real): cuestan 1 y 10 tickets ×10, sin el tercero, y se activan según los tickets ×10 (con 50 normales, la ×10 no); al volver a Kanto, los de upstream y el tercero otra vez',
+      JSON.stringify(sinLila) === JSON.stringify(['[ticket10] 1', '[ticket10] 10', 'none', true, true]) && JSON.stringify(conUno) === JSON.stringify(['[ticket10] 1', '[ticket10] 10', 'none', false, true]) &&
+      JSON.stringify(conDiez) === JSON.stringify(['[ticket10] 1', '[ticket10] 10', 'none', false, false]) &&
+      JSON.stringify(kantoDespues) === JSON.stringify(['[ticket] 1', '[ticket] 10', '[ticket10] 1', '']) && kantoAntes[0] === '[ticket] 1' && kantoAntes[3] !== 'none',
+      { sinLila, conUno, conDiez, kantoAntes, kantoDespues });
+    t('el cartel del Multiverso dice que cada tirada cuesta un ticket ×10', rates.includes('· Cada tirada cuesta un ticket ×10, el lila (la ×10, diez).<br>'), rates);
     t('pestaña del gacha: «Otros mundos» en vez de «Gen 10» desde que se abre el gacha (en Kanto)', enKanto === 'Otros mundos', enKanto);
     t('cartel del Multiverso: título, la lista de personajes con su serie, sin el pity de la legendaria y los tres de destacados',
       els['banner-title'].textContent === 'Multiverso' && els['banner-desc'].textContent === 'Personajes de otros mundos que se cuelan en el enjambre: Agumon (Digimon), Doom Slayer (DOOM), Cacodemonio (DOOM).' &&
@@ -6461,6 +6493,9 @@ function multiversoChecks() {
   try {
     const gancho = (f, re) => rd(f).split(/\r?\n/).some(l => re.test(l) && /MOD nico/.test(l));
     const ui = rd('js/ui/gacha-ui.js');
+    t('ganchos de una línea del ticket ×10: el coste en pull() de gacha.js (con el costOf() de upstream detrás) y los botones al final de refresh() de gacha-ui.js, tras los de upstream',
+      /const cost = G\.MULTIVERSO && G\.MULTIVERSO\.coste \? G\.MULTIVERSO\.coste\(save, n, gen, use, costOf\) : costOf\(save, n, use\);\s*\/\/ MOD nico/.test(rd('js/systems/gacha.js')) &&
+      /\$\('pull-10b'\)\.disabled = !G\.Gacha\.costOf\(s, 10, 't10'\);\r?\n\s*if \(G\.MULTIVERSO && G\.MULTIVERSO\.botones\) G\.MULTIVERSO\.botones\(gen, s\);\s*\/\/ MOD nico/.test(ui));
     t('ganchos de una línea: el banner en gacha.js, el cartel en gacha-ui.js tras las notas, «Multiverso» y la ficha en menu.js, fuera de los enemigos en enemies.js (elenco y jefes) y events.js, sus ataques en la primera línea de poolFor() de moves.js y su aspecto en forMove() de vfx.js',
       gancho('js/systems/gacha.js', /BANNERS\.push\(G\.MULTIVERSO\.BANNER\)/) && gancho('js/ui/gacha-ui.js', /G\.MULTIVERSO\.cartel\(gen\)/) &&
       ui.indexOf('G.MULTIVERSO.cartel(gen)') > ui.indexOf('G.MODS.notasGacha($(') && gancho('js/ui/menu.js', /GEN_NAMES\.push\(G\.MULTIVERSO\.BANNER\.name\)/) &&

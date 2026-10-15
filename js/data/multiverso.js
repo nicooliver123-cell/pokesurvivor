@@ -228,7 +228,8 @@ G.MULTIVERSO = (() => {
       <span>${pct(1 / todos.length)}</span></div>`).join('') +
       `<div><span>${G.Icons.html('shiny', 12)} Shiny</span><span>${pct(shiny)}</span></div>
        <p class="note">· Cada tirada trae a uno de estos personajes, todos con la misma probabilidad.<br>
-       · No hay legendarios, así que tampoco pity.<br>
+       · No hay legendarios, así que tampoco pity.<br>${lila() ? `
+       · Cada tirada cuesta un ticket ×10, el lila (la ×10, diez).<br>` : ''}
        · ${repetido}<br>
        · Nunca salen de enemigos: sólo se consiguen aquí.</p>`;
   }
@@ -245,5 +246,39 @@ G.MULTIVERSO = (() => {
     if (nota) nota.innerHTML = 'Aún no lo tienes.<br>Sólo sale en el banner del Multiverso, en el gacha.';
   }
 
-  return { GEN, BANNER, PERSONAJES, ATAQUES, lista, cartel, ficha };
+  /** G.MODS.multiversoTicketLila: en este banner se tira con tickets ×10 (los lila). */
+  const lila = () => !!(G.MODS && G.MODS.multiversoTicketLila);
+
+  /**
+   * Lo que gasta una tirada (gancho de una línea en pull() de gacha.js, en vez de su costOf(), que no
+   * sabe de banners). En el banner del Multiverso, con multiversoTicketLila, cada tirada cuesta un
+   * ticket ×10: la ×1, uno y la ×10, diez; la ×10 «por 1 ticket ×10» no vale aquí (sería una tirada
+   * a una décima parte). En los demás banners, o sin el ajuste, el costOf() de upstream tal cual.
+   * → { t1, t10 } o null si no te llega.
+   */
+  function coste(save, n, gen, use, costOf) {
+    if (gen !== GEN || !lila()) return costOf(save, n, use);
+    if (use === 't10') return null;
+    const t10 = (save && save.tickets && save.tickets.t10) || 0;
+    return n >= 1 && t10 >= n ? { t1: 0, t10: n } : null;
+  }
+
+  /**
+   * Los botones de tirar (gancho de una línea al final de refresh() de gacha-ui.js, tras los de
+   * upstream): en el banner del Multiverso con el ajuste, el coste en tickets ×10, su estado y sin el
+   * tercer botón; en los demás, el tercer botón vuelve a verse y lo demás queda como lo dejó upstream.
+   */
+  function botones(gen, save) {
+    const b3 = $('pull-10b');
+    const aqui = gen === GEN && lila();
+    if (b3) b3.style.display = aqui ? 'none' : '';
+    if (!aqui) return;
+    const c1 = $('cost-1'), c10 = $('cost-10'), b1 = $('pull-1'), b10 = $('pull-10');
+    if (c1) c1.innerHTML = `${G.Icons.html('ticket10', 18)} 1`;
+    if (c10) c10.innerHTML = `${G.Icons.html('ticket10', 18)} 10`;
+    if (b1) b1.disabled = !coste(save, 1, gen, 't1');
+    if (b10) b10.disabled = !coste(save, 10, gen, 't1');
+  }
+
+  return { GEN, BANNER, PERSONAJES, ATAQUES, lista, cartel, ficha, coste, botones };
 })();
